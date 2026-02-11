@@ -1,0 +1,92 @@
+// ============================================
+// Sơ đồ cơ sở dữ liệu - Hệ thống PHN
+// Copy toàn bộ nội dung file này và dán vào: https://dbdiagram.io/
+// ============================================
+
+Project PHN {
+  database_type: 'MySQL'
+  Note: 'Hệ thống quản lý công việc - Phân quyền 3 cấp (Admin, Chủ trì, Thực hiện)'
+}
+
+// --------------------------------------------
+// Bảng người dùng - tập trung tài khoản & phân quyền
+// --------------------------------------------
+Table users {
+  id varchar(36) [pk, note: 'UUID hoặc ID người dùng']
+  username varchar(100) [not null, unique, note: 'Tên đăng nhập']
+  password_hash varchar(255) [not null, note: 'Mật khẩu đã băm']
+  name varchar(255) [not null, note: 'Họ tên']
+  email varchar(255) [note: 'Email']
+  role varchar(20) [not null, note: 'ADMIN | LEADER | STAFF']
+  created_at datetime [default: `now()`, note: 'Ngày tạo']
+  updated_at datetime [note: 'Cập nhật lần cuối']
+
+  Note: 'Danh sách nhân viên, tài khoản và phân quyền. Mỗi user chỉ tương tác đúng phạm vi công việc.'
+}
+
+// --------------------------------------------
+// Bảng công việc - thông tin chi tiết, deadline, trọng số, WQT
+// --------------------------------------------
+Table tasks {
+  id int [pk, increment, note: 'ID nhiệm vụ']
+  title varchar(500) [not null, note: 'Tiêu đề']
+  objective text [note: 'Mục tiêu / mục đích - tránh lạc đề']
+  content text [note: 'Nội dung công việc chi tiết']
+  assigner_id varchar(36) [not null, ref: > users.id, note: 'Người giao việc (Admin/Chủ trì)']
+  leader_id varchar(36) [not null, ref: > users.id, note: 'Người chủ trì (Host)']
+  assignee_id varchar(36) [not null, ref: > users.id, note: 'Người thực hiện (Performer)']
+  deadline datetime [note: 'Hạn chót ngày và giờ']
+  status varchar(20) [not null, default: 'NEW', note: 'NEW | ACCEPTED | COMPLETED | PAUSED']
+  weight decimal(3,2) [note: 'Trọng số W (0-1)']
+  quality decimal(3,2) [note: 'Chất lượng đánh giá (0-1)']
+  wqt decimal(5,2) [note: 'Điểm WQT tự động (Weight-Quality-Time)']
+  created_at datetime [default: `now()`]
+  completed_at datetime [note: 'Thời điểm hoàn thành']
+
+  indexes {
+    (assignee_id)
+    (leader_id)
+    (status)
+    (deadline)
+  }
+  Note: 'Công việc có tên, nội dung, mục tiêu, deadline, trọng số. Hệ thống tính điểm WQT tự động.'
+}
+
+// --------------------------------------------
+// Bảng báo cáo tiến độ hàng ngày - bắt buộc trước khi về
+// --------------------------------------------
+Table daily_reports {
+  id int [pk, increment]
+  task_id int [not null, ref: > tasks.id, note: 'Nhiệm vụ được báo cáo']
+  user_id varchar(36) [not null, ref: > users.id, note: 'Người báo cáo']
+  report_date date [not null, note: 'Ngày báo cáo (YYYY-MM-DD)']
+  result text [not null, note: 'Kết quả đạt được']
+  weight decimal(3,2) [note: 'Trọng số tự đánh giá (0-1)']
+  created_at datetime [default: `now()`]
+
+  indexes {
+    (task_id)
+    (user_id)
+    (report_date)
+    (task_id, report_date) [unique, note: 'Mỗi task mỗi ngày một bản ghi']
+  }
+  Note: 'Báo cáo hàng ngày bắt buộc. Dùng để tính điểm chuyên cần và lịch sử tra cứu.'
+}
+
+// --------------------------------------------
+// Bảng điểm (tùy chọn) - tổng hợp WQT & chuyên cần theo kỳ
+// --------------------------------------------
+Table scores {
+  id int [pk, increment]
+  user_id varchar(36) [not null, ref: > users.id]
+  period_type varchar(10) [not null, note: 'month | quarter | year']
+  period_value varchar(20) [not null, note: 'VD: 2026-05, 2026-Q2, 2026']
+  wqt_score decimal(5,2) [note: 'Điểm WQT tổng hợp']
+  attendance_score decimal(5,2) [note: 'Điểm chuyên cần (% ngày báo cáo đúng quy định)']
+  created_at datetime [default: `now()`]
+
+  indexes {
+    (user_id, period_type, period_value) [unique]
+  }
+  Note: 'Điểm tự động theo công thức WQT và tỉ lệ báo cáo. Cuối tháng tính tỉ lệ % ngày báo cáo nhân điểm chuẩn.'
+}
