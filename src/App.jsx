@@ -24,7 +24,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import { fetchTasksForCurrentUser, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion } from './api/tasks.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
-import { fetchUsers, updateUserRole } from './api/users.js';
+import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser } from './api/users.js';
 import { uploadFile } from './api/client.js';
 import { AttendancePanel } from './components/AttendancePanel.jsx';
 
@@ -77,7 +77,7 @@ const formatTodayLabel = () => {
 const now = () => new Date();
 
 const App = () => {
-  const { user: currentUser, loading: authLoading, logout } = useAuth();
+  const { user: currentUser, loading: authLoading, logout, canShowAttendance } = useAuth();
   const role = currentUser?.role || 'staff';
 
   const [activeTab, setActiveTab] = useState('dash');
@@ -109,7 +109,7 @@ const App = () => {
       .finally(() => setTasksLoading(false));
   }, [currentUser?.id]);
 
-  // Tích hợp BE: load danh sách nhân sự (admin = tất cả, leader = cùng nhóm, staff = ẩn tab)
+  // Danh sách nhân sự (không bao gồm admin): personnelOnly=true
   useEffect(() => {
     if (role === 'staff' || !currentUser?.id) {
       setUsers([]);
@@ -117,7 +117,7 @@ const App = () => {
     }
     setUsersLoading(true);
     setUsersError('');
-    fetchUsers(currentUser.id)
+    fetchPersonnel(currentUser.id)
       .then((data) => {
         setUsers(Array.isArray(data) ? data : []);
       })
@@ -554,20 +554,20 @@ const App = () => {
             onClick={() => setActiveTab('tasks')}
           />
           {role !== 'staff' && (
-            <>
-              <SidebarLink
-                icon={<Users size={20} />}
-                label="Nhân sự"
-                active={activeTab === 'users'}
-                onClick={() => setActiveTab('users')}
-              />
-              <SidebarLink
-                icon={<FileText size={20} />}
-                label="Báo cáo"
-                active={activeTab === 'reports'}
-                onClick={() => setActiveTab('reports')}
-              />
-            </>
+            <SidebarLink
+              icon={<Users size={20} />}
+              label="Nhân sự"
+              active={activeTab === 'users'}
+              onClick={() => setActiveTab('users')}
+            />
+          )}
+          {role !== 'staff' && role !== 'admin' && (
+            <SidebarLink
+              icon={<FileText size={20} />}
+              label="Báo cáo"
+              active={activeTab === 'reports'}
+              onClick={() => setActiveTab('reports')}
+            />
           )}
           <SidebarLink
             icon={<Star size={20} />}
@@ -599,14 +599,16 @@ const App = () => {
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            <button
-              type="button"
-              onClick={() => setReportPanelOpen(true)}
-              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-              title="Báo cáo ngày"
-            >
-              <FileText size={20} />
-            </button>
+            {role !== 'admin' && (
+              <button
+                type="button"
+                onClick={() => setReportPanelOpen(true)}
+                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+                title="Báo cáo ngày"
+              >
+                <FileText size={20} />
+              </button>
+            )}
             <div className="relative">
               <button
                 type="button"
@@ -672,14 +674,16 @@ const App = () => {
               )}
             </div>
             <div className="hidden sm:flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setActiveTab('attendance')}
-                className="flex items-center gap-2 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors hover:opacity-90"
-                style={{ backgroundColor: VIETTEL_RED }}
-              >
-                <Clock size={16} /> Chấm công
-              </button>
+              {canShowAttendance && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('attendance')}
+                  className="flex items-center gap-2 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors hover:opacity-90"
+                  style={{ backgroundColor: VIETTEL_RED }}
+                >
+                  <Clock size={16} /> Chấm công
+                </button>
+              )}
               {role !== 'staff' && (
                 <button
                   type="button"
@@ -1140,6 +1144,8 @@ const App = () => {
                           <th className="py-2 pr-4">Tài khoản</th>
                           <th className="py-2 pr-4">Nhóm</th>
                           <th className="py-2 pr-4">Vai trò</th>
+                          {role === 'admin' && <th className="py-2 pr-4">Chấm công</th>}
+                          {role === 'admin' && <th className="py-2 pr-4">Thao tác</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1163,7 +1169,7 @@ const App = () => {
                                       const newRole = e.target.value;
                                       try {
                                         await updateUserRole(uid, newRole, currentUser.id);
-                                        const list = await fetchUsers(currentUser.id);
+                                        const list = await fetchPersonnel(currentUser.id);
                                         setUsers(list);
                                       } catch (err) {
                                         console.error(err);
@@ -1183,6 +1189,43 @@ const App = () => {
                                   </span>
                                 )}
                               </td>
+                              {role === 'admin' && (
+                                <td className="py-2 pr-4">
+                                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                    <input
+                                      type="checkbox"
+                                      checked={!!u.canManageAttendance}
+                                      onChange={async () => {
+                                        try {
+                                          await updateAttendancePermission(uid, !u.canManageAttendance, currentUser.id);
+                                          const list = await fetchPersonnel(currentUser.id);
+                                          setUsers(list);
+                                        } catch (err) { console.error(err); }
+                                      }}
+                                      className="rounded border-slate-300 text-[#D4384E] focus:ring-[#D4384E]"
+                                    />
+                                    <span className="text-xs text-slate-600">Quyền chấm công</span>
+                                  </label>
+                                </td>
+                              )}
+                              {role === 'admin' && (
+                                <td className="py-2 pr-4">
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!window.confirm(`Xóa nhân viên "${name}"? Không thể hoàn tác.`)) return;
+                                      try {
+                                        await deleteUser(uid, currentUser.id);
+                                        const list = await fetchPersonnel(currentUser.id);
+                                        setUsers(list);
+                                      } catch (err) { console.error(err); }
+                                    }}
+                                    className="text-xs font-semibold text-red-600 hover:text-red-700"
+                                  >
+                                    Xóa
+                                  </button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })}
@@ -1194,7 +1237,7 @@ const App = () => {
             )}
 
             {/* Tab: Báo cáo công việc hàng ngày (Admin/Leader) – giao diện theo mẫu */}
-            {activeTab === 'reports' && role !== 'staff' && (
+            {activeTab === 'reports' && role !== 'staff' && role !== 'admin' && (
               <section className="bg-white border border-slate-200 rounded-2xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                   <div>

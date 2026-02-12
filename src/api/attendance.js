@@ -8,9 +8,12 @@ export async function checkIn(userId) {
   return request(`attendance/check-in?userId=${encodeURIComponent(userId)}`, { method: 'POST' });
 }
 
-export async function getAttendanceRecords(userId, from, to) {
+/**
+ * GET /api/attendance/records — cần currentUserId và userId (và from/to nếu có).
+ */
+export async function getAttendanceRecords(currentUserId, userId, from, to) {
   if (!isApiConfigured()) return [];
-  const params = new URLSearchParams({ userId });
+  const params = new URLSearchParams({ currentUserId: String(currentUserId), userId: String(userId) });
   if (from) params.set('from', from);
   if (to) params.set('to', to);
   const data = await request(`attendance/records?${params}`);

@@ -4,7 +4,7 @@
 import { request } from './client.js';
 
 /**
- * Lấy danh sách user theo quyền: truyền currentUserId để admin thấy tất cả, leader thấy cùng nhóm, staff thấy mình.
+ * Lấy danh sách user theo quyền.
  * GET /api/users?currentUserId=...
  */
 export async function fetchUsers(currentUserId) {
@@ -14,12 +14,39 @@ export async function fetchUsers(currentUserId) {
 }
 
 /**
+ * Danh sách nhân sự (không bao gồm admin). Dùng cho màn Nhân sự.
+ * GET /api/users?currentUserId=...&personnelOnly=true
+ */
+export async function fetchPersonnel(currentUserId) {
+  if (currentUserId == null) return [];
+  const url = `users?currentUserId=${encodeURIComponent(currentUserId)}&personnelOnly=true`;
+  const data = await request(url);
+  return Array.isArray(data) ? data : [];
+}
+
+/**
  * Admin cập nhật role cho user.
- * Gọi: PATCH /api/users/{id}/role?adminId=...&role=ADMIN|LEADER|STAFF
+ * PATCH /api/users/{id}/role?adminId=...&role=ADMIN|LEADER|STAFF
  */
 export async function updateUserRole(userId, newRole, adminId) {
   const role = String(newRole || '').toUpperCase();
   const url = `users/${userId}/role?adminId=${encodeURIComponent(adminId)}&role=${encodeURIComponent(role)}`;
   return request(url, { method: 'PATCH' });
+}
+
+/**
+ * Admin bật/tắt quyền chấm công. PATCH /api/users/{id}/attendance-permission?adminId=...&allowed=true|false
+ */
+export async function updateAttendancePermission(userId, allowed, adminId) {
+  const url = `users/${userId}/attendance-permission?adminId=${encodeURIComponent(adminId)}&allowed=${allowed}`;
+  return request(url, { method: 'PATCH' });
+}
+
+/**
+ * Admin xóa nhân viên. DELETE /api/users/{id}?adminId=...
+ */
+export async function deleteUser(userId, adminId) {
+  const url = `users/${userId}?adminId=${encodeURIComponent(adminId)}`;
+  return request(url, { method: 'DELETE' });
 }
 

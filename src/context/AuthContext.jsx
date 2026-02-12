@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import * as authApi from '../api/auth.js';
-import { normalizeUser } from '../api/auth.js';
 
 const AuthContext = createContext(null);
 
@@ -33,14 +32,14 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (credentials) => {
     const data = await authApi.login(credentials);
-    // BE trả về trực tiếp { userId, username, name, role, token }
     const u = data.user ?? data;
-    setUser(normalizeUser(u) ?? {
+    setUser(authApi.normalizeUser(u) ?? {
       id: String(data.userId ?? u?.userId ?? ''),
       name: data.name ?? u?.name,
       role: (data.role ?? u?.role ?? '').toLowerCase(),
       username: data.username ?? u?.username,
       team: data.team ?? u?.team ?? null,
+      canManageAttendance: u?.canManageAttendance === true || (data.role ?? u?.role ?? '').toLowerCase() === 'admin',
     });
     return data;
   }, []);
@@ -51,6 +50,8 @@ export function AuthProvider({ children }) {
   }, []);
 
   const canAssignTask = user && (user.role === ROLES.ADMIN || user.role === ROLES.LEADER);
+  /** Chỉ admin hoặc user có quyền chấm công mới thấy nút Chấm công */
+  const canShowAttendance = user && (user.role === ROLES.ADMIN || user.canManageAttendance === true);
 
   const value = {
     user,
@@ -60,6 +61,7 @@ export function AuthProvider({ children }) {
     loadUser,
     loading,
     canAssignTask,
+    canShowAttendance,
     ROLES,
   };
 

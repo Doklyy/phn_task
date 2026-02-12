@@ -30,11 +30,12 @@ export async function getMe() {
 }
 
 /**
- * Chuẩn hóa user từ BE (userId, role: ADMIN/LEADER/STAFF) sang FE (id, role: admin/leader/staff)
+ * Chuẩn hóa user từ BE (userId, role, canManageAttendance) sang FE.
  */
 export function normalizeUser(u) {
   if (!u) return null;
   const role = (u.role || '').toLowerCase();
+  const canManage = u.canManageAttendance === true || role === 'admin';
   return {
     id: String(u.id ?? u.userId ?? ''),
     name: u.name || u.fullName || u.username || 'Người dùng',
@@ -42,6 +43,7 @@ export function normalizeUser(u) {
     email: u.email,
     username: u.username,
     team: u.team || null,
+    canManageAttendance: canManage,
   };
 }
 
