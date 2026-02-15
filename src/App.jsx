@@ -7,7 +7,6 @@ import {
   Bell,
   Search,
   Clock,
-  CalendarClock,
   TrendingUp,
   FileText,
   ChevronRight,
@@ -24,9 +23,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import { fetchTasksForCurrentUser, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion } from './api/tasks.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
-import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser } from './api/users.js';
-import { uploadFile } from './api/client.js';
-import { AttendancePanel } from './components/AttendancePanel.jsx';
+import { fetchUsers, updateUserRole } from './api/users.js';
 
 // Danh sách user để hiển thị tên (BE có thể trả về hoặc lấy từ API users)
 const USERS_DB = [
@@ -77,7 +74,7 @@ const formatTodayLabel = () => {
 const now = () => new Date();
 
 const App = () => {
-  const { user: currentUser, loading: authLoading, logout, canShowAttendance } = useAuth();
+  const { user: currentUser, loading: authLoading, logout } = useAuth();
   const role = currentUser?.role || 'staff';
 
   const [activeTab, setActiveTab] = useState('dash');
@@ -109,7 +106,7 @@ const App = () => {
       .finally(() => setTasksLoading(false));
   }, [currentUser?.id]);
 
-  // Danh sách nhân sự (không bao gồm admin): personnelOnly=true
+  // Tích hợp BE: load danh sách nhân sự (admin = tất cả, leader = cùng nhóm, staff = ẩn tab)
   useEffect(() => {
     if (role === 'staff' || !currentUser?.id) {
       setUsers([]);
@@ -117,7 +114,7 @@ const App = () => {
     }
     setUsersLoading(true);
     setUsersError('');
-    fetchPersonnel(currentUser.id)
+    fetchUsers(currentUser.id)
       .then((data) => {
         setUsers(Array.isArray(data) ? data : []);
       })
@@ -132,47 +129,21 @@ const App = () => {
   const [reportTaskId, setReportTaskId] = useState('');
   const [reportResult, setReportResult] = useState('');
   const [reportWeight, setReportWeight] = useState('');
-  const [reportAttachmentPath, setReportAttachmentPath] = useState('');
-  const [reportFileUploading, setReportFileUploading] = useState(false);
   const [reportErrors, setReportErrors] = useState({});
   const [reportSent, setReportSent] = useState(false);
   const [reportPanelOpen, setReportPanelOpen] = useState(false);
 
   const [reportHistoryByTask, setReportHistoryByTask] = useState({});
 
-  // Load toàn bộ báo cáo của user khi vào trang → nhận diện đã báo cáo ngày hôm qua (để mở khóa tiếp nhận công việc mới)
+  // Tích hợp BE: load lịch sử báo cáo khi mở chi tiết task
   useEffect(() => {
-    if (!currentUser?.id) return;
-    getReportsByUser(currentUser.id)
+    if (!selectedTaskId) return;
+    getReportsByTask(selectedTaskId)
       .then((list) => {
-        const byTask = {};
-        (list || []).forEach((r) => {
-          const taskId = String(r.taskId ?? r.task_id ?? '');
-          if (!taskId) return;
-          if (!byTask[taskId]) byTask[taskId] = [];
-          byTask[taskId].push({
-            date: r.date ? String(r.date).slice(0, 10) : '',
-            result: r.result,
-            weight: r.weight,
-          });
-        });
-        setReportHistoryByTask(byTask);
+        setReportHistoryByTask((prev) => ({ ...prev, [selectedTaskId]: list }));
       })
       .catch(() => {});
-  }, [currentUser?.id]);
-
-  // Khi mở chi tiết task, cập nhật lịch sử báo cáo của task đó (có userId để API trả đúng)
-  useEffect(() => {
-    if (!selectedTaskId || !currentUser?.id) return;
-    getReportsByTask(selectedTaskId, currentUser.id)
-      .then((list) => {
-        setReportHistoryByTask((prev) => ({
-          ...prev,
-          [selectedTaskId]: (list || []).map((r) => ({ date: r.date?.slice(0, 10) || r.date, result: r.result, weight: r.weight })),
-        }));
-      })
-      .catch(() => {});
-  }, [selectedTaskId, currentUser?.id]);
+  }, [selectedTaskId]);
 
   const addReportToHistory = useCallback((taskId, report) => {
     const entry = { date: report.reportDate, result: report.result, weight: report.weight };
@@ -355,17 +326,16 @@ const App = () => {
   const attendanceScore = daysInPeriod ? Math.min(100, Math.round((reportDaysCount / Math.min(22, daysInPeriod)) * 100)) : 0;
 
   const handleAcceptTask = useCallback((id) => {
-    if (!currentUser?.id) return;
-    acceptTask(id, currentUser.id)
+    acceptTask(id)
       .then((updated) => {
-        setTasks((prev) => prev.map((t) => (String(t.id) === String(id) ? { ...t, ...updated, status: 'accepted' } : t)));
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, ...updated, status: 'accepted' } : t)));
         setSelectedTaskId(null);
       })
       .catch(() => {
+        setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: 'accepted' } : t)));
         setSelectedTaskId(null);
-        fetchTasksForCurrentUser(currentUser.id).then(setTasks);
       });
-  }, [currentUser?.id]);
+  }, []);
 
   // Cơ chế khóa: Muốn tiếp nhận công việc mới hôm nay thì phải đã báo cáo tiến độ cho việc tồn đọng của ngày hôm trước
   const yesterday = useMemo(() => {
@@ -402,7 +372,7 @@ const App = () => {
     if (!validateReport()) return;
     const reportDate = new Date().toISOString().slice(0, 10);
     const taskId = Number(reportTaskId);
-    const payload = { taskId, reportDate, result: reportResult, weight: reportWeight ? Number(reportWeight) : null, attachmentPath: reportAttachmentPath || null };
+    const payload = { taskId, reportDate, result: reportResult, weight: reportWeight ? Number(reportWeight) : null };
     const userId = currentUser?.id;
     if (!userId) return;
     submitReport(payload, userId)
@@ -413,7 +383,6 @@ const App = () => {
           setReportTaskId('');
           setReportResult('');
           setReportWeight('');
-          setReportAttachmentPath('');
           setReportErrors({});
           setReportSent(false);
         }, 1500);
@@ -425,7 +394,6 @@ const App = () => {
           setReportTaskId('');
           setReportResult('');
           setReportWeight('');
-          setReportAttachmentPath('');
           setReportErrors({});
           setReportSent(false);
         }, 1500);
@@ -554,20 +522,20 @@ const App = () => {
             onClick={() => setActiveTab('tasks')}
           />
           {role !== 'staff' && (
-            <SidebarLink
-              icon={<Users size={20} />}
-              label="Nhân sự"
-              active={activeTab === 'users'}
-              onClick={() => setActiveTab('users')}
-            />
-          )}
-          {role !== 'staff' && role !== 'admin' && (
-            <SidebarLink
-              icon={<FileText size={20} />}
-              label="Báo cáo"
-              active={activeTab === 'reports'}
-              onClick={() => setActiveTab('reports')}
-            />
+            <>
+              <SidebarLink
+                icon={<Users size={20} />}
+                label="Nhân sự"
+                active={activeTab === 'users'}
+                onClick={() => setActiveTab('users')}
+              />
+              <SidebarLink
+                icon={<FileText size={20} />}
+                label="Báo cáo"
+                active={activeTab === 'reports'}
+                onClick={() => setActiveTab('reports')}
+              />
+            </>
           )}
           <SidebarLink
             icon={<Star size={20} />}
@@ -599,16 +567,14 @@ const App = () => {
             </div>
           </div>
           <div className="flex items-center gap-3 shrink-0">
-            {role !== 'admin' && (
-              <button
-                type="button"
-                onClick={() => setReportPanelOpen(true)}
-                className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
-                title="Báo cáo ngày"
-              >
-                <FileText size={20} />
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setReportPanelOpen(true)}
+              className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
+              title="Báo cáo ngày"
+            >
+              <FileText size={20} />
+            </button>
             <div className="relative">
               <button
                 type="button"
@@ -673,27 +639,16 @@ const App = () => {
                 </>
               )}
             </div>
-            <div className="hidden sm:flex items-center gap-2">
-              {canShowAttendance && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('attendance')}
-                  className="flex items-center gap-2 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors hover:opacity-90"
-                  style={{ backgroundColor: VIETTEL_RED }}
-                >
-                  <Clock size={16} /> Chấm công
-                </button>
-              )}
-              {role !== 'staff' && (
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('assign')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
-                >
-                  <Plus size={14} /> Giao việc
-                </button>
-              )}
-            </div>
+            {role !== 'staff' && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('assign')}
+                className="hidden sm:flex items-center gap-2 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors hover:opacity-90"
+                style={{ backgroundColor: VIETTEL_RED }}
+              >
+                <Plus size={16} /> Giao việc mới
+              </button>
+            )}
             {/* User menu: click để mở panel dọc giống Facebook */}
             <div className="relative shrink-0">
               <button
@@ -738,7 +693,6 @@ const App = () => {
                         </p>
                       </div>
                     </div>
-                    {/* Có thể thêm các mục menu khác tại đây nếu cần */}
                     <button
                       type="button"
                       onClick={logout}
@@ -755,12 +709,12 @@ const App = () => {
 
         {/* Nội dung chính */}
         <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 min-w-0">
-          <div className="max-w-5xl mx-auto pb-4">
+          <div className="max-w-5xl mx-auto pb-6">
             {/* Tab: Bảng điều khiển – gọn như mẫu Calendar */}
             {activeTab === 'dash' && (
-              <section className="mb-3">
+              <section className="mb-4">
                 {/* Tab phụ: TỔNG QUAN | CÁ NHÂN | TRỌNG SỐ */}
-                <div className="flex gap-1 mb-3 border-b border-slate-200 pb-0">
+                <div className="flex gap-1 mb-4 border-b border-slate-200 pb-0">
                   {['overview', 'personal', 'weight'].map((key) => (
                     <button
                       key={key}
@@ -776,8 +730,8 @@ const App = () => {
                   ))}
                 </div>
 
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
                     <div>
                       <h2 className="text-xl font-bold text-slate-900">Tổng quan công việc</h2>
                       <p className="text-slate-500 text-sm mt-0.5">Xem hiệu suất và tiến độ theo kỳ. Kích vào chỉ số để xem danh sách.</p>
@@ -809,63 +763,63 @@ const App = () => {
                     </div>
                   </div>
 
-                  {/* Thẻ chỉ số: icon nhỏ + số lớn + nhãn */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
+                  {/* Thẻ chỉ số gọn: icon nhỏ + số lớn + nhãn (như 64 SCHEDULED) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
                     <button
                       type="button"
                       onClick={() => { setListFilter('overdue'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-red-50 rounded-xl p-3 text-left transition-colors group border border-transparent hover:border-red-100"
+                      className="bg-slate-50 hover:bg-red-50 rounded-xl p-4 text-left transition-colors group border border-transparent hover:border-red-100"
                     >
                       <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center mb-2">
                         <Clock size={16} className="text-red-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksOverdue.length}</p>
+                      <p className="text-2xl font-bold text-slate-900">{tasksOverdue.length}</p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Quá hạn</p>
                     </button>
                     <button
                       type="button"
                       onClick={() => { setListFilter('in_progress'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-emerald-50 rounded-xl p-3 text-left transition-colors group border border-transparent hover:border-emerald-100"
+                      className="bg-slate-50 hover:bg-emerald-50 rounded-xl p-4 text-left transition-colors group border border-transparent hover:border-emerald-100"
                     >
                       <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mb-2">
                         <TrendingUp size={16} className="text-emerald-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksInProgress.length}</p>
+                      <p className="text-2xl font-bold text-slate-900">{tasksInProgress.length}</p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Đang thực hiện</p>
                     </button>
                     <button
                       type="button"
                       onClick={() => { setListFilter('completed'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-slate-100 rounded-xl p-3 text-left transition-colors group border border-transparent hover:border-slate-200"
+                      className="bg-slate-50 hover:bg-slate-100 rounded-xl p-4 text-left transition-colors group border border-transparent hover:border-slate-200"
                     >
                       <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center mb-2">
                         <ClipboardList size={16} className="text-slate-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksCompleted.length}</p>
+                      <p className="text-2xl font-bold text-slate-900">{tasksCompleted.length}</p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Hoàn thành</p>
                     </button>
                     <button
                       type="button"
                       onClick={() => { setListFilter('paused'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-violet-50 rounded-xl p-3 text-left transition-colors group border border-transparent hover:border-violet-100"
+                      className="bg-slate-50 hover:bg-violet-50 rounded-xl p-4 text-left transition-colors group border border-transparent hover:border-violet-100"
                     >
                       <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center mb-2">
                         <Pause size={16} className="text-violet-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksPaused.length}</p>
+                      <p className="text-2xl font-bold text-slate-900">{tasksPaused.length}</p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Tạm dừng</p>
                     </button>
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
                       <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mb-2">
                         <FileText size={16} className="text-amber-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{backlogCount}</p>
+                      <p className="text-2xl font-bold text-slate-900">{backlogCount}</p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Tồn đọng</p>
                     </div>
                   </div>
 
                   {/* Doughnut + Legend % và Biểu đồ đường (xu hướng) */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                     <div>
                       <h3 className="text-sm font-bold text-slate-800 mb-4">Phân bố nhiệm vụ</h3>
                       <div className="flex flex-col sm:flex-row items-center gap-6">
@@ -985,23 +939,6 @@ const App = () => {
             {/* Tab: Nhiệm vụ – danh sách theo bộ lọc (từ Dashboard hoặc Tất cả) */}
             {activeTab === 'tasks' && (
               <>
-                {role === 'admin' && (
-                  <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt (theo dõi)</h3>
-                    <p className="text-slate-600 text-sm mb-2">
-                      {tasksPendingApproval.length > 0
-                        ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi Leader (người phân công) duyệt. Bấm nút "Đợi duyệt" bên dưới để xem danh sách. Admin chỉ theo dõi, không duyệt thay.`
-                        : 'Chưa có nhiệm vụ nào đợi duyệt. Khi nhân sự bấm Hoàn thành, nhiệm vụ sẽ hiện ở đây; Leader duyệt hoặc trả về tồn đọng.'}
-                    </p>
-                    <button
-                      type="button"
-                      onClick={() => setListFilter('pending_approval')}
-                      className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                    >
-                      Xem danh sách Đợi duyệt →
-                    </button>
-                  </div>
-                )}
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                   <div>
                     <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
@@ -1009,7 +946,7 @@ const App = () => {
                       {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
                       {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
                       {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
-                      {listFilter === 'pending_approval' && `Đợi duyệt (${tasksByFilter.length}). Leader (người phân công) duyệt hoặc trả về tồn đọng.`}
+                      {listFilter === 'pending_approval' && `Đợi duyệt (${tasksByFilter.length}). Admin duyệt hoặc trả về tồn đọng.`}
                       {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
                       {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                     </p>
@@ -1071,6 +1008,16 @@ const App = () => {
                     >
                       <Filter size={18} /> Lọc tháng
                     </button>
+                    {role !== 'staff' && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('assign')}
+                        className="flex items-center gap-2 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all hover:opacity-90"
+                        style={{ backgroundColor: VIETTEL_RED }}
+                      >
+                        <Plus size={20} /> Giao việc mới
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -1144,8 +1091,6 @@ const App = () => {
                           <th className="py-2 pr-4">Tài khoản</th>
                           <th className="py-2 pr-4">Nhóm</th>
                           <th className="py-2 pr-4">Vai trò</th>
-                          {role === 'admin' && <th className="py-2 pr-4">Chấm công</th>}
-                          {role === 'admin' && <th className="py-2 pr-4">Thao tác</th>}
                         </tr>
                       </thead>
                       <tbody>
@@ -1169,7 +1114,7 @@ const App = () => {
                                       const newRole = e.target.value;
                                       try {
                                         await updateUserRole(uid, newRole, currentUser.id);
-                                        const list = await fetchPersonnel(currentUser.id);
+                                        const list = await fetchUsers(currentUser.id);
                                         setUsers(list);
                                       } catch (err) {
                                         console.error(err);
@@ -1189,43 +1134,6 @@ const App = () => {
                                   </span>
                                 )}
                               </td>
-                              {role === 'admin' && (
-                                <td className="py-2 pr-4">
-                                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!u.canManageAttendance}
-                                      onChange={async () => {
-                                        try {
-                                          await updateAttendancePermission(uid, !u.canManageAttendance, currentUser.id);
-                                          const list = await fetchPersonnel(currentUser.id);
-                                          setUsers(list);
-                                        } catch (err) { console.error(err); }
-                                      }}
-                                      className="rounded border-slate-300 text-[#D4384E] focus:ring-[#D4384E]"
-                                    />
-                                    <span className="text-xs text-slate-600">Quyền chấm công</span>
-                                  </label>
-                                </td>
-                              )}
-                              {role === 'admin' && (
-                                <td className="py-2 pr-4">
-                                  <button
-                                    type="button"
-                                    onClick={async () => {
-                                      if (!window.confirm(`Xóa nhân viên "${name}"? Không thể hoàn tác.`)) return;
-                                      try {
-                                        await deleteUser(uid, currentUser.id);
-                                        const list = await fetchPersonnel(currentUser.id);
-                                        setUsers(list);
-                                      } catch (err) { console.error(err); }
-                                    }}
-                                    className="text-xs font-semibold text-red-600 hover:text-red-700"
-                                  >
-                                    Xóa
-                                  </button>
-                                </td>
-                              )}
                             </tr>
                           );
                         })}
@@ -1237,7 +1145,7 @@ const App = () => {
             )}
 
             {/* Tab: Báo cáo công việc hàng ngày (Admin/Leader) – giao diện theo mẫu */}
-            {activeTab === 'reports' && role !== 'staff' && role !== 'admin' && (
+            {activeTab === 'reports' && role !== 'staff' && (
               <section className="bg-white border border-slate-200 rounded-2xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                   <div>
@@ -1392,11 +1300,6 @@ const App = () => {
               </section>
             )}
 
-            {/* Tab: Chấm công */}
-            {activeTab === 'attendance' && (
-              <AttendancePanel currentUser={currentUser} role={role} />
-            )}
-
             {/* Tab: Xếp hạng */}
             {activeTab === 'wqt' && (
               <section className="bg-white border border-slate-200 rounded-2xl p-10 text-center">
@@ -1436,9 +1339,9 @@ const App = () => {
             assigneeName={assigneeName}
             acceptNewLocked={acceptNewLocked}
             yesterday={yesterday}
-            onComplete={(payload) => submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload).then(refreshTasks).then(() => setSelectedTaskId(null))}
+            onComplete={(payload) => submitCompletion(selectedTaskId, currentUser.id, payload).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
-            onReject={(reason) => rejectCompletion(selectedTaskId, currentUser.id, reason).then(refreshTasks).then(() => setSelectedTaskId(null))}
+            onReject={() => rejectCompletion(selectedTaskId, currentUser.id).then(refreshTasks).then(() => setSelectedTaskId(null))}
             currentUserId={currentUser?.id}
           />
         );
@@ -1579,28 +1482,12 @@ const App = () => {
             </div>
             <div className="space-y-1">
               <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">File đính kèm</label>
-              <input
-                type="file"
-                id="report-file"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  setReportErrors((prev) => ({ ...prev, file: null }));
-                  setReportFileUploading(true);
-                  uploadFile(file)
-                    .then((path) => setReportAttachmentPath(path))
-                    .catch(() => setReportErrors((prev) => ({ ...prev, file: 'Tải file lên thất bại.' })))
-                    .finally(() => { setReportFileUploading(false); e.target.value = ''; });
-                }}
-              />
-              <label
-                htmlFor="report-file"
-                className={`flex items-center justify-center w-full h-[34px] bg-white border border-slate-200 border-dashed rounded-lg text-[10px] font-bold cursor-pointer transition-all ${reportFileUploading ? 'opacity-60 pointer-events-none' : 'hover:border-[#D4384E]/50 hover:text-[#D4384E] text-slate-400'}`}
+              <button
+                type="button"
+                className="w-full h-[34px] bg-white border border-slate-200 border-dashed rounded-lg text-[10px] font-bold text-slate-400 hover:border-[#D4384E]/50 hover:text-[#D4384E] transition-all"
               >
-                {reportFileUploading ? 'Đang tải...' : reportAttachmentPath ? 'Đã chọn file ✓' : 'Tải lên'}
-              </label>
-              {reportErrors.file && <p className="text-[11px] text-red-500">{reportErrors.file}</p>}
+                Tải lên
+              </button>
             </div>
           </div>
 
@@ -1619,7 +1506,7 @@ const App = () => {
   );
 };
 
-/** Modal chi tiết task: đọc nội dung, Tiếp nhận (chỉ assignee), báo cáo tiến độ, báo cáo hoàn thành, đợi duyệt; Leader (người phân công) duyệt/từ chối */
+/** Modal chi tiết task: đọc nội dung, Tiếp nhận, báo cáo tiến độ, báo cáo hoàn thành (link/file/ghi chú), đợi duyệt; Admin duyệt/từ chối */
 const TaskDetailModal = ({
   task,
   onClose,
@@ -1636,21 +1523,32 @@ const TaskDetailModal = ({
   onReject,
   currentUserId,
 }) => {
+  const [reportResult, setReportResult] = useState('');
+  const [reportWeight, setReportWeight] = useState('');
+  const [reportSent, setReportSent] = useState(false);
   const [completionNote, setCompletionNote] = useState('');
   const [completionLink, setCompletionLink] = useState('');
   const [completionFilePath, setCompletionFilePath] = useState('');
-  const [completionFileUploading, setCompletionFileUploading] = useState(false);
   const [completionSubmitting, setCompletionSubmitting] = useState(false);
-  const [completionError, setCompletionError] = useState('');
   const [approveQuality, setApproveQuality] = useState(task.quality != null ? String(task.quality) : '');
   const [approveSubmitting, setApproveSubmitting] = useState(false);
-  const [rejectReason, setRejectReason] = useState('');
 
   const formatDeadline = (v) => {
     if (!v) return '—';
     const d = new Date(String(v).replace(' ', 'T'));
     if (Number.isNaN(d.getTime())) return v;
     return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
+
+  const handleSubmitProgress = (e) => {
+    e.preventDefault();
+    if (!reportResult.trim() || reportResult.trim().length < 10) return;
+    const reportDate = new Date().toISOString().slice(0, 10);
+    onAddReport({ reportDate, result: reportResult.trim(), weight: reportWeight ? Number(reportWeight) : null });
+    setReportResult('');
+    setReportWeight('');
+    setReportSent(true);
+    setTimeout(() => setReportSent(false), 2000);
   };
 
   return (
@@ -1683,12 +1581,10 @@ const TaskDetailModal = ({
 
           {task.status === 'new' && (
             <div className="pt-4 border-t border-slate-100">
-              {String(currentUserId) !== String(task.assigneeId) ? (
-                <p className="text-slate-500 text-sm">Chỉ người được phân công mới có thể tiếp nhận công việc này.</p>
-              ) : acceptNewLocked ? (
+              {acceptNewLocked ? (
                 <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-800 text-sm">
                   <p className="font-bold mb-1">Chưa thể tiếp nhận công việc mới</p>
-                  <p>Bạn cần báo cáo công việc ngày hôm qua còn tồn đọng trước khi tiếp nhận công việc mới trong ngày hôm nay.</p>
+                  <p>Bạn cần cập nhật tiến độ cho các công việc tồn đọng của ngày {yesterday} trước khi tiếp nhận công việc mới trong ngày hôm nay.</p>
                 </div>
               ) : (
                 <>
@@ -1708,16 +1604,40 @@ const TaskDetailModal = ({
           {task.status === 'accepted' && (
             <>
               <div className="pt-4 border-t border-slate-100">
-                <h4 className="text-sm font-bold text-slate-800 mb-3">Báo cáo</h4>
-                <p className="text-slate-500 text-sm mb-3">Ghi chú, link hoặc file đính kèm (tùy chọn). Khi bấm Hoàn thành, nhiệm vụ chuyển sang Đợi duyệt; người phân công (Leader) duyệt hoặc trả về tồn đọng.</p>
+                <h4 className="text-sm font-bold text-slate-800 mb-3">Cập nhật tiến độ hàng ngày (bắt buộc trước khi về)</h4>
+                <form onSubmit={handleSubmitProgress} className="space-y-3">
+                  <textarea
+                    value={reportResult}
+                    onChange={(e) => setReportResult(e.target.value)}
+                    placeholder="Kết quả đạt được hôm nay (tối thiểu 10 ký tự)..."
+                    rows={3}
+                    className="w-full border border-slate-200 rounded-xl p-3 text-sm"
+                  />
+                  <div className="flex gap-3 items-center">
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="1"
+                      value={reportWeight}
+                      onChange={(e) => setReportWeight(e.target.value)}
+                      placeholder="Trọng số 0–1"
+                      className="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                    />
+                    <button type="submit" disabled={reportSent || reportResult.trim().length < 10} className="text-white px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-50 hover:opacity-90" style={{ backgroundColor: VIETTEL_RED }}>
+                      {reportSent ? 'Đã gửi ✓' : 'Gửi báo cáo'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+              <div className="pt-4 border-t border-slate-100">
+                <h4 className="text-sm font-bold text-slate-800 mb-3">Báo cáo hoàn thành</h4>
+                <p className="text-slate-500 text-sm mb-3">Ghi chú, link hoặc file đính kèm (tùy chọn). Khi bấm Hoàn thành, nhiệm vụ chuyển sang trạng thái Đợi duyệt; Admin duyệt hoặc trả về tồn đọng.</p>
                 <div className="space-y-3">
-                  {completionError && (
-                    <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{completionError}</p>
-                  )}
                   <textarea
                     value={completionNote}
-                    onChange={(e) => { setCompletionNote(e.target.value); setCompletionError(''); }}
-                    placeholder="Ghi chú (tùy chọn)..."
+                    onChange={(e) => setCompletionNote(e.target.value)}
+                    placeholder="Ghi chú báo cáo hoàn thành (tối thiểu 10 ký tự)..."
                     rows={2}
                     className="w-full border border-slate-200 rounded-xl p-3 text-sm"
                   />
@@ -1728,47 +1648,24 @@ const TaskDetailModal = ({
                     placeholder="Link (URL) nếu có..."
                     className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
                   />
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm</label>
-                    <input
-                      type="file"
-                      id="completion-file"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setCompletionFileUploading(true);
-                        setCompletionError('');
-                        uploadFile(file)
-                          .then((path) => setCompletionFilePath(path))
-                          .catch(() => setCompletionError('Tải file lên thất bại. Kiểm tra kết nối.'))
-                          .finally(() => { setCompletionFileUploading(false); e.target.value = ''; });
-                      }}
-                    />
-                    <label
-                      htmlFor="completion-file"
-                      className={`flex items-center justify-center w-full py-2 border border-slate-200 border-dashed rounded-lg text-sm font-medium cursor-pointer transition-all ${completionFileUploading ? 'opacity-60 pointer-events-none bg-slate-50' : 'hover:border-[#D4384E]/50 hover:bg-slate-50 text-slate-500'}`}
-                    >
-                      {completionFileUploading ? 'Đang tải file...' : completionFilePath ? `Đã chọn file ✓ (${completionFilePath})` : 'Chọn file tải lên'}
-                    </label>
-                  </div>
+                  <input
+                    type="text"
+                    value={completionFilePath}
+                    onChange={(e) => setCompletionFilePath(e.target.value)}
+                    placeholder="Đường dẫn hoặc tên file đính kèm (nếu có)..."
+                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                  />
                   {String(currentUserId) === String(task.assigneeId) && onComplete && (
                     <button
                       type="button"
                       disabled={completionSubmitting}
                       onClick={() => {
-                        setCompletionError('');
                         setCompletionSubmitting(true);
                         onComplete({
                           completionNote: completionNote.trim() || null,
                           completionLink: completionLink.trim() || null,
                           completionFilePath: completionFilePath.trim() || null,
-                        })
-                          .then(() => { setCompletionSubmitting(false); })
-                          .catch((err) => {
-                            setCompletionError(err?.message || 'Không gửi được. Kiểm tra kết nối hoặc quyền.');
-                            setCompletionSubmitting(false);
-                          });
+                        }).catch(() => {}).finally(() => setCompletionSubmitting(false));
                       }}
                       className="text-white px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 hover:opacity-90"
                       style={{ backgroundColor: VIETTEL_RED }}
@@ -1800,8 +1697,8 @@ const TaskDetailModal = ({
           {task.status === 'pending_approval' && (
             <div className="pt-4 border-t border-slate-100 space-y-4">
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
-                <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Leader (người phân công) duyệt để đánh dấu hoàn thành (có thể đánh giá chất lượng) hoặc trả về công việc tồn đọng.</p>
+                <p className="font-bold text-amber-800">Đang đợi admin duyệt</p>
+                <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Admin duyệt để đánh dấu hoàn thành (có thể đánh giá chất lượng) hoặc trả về công việc tồn đọng.</p>
               </div>
               {(task.completionNote || task.completionLink) && (
                 <div>
@@ -1814,61 +1711,44 @@ const TaskDetailModal = ({
                   )}
                 </div>
               )}
-              {(role === 'leader' || role === 'admin') && onApprove && onReject && (String(currentUserId) === String(task.leaderId) || String(currentUserId) === String(task.assignerId) || role === 'admin') && (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-3 items-end">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chất lượng (0–1)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={approveQuality}
-                        onChange={(e) => setApproveQuality(e.target.value)}
-                        placeholder="0.9"
-                        className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      disabled={approveSubmitting}
-                      onClick={() => {
-                        setApproveSubmitting(true);
-                        const q = approveQuality !== '' ? Number(approveQuality) : undefined;
-                        onApprove(q).catch(() => {}).finally(() => setApproveSubmitting(false));
-                      }}
-                      className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      {approveSubmitting ? 'Đang duyệt...' : 'Duyệt hoàn thành'}
-                    </button>
+              {role === 'admin' && onApprove && onReject && (
+                <div className="flex flex-wrap gap-3 items-end">
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chất lượng (0–1)</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      value={approveQuality}
+                      onChange={(e) => setApproveQuality(e.target.value)}
+                      placeholder="0.9"
+                      className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                    />
                   </div>
-                  <div className="flex flex-wrap gap-3 items-end">
-                    <div className="flex-1 min-w-[200px]">
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                        Lý do trả về (không bắt buộc)
-                      </label>
-                      <input
-                        type="text"
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                        placeholder="Ghi lý do nếu cần..."
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      disabled={approveSubmitting}
-                      onClick={() => {
-                        setApproveSubmitting(true);
-                        const reason = rejectReason.trim() || null;
-                        onReject(reason).catch(() => {}).finally(() => setApproveSubmitting(false));
-                      }}
-                      className="bg-slate-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-600 disabled:opacity-50"
-                    >
-                      Trả về tồn đọng
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    disabled={approveSubmitting}
+                    onClick={() => {
+                      setApproveSubmitting(true);
+                      const q = approveQuality !== '' ? Number(approveQuality) : undefined;
+                      onApprove(q).catch(() => {}).finally(() => setApproveSubmitting(false));
+                    }}
+                    className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50"
+                  >
+                    {approveSubmitting ? 'Đang duyệt...' : 'Duyệt hoàn thành'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={approveSubmitting}
+                    onClick={() => {
+                      setApproveSubmitting(true);
+                      onReject().catch(() => {}).finally(() => setApproveSubmitting(false));
+                    }}
+                    className="bg-slate-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-600 disabled:opacity-50"
+                  >
+                    Trả về tồn đọng
+                  </button>
                 </div>
               )}
             </div>
