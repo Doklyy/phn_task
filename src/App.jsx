@@ -1252,7 +1252,7 @@ const App = () => {
                               </td>
                               {role === 'admin' && (
                                 <td className="py-2 pr-4">
-                                  <label className="inline-flex items-center gap-1.5 cursor-pointer">
+                                  <label className="inline-flex items-center cursor-pointer">
                                     <input
                                       type="checkbox"
                                       checked={!!u.canManageAttendance}
@@ -1271,8 +1271,8 @@ const App = () => {
                                         }
                                       }}
                                       className="rounded border-slate-300 text-[#D4384E] focus:ring-[#D4384E]"
+                                      title="Quyền chấm công"
                                     />
-                                    <span className="text-xs text-slate-600">Có quyền</span>
                                   </label>
                                   {attendanceUpdateMsg.id === uid && attendanceUpdateMsg.text && (
                                     <span className={`ml-2 text-[11px] ${attendanceUpdateMsg.text.startsWith('Lỗi') ? 'text-red-600' : 'text-emerald-600'}`}>
