@@ -76,6 +76,12 @@ const formatTodayLabel = () => {
 
 const now = () => new Date();
 
+/** Nhóm mặc định cho dropdown Nhóm (luôn có để dropdown không trống). */
+const DEFAULT_TEAM_OPTIONS = [
+  { value: 'old_product', label: 'Sản phẩm cũ' },
+  { value: 'new_product', label: 'Sản phẩm mới' },
+];
+
 const App = () => {
   const { user: currentUser, loading: authLoading, logout, canShowAttendance } = useAuth();
   const role = currentUser?.role || 'staff';
@@ -247,10 +253,11 @@ const App = () => {
 
   const teamLabel = (team) => (team === 'old_product' ? 'Sản phẩm cũ' : team === 'new_product' ? 'Sản phẩm mới' : team || '—');
   const teamOptions = useMemo(() => {
-    const opts = [{ value: 'old_product', label: 'Sản phẩm cũ' }, { value: 'new_product', label: 'Sản phẩm mới' }];
+    const opts = [...DEFAULT_TEAM_OPTIONS];
     const seen = new Set(['old_product', 'new_product']);
     (users || []).forEach((u) => {
-      if (u.team && !seen.has(u.team)) { seen.add(u.team); opts.push({ value: u.team, label: u.team }); }
+      const t = u.team ?? u.teamName;
+      if (t && typeof t === 'string' && !seen.has(t)) { seen.add(t); opts.push({ value: t, label: t }); }
     });
     return opts;
   }, [users]);
@@ -1190,7 +1197,7 @@ const App = () => {
                                 {role === 'admin' ? (
                                   <div className="flex items-center gap-1">
                                     <select
-                                      value={u.team || ''}
+                                      value={u.team ?? u.teamName ?? ''}
                                       onChange={async (e) => {
                                         const v = e.target.value;
                                         if (v === '__new__') {
@@ -1251,34 +1258,36 @@ const App = () => {
                                 )}
                               </td>
                               {role === 'admin' && (
-                                <td className="py-2 pr-4">
-                                  <label className="inline-flex items-center cursor-pointer">
-                                    <input
-                                      type="checkbox"
-                                      checked={!!u.canManageAttendance}
-                                      onChange={async () => {
-                                        setAttendanceUpdateMsg({ id: uid, text: '' });
-                                        try {
-                                          await updateAttendancePermission(uid, !u.canManageAttendance, currentUser.id);
-                                          const list = await fetchPersonnel(currentUser.id);
-                                          setUsers(list);
-                                          setAttendanceUpdateMsg({ id: uid, text: 'Đã cập nhật.' });
-                                          setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 2000);
-                                        } catch (err) {
-                                          console.error(err);
-                                          setAttendanceUpdateMsg({ id: uid, text: 'Lỗi, thử lại.' });
-                                          setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 3000);
-                                        }
-                                      }}
-                                      className="rounded border-slate-300 text-[#D4384E] focus:ring-[#D4384E]"
-                                      title="Quyền chấm công"
-                                    />
-                                  </label>
-                                  {attendanceUpdateMsg.id === uid && attendanceUpdateMsg.text && (
-                                    <span className={`ml-2 text-[11px] ${attendanceUpdateMsg.text.startsWith('Lỗi') ? 'text-red-600' : 'text-emerald-600'}`}>
-                                      {attendanceUpdateMsg.text}
-                                    </span>
-                                  )}
+                                <td className="py-2 pr-4 align-top">
+                                  <div className="flex flex-col gap-0.5">
+                                    <label className="inline-flex cursor-pointer w-fit">
+                                      <input
+                                        type="checkbox"
+                                        checked={!!u.canManageAttendance}
+                                        onChange={async () => {
+                                          setAttendanceUpdateMsg({ id: uid, text: '' });
+                                          try {
+                                            await updateAttendancePermission(uid, !u.canManageAttendance, currentUser.id);
+                                            const list = await fetchPersonnel(currentUser.id);
+                                            setUsers(list);
+                                            setAttendanceUpdateMsg({ id: uid, text: 'Đã cập nhật.' });
+                                            setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 2000);
+                                          } catch (err) {
+                                            console.error(err);
+                                            setAttendanceUpdateMsg({ id: uid, text: 'Lỗi, thử lại.' });
+                                            setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 3000);
+                                          }
+                                        }}
+                                        className="rounded border-slate-300 text-[#D4384E] focus:ring-[#D4384E]"
+                                        title="Quyền chấm công"
+                                      />
+                                    </label>
+                                    {attendanceUpdateMsg.id === uid && attendanceUpdateMsg.text && (
+                                      <span className={`text-[11px] block ${attendanceUpdateMsg.text.startsWith('Lỗi') ? 'text-red-600' : 'text-emerald-600'}`}>
+                                        {attendanceUpdateMsg.text}
+                                      </span>
+                                    )}
+                                  </div>
                                 </td>
                               )}
                               {role === 'admin' && (
