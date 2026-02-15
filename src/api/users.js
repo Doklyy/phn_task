@@ -49,4 +49,3 @@ export async function deleteUser(userId, adminId) {
   const url = `users/${userId}?adminId=${encodeURIComponent(adminId)}`;
   return request(url, { method: 'DELETE' });
 }
-
