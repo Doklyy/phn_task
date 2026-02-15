@@ -49,3 +49,20 @@ export async function deleteUser(userId, adminId) {
   const url = `users/${userId}?adminId=${encodeURIComponent(adminId)}`;
   return request(url, { method: 'DELETE' });
 }
+
+/**
+ * Admin tạo nhân viên mới. POST /api/users?creatorId=...
+ * Body: { username, password, name, role, team?, canManageAttendance? }
+ */
+export async function createUser(payload, creatorId) {
+  const url = `users?creatorId=${encodeURIComponent(creatorId)}`;
+  return request(url, { method: 'POST', body: JSON.stringify(payload) });
+}
+
+/**
+ * Admin cập nhật nhóm cho user. PATCH /api/users/{id}/team?adminId=...&team=...
+ */
+export async function updateUserTeam(userId, team, adminId) {
+  const url = `users/${userId}/team?adminId=${encodeURIComponent(adminId)}${team != null && team !== '' ? `&team=${encodeURIComponent(team)}` : ''}`;
+  return request(url, { method: 'PATCH' });
+}

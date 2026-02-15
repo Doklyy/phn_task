@@ -24,7 +24,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import { fetchTasksForCurrentUser, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion } from './api/tasks.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
-import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser } from './api/users.js';
+import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
 import { uploadFile } from './api/client.js';
 import { AttendancePanel } from './components/AttendancePanel.jsx';
 
@@ -96,6 +96,10 @@ const App = () => {
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState('');
   const [attendanceUpdateMsg, setAttendanceUpdateMsg] = useState({ id: null, text: '' });
+  const [addUserOpen, setAddUserOpen] = useState(false);
+  const [addUserForm, setAddUserForm] = useState({ username: '', password: '', name: '', role: 'staff', team: 'old_product', newTeamName: '', canManageAttendance: false });
+  const [addUserLoading, setAddUserLoading] = useState(false);
+  const [addUserError, setAddUserError] = useState('');
 
   // Tích hợp BE: load tasks khi có user
   useEffect(() => {
@@ -241,7 +245,15 @@ const App = () => {
     [users]
   );
 
-  const teamLabel = (team) => (team === 'old_product' ? 'Sản phẩm cũ' : team === 'new_product' ? 'Sản phẩm mới' : '—');
+  const teamLabel = (team) => (team === 'old_product' ? 'Sản phẩm cũ' : team === 'new_product' ? 'Sản phẩm mới' : team || '—');
+  const teamOptions = useMemo(() => {
+    const opts = [{ value: 'old_product', label: 'Sản phẩm cũ' }, { value: 'new_product', label: 'Sản phẩm mới' }];
+    const seen = new Set(['old_product', 'new_product']);
+    (users || []).forEach((u) => {
+      if (u.team && !seen.has(u.team)) { seen.add(u.team); opts.push({ value: u.team, label: u.team }); }
+    });
+    return opts;
+  }, [users]);
 
   // Báo cáo theo user (Admin/Leader xem trong tab Nhân sự)
   const [userReportsOpen, setUserReportsOpen] = useState(false);
@@ -1125,12 +1137,22 @@ const App = () => {
                     <h2 className="text-2xl font-black text-slate-900">Quản lý nhân sự</h2>
                     <p className="text-slate-500 text-sm">
                       {role === 'admin'
-                        ? 'Danh sách toàn bộ nhân sự (2 nhóm: Sản phẩm cũ, Sản phẩm mới).'
+                        ? 'Danh sách nhân sự. Admin có thể thêm, bớt nhân sự và chọn nhóm, phân quyền chấm công.'
                         : currentUser?.team
                           ? `Nhóm của bạn: ${teamLabel(currentUser.team)}`
                           : 'Danh sách nhân sự trong nhóm của bạn.'}
                     </p>
                   </div>
+                  {role === 'admin' && (
+                    <button
+                      type="button"
+                      onClick={() => { setAddUserOpen(true); setAddUserError(''); setAddUserForm({ username: '', password: '', name: '', role: 'staff', team: 'old_product', newTeamName: '', canManageAttendance: false }); }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold text-white hover:opacity-90"
+                      style={{ backgroundColor: VIETTEL_RED }}
+                    >
+                      <Plus size={18} /> Thêm nhân sự
+                    </button>
+                  )}
                 </div>
 
                 {usersLoading ? (
@@ -1148,7 +1170,7 @@ const App = () => {
                           <th className="py-2 pr-4">Tài khoản</th>
                           <th className="py-2 pr-4">Nhóm</th>
                           <th className="py-2 pr-4">Vai trò</th>
-                          {role === 'admin' && <th className="py-2 pr-4">Chấm công</th>}
+                          {role === 'admin' && <th className="py-2 pr-4">Quyền chấm công</th>}
                           {role === 'admin' && <th className="py-2 pr-4">Thao tác</th>}
                         </tr>
                       </thead>
@@ -1164,7 +1186,42 @@ const App = () => {
                             <tr key={uid} className="border-b last:border-0 border-slate-100">
                               <td className="py-2 pr-4 font-medium text-slate-800">{name}</td>
                               <td className="py-2 pr-4 text-slate-600">{username}</td>
-                              <td className="py-2 pr-4 text-slate-600">{teamLabel(u.team)}</td>
+                              <td className="py-2 pr-4 text-slate-600">
+                                {role === 'admin' ? (
+                                  <div className="flex items-center gap-1">
+                                    <select
+                                      value={u.team || ''}
+                                      onChange={async (e) => {
+                                        const v = e.target.value;
+                                        if (v === '__new__') {
+                                          const name = window.prompt('Tên nhóm mới:');
+                                          if (name == null || !name.trim()) return;
+                                          try {
+                                            await updateUserTeam(uid, name.trim(), currentUser.id);
+                                            const list = await fetchPersonnel(currentUser.id);
+                                            setUsers(list);
+                                          } catch (err) { console.error(err); }
+                                          return;
+                                        }
+                                        try {
+                                          await updateUserTeam(uid, v || null, currentUser.id);
+                                          const list = await fetchPersonnel(currentUser.id);
+                                          setUsers(list);
+                                        } catch (err) { console.error(err); }
+                                      }}
+                                      className="text-xs rounded-lg border border-slate-200 px-2 py-1 bg-white text-slate-700"
+                                    >
+                                      <option value="">—</option>
+                                      {teamOptions.map((o) => (
+                                        <option key={o.value} value={o.value}>{o.label}</option>
+                                      ))}
+                                      <option value="__new__">＋ Thêm nhóm</option>
+                                    </select>
+                                  </div>
+                                ) : (
+                                  teamLabel(u.team)
+                                )}
+                              </td>
                               <td className="py-2 pr-4">
                                 {isEditingRole ? (
                                   <select
@@ -1215,7 +1272,7 @@ const App = () => {
                                       }}
                                       className="rounded border-slate-300 text-[#D4384E] focus:ring-[#D4384E]"
                                     />
-                                    <span className="text-xs text-slate-600">Chấm công</span>
+                                    <span className="text-xs text-slate-600">Có quyền</span>
                                   </label>
                                   {attendanceUpdateMsg.id === uid && attendanceUpdateMsg.text && (
                                     <span className={`ml-2 text-[11px] ${attendanceUpdateMsg.text.startsWith('Lỗi') ? 'text-red-600' : 'text-emerald-600'}`}>
@@ -1247,6 +1304,137 @@ const App = () => {
                         })}
                       </tbody>
                     </table>
+                  </div>
+                )}
+
+                {/* Modal Thêm nhân sự (chỉ admin) */}
+                {addUserOpen && role === 'admin' && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setAddUserOpen(false)}>
+                    <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+                      <h3 className="text-lg font-bold text-slate-900 mb-4">Thêm nhân sự</h3>
+                      <form
+                        onSubmit={async (e) => {
+                          e.preventDefault();
+                          setAddUserError('');
+                          const teamValue = addUserForm.team === '__new__' ? (addUserForm.newTeamName || '').trim() : addUserForm.team;
+                          if (!addUserForm.username.trim() || !addUserForm.password || !addUserForm.name.trim()) {
+                            setAddUserError('Vui lòng điền đủ Tên, Tài khoản, Mật khẩu.');
+                            return;
+                          }
+                          setAddUserLoading(true);
+                          try {
+                            await createUser({
+                              username: addUserForm.username.trim(),
+                              password: addUserForm.password,
+                              name: addUserForm.name.trim(),
+                              role: addUserForm.role.toUpperCase(),
+                              team: teamValue || null,
+                              canManageAttendance: addUserForm.canManageAttendance,
+                            }, currentUser.id);
+                            const list = await fetchPersonnel(currentUser.id);
+                            setUsers(list);
+                            setAddUserOpen(false);
+                          } catch (err) {
+                            setAddUserError(err?.message || 'Tạo thất bại. Kiểm tra tài khoản trùng.');
+                          } finally {
+                            setAddUserLoading(false);
+                          }
+                        }}
+                        className="space-y-3"
+                      >
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Tên đầy đủ *</label>
+                          <input
+                            type="text"
+                            value={addUserForm.name}
+                            onChange={(e) => setAddUserForm((f) => ({ ...f, name: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            placeholder="Nguyễn Văn A"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Tài khoản *</label>
+                          <input
+                            type="text"
+                            value={addUserForm.username}
+                            onChange={(e) => setAddUserForm((f) => ({ ...f, username: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            placeholder="nguyenvana"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Mật khẩu *</label>
+                          <input
+                            type="password"
+                            value={addUserForm.password}
+                            onChange={(e) => setAddUserForm((f) => ({ ...f, password: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            placeholder="••••••••"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Vai trò</label>
+                          <select
+                            value={addUserForm.role}
+                            onChange={(e) => setAddUserForm((f) => ({ ...f, role: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                          >
+                            <option value="staff">STAFF</option>
+                            <option value="leader">LEADER</option>
+                            <option value="admin">ADMIN</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">Nhóm</label>
+                          <select
+                            value={addUserForm.team}
+                            onChange={(e) => setAddUserForm((f) => ({ ...f, team: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                          >
+                            {teamOptions.map((o) => (
+                              <option key={o.value} value={o.value}>{o.label}</option>
+                            ))}
+                            <option value="__new__">＋ Nhóm khác...</option>
+                          </select>
+                          {addUserForm.team === '__new__' && (
+                            <input
+                              type="text"
+                              value={addUserForm.newTeamName}
+                              onChange={(e) => setAddUserForm((f) => ({ ...f, newTeamName: e.target.value }))}
+                              placeholder="Tên nhóm mới"
+                              className="mt-2 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            />
+                          )}
+                        </div>
+                        <label className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={addUserForm.canManageAttendance}
+                            onChange={(e) => setAddUserForm((f) => ({ ...f, canManageAttendance: e.target.checked }))}
+                            className="rounded border-slate-300 text-[#D4384E]"
+                          />
+                          <span className="text-sm text-slate-700">Quyền chấm công</span>
+                        </label>
+                        {addUserError && <p className="text-red-500 text-sm">{addUserError}</p>}
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="button"
+                            onClick={() => setAddUserOpen(false)}
+                            className="flex-1 py-2 rounded-lg border border-slate-200 text-slate-700 font-semibold text-sm"
+                          >
+                            Hủy
+                          </button>
+                          <button
+                            type="submit"
+                            disabled={addUserLoading}
+                            className="flex-1 py-2 rounded-lg text-white font-semibold text-sm disabled:opacity-50"
+                            style={{ backgroundColor: VIETTEL_RED }}
+                          >
+                            {addUserLoading ? 'Đang tạo...' : 'Thêm'}
+                          </button>
+                        </div>
+                      </form>
+                    </div>
                   </div>
                 )}
               </section>
