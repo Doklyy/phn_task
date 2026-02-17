@@ -1937,7 +1937,7 @@ const TaskDetailModal = ({
           <div>
             <h2 className="text-xl font-black text-slate-900 mb-1">{task.title}</h2>
             <p className="text-slate-500 text-sm">
-              Hạn chót: {formatDeadline(task.deadline)} · Trọng số: {task.weight} · Người thực hiện: {assigneeName || '—'}
+              Hạn chót: {formatDeadline(task.deadline)} · Trọng số: {weightLabel(task.weight)} · Người thực hiện: {assigneeName || '—'}
             </p>
           </div>
           <div>
