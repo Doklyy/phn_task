@@ -82,6 +82,31 @@ const DEFAULT_TEAM_OPTIONS = [
   { value: 'new_product', label: 'Sản phẩm mới' },
 ];
 
+/** Trọng số hiển thị dưới dạng mức chữ (rất thấp → rất cao), map về giá trị 0–1. */
+const WEIGHT_LEVELS = [
+  { value: 0.2, label: 'Rất thấp' },
+  { value: 0.4, label: 'Thấp' },
+  { value: 0.6, label: 'Trung bình' },
+  { value: 0.8, label: 'Cao' },
+  { value: 1.0, label: 'Rất cao' },
+];
+
+const weightLabel = (weight) => {
+  if (weight == null || weight === '') return '—';
+  const w = Number(weight);
+  if (Number.isNaN(w)) return String(weight);
+  let best = WEIGHT_LEVELS[0];
+  let bestDiff = Math.abs(w - best.value);
+  for (const level of WEIGHT_LEVELS) {
+    const diff = Math.abs(w - level.value);
+    if (diff < bestDiff) {
+      best = level;
+      bestDiff = diff;
+    }
+  }
+  return best.label;
+};
+
 const App = () => {
   const { user: currentUser, loading: authLoading, logout, canShowAttendance } = useAuth();
   const role = currentUser?.role || 'staff';
@@ -2198,8 +2223,16 @@ const TaskDetailModal = ({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số (0–1)</label>
-                      <input type="number" step="0.01" min="0" max="1" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số</label>
+                      <select
+                        value={editWeight}
+                        onChange={(e) => setEditWeight(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                      >
+                        {WEIGHT_LEVELS.map((lvl) => (
+                          <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trạng thái</label>
@@ -2262,7 +2295,7 @@ const AssignTaskForm = ({ currentUser, role, users, onCreated }) => {
   const [objective, setObjective] = useState('');
   const [content, setContent] = useState('');
   const [deadline, setDeadline] = useState('');
-  const [weight, setWeight] = useState('0.5');
+  const [weight, setWeight] = useState(String(WEIGHT_LEVELS[2].value));
   const [leaderId, setLeaderId] = useState(currentUser?.id ? String(currentUser.id) : '');
   const [assigneeId, setAssigneeId] = useState('');
   const [saving, setSaving] = useState(false);
@@ -2309,7 +2342,7 @@ const AssignTaskForm = ({ currentUser, role, users, onCreated }) => {
           objective,
           content,
           deadline: deadline || null,
-          weight: weight || 0.5,
+          weight: weight || WEIGHT_LEVELS[2].value,
           leaderId: Number(chosenLeaderId),
           assigneeId: Number(assigneeId),
         },
@@ -2320,7 +2353,7 @@ const AssignTaskForm = ({ currentUser, role, users, onCreated }) => {
       setObjective('');
       setContent('');
       setDeadline('');
-      setWeight('0.5');
+      setWeight(String(WEIGHT_LEVELS[2].value));
       setAssigneeId('');
       if (isAdmin) setLeaderId(currentUser?.id ? String(currentUser.id) : '');
     } catch (err) {
@@ -2384,16 +2417,16 @@ const AssignTaskForm = ({ currentUser, role, users, onCreated }) => {
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số (W)</label>
-            <input
-              type="number"
-              min="0"
-              max="1"
-              step="0.1"
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số</label>
+            <select
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
-            />
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+            >
+              {WEIGHT_LEVELS.map((lvl) => (
+                <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
+              ))}
+            </select>
           </div>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -2491,7 +2524,7 @@ const TaskListCard = ({ task, users, onClick }) => {
       <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-100">
         <TaskMetric label="Chủ trì" value={displayChuTriName} icon={<Users size={14} />} />
         <TaskMetric label="Hạn chót" value={task.deadline} icon={<Clock size={14} />} />
-        <TaskMetric label="Trọng số W" value={task.weight} icon={<TrendingUp size={14} />} color="blue" />
+        <TaskMetric label="Trọng số" value={weightLabel(task.weight)} icon={<TrendingUp size={14} />} color="blue" />
         <span className="text-slate-400 text-xs ml-auto">Xem chi tiết →</span>
       </div>
     </button>
