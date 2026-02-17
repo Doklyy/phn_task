@@ -22,7 +22,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { utils, writeFileXLSX } from 'xlsx';
 import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
-import { fetchTasksForCurrentUser, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion } from './api/tasks.js';
+import { fetchTasksForCurrentUser, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
 import { uploadFile } from './api/client.js';
@@ -324,10 +324,18 @@ const App = () => {
     return tasks.filter((t) => t.assigneeId === currentUser.id);
   }, [tasks, role, currentUser?.id]);
 
-  // Phân nhóm theo trạng thái: Đang thực hiện, Hoàn thành, Quá hạn, Tạm dừng
+  // Phân nhóm theo trạng thái: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng (chuẩn hóa nhãn)
+  // Quá hạn: chưa xong, quá hạn (loại đợi duyệt để tránh báo đỏ khi đã gửi hoàn thành)
   const tasksOverdue = useMemo(() => {
     const n = now();
-    return filteredTasks.filter((t) => t.status !== 'completed' && t.status !== 'paused' && t.deadline && new Date(String(t.deadline).replace(' ', 'T')) < n);
+    return filteredTasks.filter(
+      (t) =>
+        t.status !== 'completed' &&
+        t.status !== 'paused' &&
+        t.status !== 'pending_approval' &&
+        t.deadline &&
+        new Date(String(t.deadline).replace(' ', 'T')) < n
+    );
   }, [filteredTasks]);
   const tasksInProgress = useMemo(
     () => filteredTasks.filter((t) => t.status === 'accepted' && !tasksOverdue.some((o) => o.id === t.id)),
@@ -358,8 +366,10 @@ const App = () => {
   const personalTotal = filteredTasksInPeriod.filter((t) => t.assigneeId === currentUser?.id).length;
   const personalCompleted = filteredTasksInPeriod.filter((t) => t.assigneeId === currentUser?.id && t.status === 'completed').length;
   const completionRatePersonal = personalTotal ? Math.round((personalCompleted / personalTotal) * 100) : 0;
-  // Tồn đọng = đang thực hiện + mới (chưa hoàn thành, không tính tạm dừng, không tính đợi duyệt)
+  // Tồn đọng = Mới + Đang thực hiện (chưa hoàn thành, không tính Tạm dừng, Đợi duyệt)
   const backlogCount = filteredTasks.filter((t) => t.status === 'new' || t.status === 'accepted').length;
+  const totalForPct = filteredTasks.length || 1;
+  const pct = (n) => Math.round((n / totalForPct) * 100);
   // Điểm chuyên cần: tỉ lệ ngày báo cáo (mẫu: số ngày có báo cáo / số ngày làm việc trong tháng)
   const daysInPeriod = useMemo(() => {
     if (periodType === 'month' && periodValue) {
@@ -832,7 +842,7 @@ const App = () => {
                     </div>
                   </div>
 
-                  {/* Thẻ chỉ số: icon nhỏ + số lớn + nhãn */}
+                  {/* Thẻ chỉ số: tỉ lệ % + số (tiết kiệm diện tích, chuẩn: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng) */}
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
                     <button
                       type="button"
@@ -842,7 +852,7 @@ const App = () => {
                       <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center mb-2">
                         <Clock size={16} className="text-red-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksOverdue.length}</p>
+                      <p className="text-xl font-bold text-slate-900">{tasksOverdue.length} <span className="text-sm font-medium text-slate-500">({pct(tasksOverdue.length)}%)</span></p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Quá hạn</p>
                     </button>
                     <button
@@ -853,7 +863,7 @@ const App = () => {
                       <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mb-2">
                         <TrendingUp size={16} className="text-emerald-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksInProgress.length}</p>
+                      <p className="text-xl font-bold text-slate-900">{tasksInProgress.length} <span className="text-sm font-medium text-slate-500">({pct(tasksInProgress.length)}%)</span></p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Đang thực hiện</p>
                     </button>
                     <button
@@ -864,7 +874,7 @@ const App = () => {
                       <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center mb-2">
                         <ClipboardList size={16} className="text-slate-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksCompleted.length}</p>
+                      <p className="text-xl font-bold text-slate-900">{tasksCompleted.length} <span className="text-sm font-medium text-slate-500">({pct(tasksCompleted.length)}%)</span></p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Hoàn thành</p>
                     </button>
                     <button
@@ -875,14 +885,14 @@ const App = () => {
                       <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center mb-2">
                         <Pause size={16} className="text-violet-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksPaused.length}</p>
+                      <p className="text-xl font-bold text-slate-900">{tasksPaused.length} <span className="text-sm font-medium text-slate-500">({pct(tasksPaused.length)}%)</span></p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Tạm dừng</p>
                     </button>
                     <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
                       <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mb-2">
                         <FileText size={16} className="text-amber-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{backlogCount}</p>
+                      <p className="text-xl font-bold text-slate-900">{backlogCount} <span className="text-sm font-medium text-slate-500">({pct(backlogCount)}%)</span></p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Tồn đọng</p>
                     </div>
                   </div>
@@ -1274,8 +1284,9 @@ const App = () => {
                                             setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 2000);
                                           } catch (err) {
                                             console.error(err);
-                                            setAttendanceUpdateMsg({ id: uid, text: 'Lỗi, thử lại.' });
-                                            setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 3000);
+                                            const msg = (err && err.message) ? String(err.message).slice(0, 80) : 'Lỗi, thử lại.';
+                                            setAttendanceUpdateMsg({ id: uid, text: msg });
+                                            setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 5000);
                                           }
                                         }}
                                         className="rounded border-slate-300 text-[#D4384E] focus:ring-[#D4384E]"
@@ -1653,6 +1664,7 @@ const App = () => {
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onReject={(reason) => rejectCompletion(selectedTaskId, currentUser.id, reason).then(refreshTasks).then(() => setSelectedTaskId(null))}
             currentUserId={currentUser?.id}
+            onSaveEdit={(payload) => updateTaskDetails(selectedTaskId, currentUser.id, payload).then(refreshTasks)}
           />
         );
       })()}
@@ -1832,7 +1844,7 @@ const App = () => {
   );
 };
 
-/** Modal chi tiết task: đọc nội dung, Tiếp nhận (chỉ assignee), báo cáo tiến độ, báo cáo hoàn thành, đợi duyệt; Leader (người phân công) duyệt/từ chối */
+/** Modal chi tiết task: đọc nội dung, Tiếp nhận (chỉ assignee), báo cáo tiến độ, báo cáo hoàn thành, đợi duyệt; Leader (người phân công) duyệt/từ chối; Admin/Leader chỉnh sửa nội dung, thời hạn, trọng số, trạng thái, chất lượng */
 const TaskDetailModal = ({
   task,
   onClose,
@@ -1848,6 +1860,7 @@ const TaskDetailModal = ({
   onApprove,
   onReject,
   currentUserId,
+  onSaveEdit,
 }) => {
   const [completionNote, setCompletionNote] = useState('');
   const [completionLink, setCompletionLink] = useState('');
@@ -1858,6 +1871,23 @@ const TaskDetailModal = ({
   const [approveQuality, setApproveQuality] = useState(task.quality != null ? String(task.quality) : '');
   const [approveSubmitting, setApproveSubmitting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [editOpen, setEditOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState('');
+  const toDatetimeLocal = (v) => {
+    if (!v) return '';
+    const d = new Date(String(v).replace(' ', 'T'));
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const [editTitle, setEditTitle] = useState(task.title || '');
+  const [editContent, setEditContent] = useState(task.content || '');
+  const [editObjective, setEditObjective] = useState(task.objective || '');
+  const [editDeadline, setEditDeadline] = useState(toDatetimeLocal(task.deadline));
+  const [editWeight, setEditWeight] = useState(task.weight != null ? String(task.weight) : '0.5');
+  const [editStatus, setEditStatus] = useState((task.status || 'NEW').toUpperCase());
+  const [editQuality, setEditQuality] = useState(task.quality != null ? String(task.quality) : '');
 
   const formatDeadline = (v) => {
     if (!v) return '—';
@@ -2126,9 +2156,98 @@ const TaskDetailModal = ({
             </div>
           )}
 
-          {canEdit && (
-            <div className="pt-4 border-t border-slate-100 flex gap-3">
-              <span className="text-xs text-slate-400">Quyền quản lý: Chỉnh sửa nội dung, deadline, đánh giá chất lượng (tích hợp API sau).</span>
+          {canEdit && onSaveEdit && (
+            <div className="pt-4 border-t border-slate-100 space-y-4">
+              {!editOpen ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditTitle(task.title || '');
+                    setEditContent(task.content || '');
+                    setEditObjective(task.objective || '');
+                    setEditDeadline(toDatetimeLocal(task.deadline));
+                    setEditWeight(task.weight != null ? String(task.weight) : '0.5');
+                    setEditStatus((task.status || 'NEW').toUpperCase());
+                    setEditQuality(task.quality != null ? String(task.quality) : '');
+                    setEditError('');
+                    setEditOpen(true);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50"
+                >
+                  Chỉnh sửa nội dung, thời hạn, trọng số
+                </button>
+              ) : (
+                <div className="bg-slate-50 rounded-xl p-4 space-y-3">
+                  <h4 className="text-sm font-bold text-slate-800">Chỉnh sửa công việc (Admin/Leader)</h4>
+                  {editError && <p className="text-red-600 text-sm">{editError}</p>}
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tiêu đề</label>
+                    <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nội dung công việc</label>
+                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={3} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Mục tiêu</label>
+                    <input value={editObjective} onChange={(e) => setEditObjective(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Thời hạn</label>
+                    <input type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số (0–1)</label>
+                      <input type="number" step="0.01" min="0" max="1" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trạng thái</label>
+                      <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                        <option value="NEW">Mới</option>
+                        <option value="ACCEPTED">Đang thực hiện</option>
+                        <option value="PENDING_APPROVAL">Đợi duyệt</option>
+                        <option value="COMPLETED">Hoàn thành</option>
+                        <option value="PAUSED">Tạm dừng</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chất lượng (0–1, tùy chọn)</label>
+                    <input type="number" step="0.01" min="0" max="1" value={editQuality} onChange={(e) => setEditQuality(e.target.value)} placeholder="Để trống nếu chưa đánh giá" className="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={editSaving}
+                      onClick={() => {
+                        setEditError('');
+                        setEditSaving(true);
+                        const payload = {
+                          title: editTitle.trim() || undefined,
+                          content: editContent.trim() || undefined,
+                          objective: editObjective.trim() || undefined,
+                          deadline: editDeadline ? `${editDeadline}:00` : undefined,
+                          weight: editWeight !== '' ? Number(editWeight) : undefined,
+                          status: editStatus || undefined,
+                          quality: editQuality !== '' ? Number(editQuality) : undefined,
+                        };
+                        onSaveEdit(payload)
+                          .then(() => setEditOpen(false))
+                          .catch((err) => { setEditError(err?.message || 'Lỗi lưu.'); })
+                          .finally(() => setEditSaving(false));
+                      }}
+                      className="px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50"
+                      style={{ backgroundColor: VIETTEL_RED }}
+                    >
+                      {editSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                    </button>
+                    <button type="button" onClick={() => setEditOpen(false)} className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-100">
+                      Hủy
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

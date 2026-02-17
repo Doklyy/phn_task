@@ -97,12 +97,36 @@ export async function createTask(task, assignerId) {
 }
 
 /**
- * Cập nhật trạng thái task (completed, paused): PATCH /tasks/:id
+ * Cập nhật trạng thái task (completed, paused): PATCH /tasks/:id?userId=...
  */
-export async function updateTaskStatus(taskId, status) {
-  const res = await request(`tasks/${taskId}`, {
+export async function updateTaskStatus(taskId, userId, status) {
+  const uid = userId != null ? Number(userId) : userId;
+  let url = `tasks/${taskId}?userId=${encodeURIComponent(uid)}`;
+  const res = await request(url, {
     method: 'PATCH',
-    body: JSON.stringify({ status }),
+    body: JSON.stringify({ status: status != null ? String(status).toUpperCase() : undefined }),
+  });
+  return normalizeTask(res);
+}
+
+/**
+ * Admin/Leader chỉnh sửa thông tin công việc: nội dung, thời hạn, trọng số, trạng thái, chất lượng.
+ * PATCH /tasks/:id?userId=... body: { title?, content?, objective?, deadline?, weight?, status?, quality? }
+ */
+export async function updateTaskDetails(taskId, userId, payload) {
+  const uid = userId != null ? Number(userId) : userId;
+  const url = `tasks/${taskId}?userId=${encodeURIComponent(uid)}`;
+  const body = {};
+  if (payload.title !== undefined) body.title = payload.title;
+  if (payload.content !== undefined) body.content = payload.content;
+  if (payload.objective !== undefined) body.objective = payload.objective;
+  if (payload.deadline !== undefined) body.deadline = payload.deadline;
+  if (payload.weight !== undefined) body.weight = Number(payload.weight);
+  if (payload.status !== undefined) body.status = String(payload.status).toUpperCase();
+  if (payload.quality !== undefined) body.quality = Number(payload.quality);
+  const res = await request(url, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
   });
   return normalizeTask(res);
 }
