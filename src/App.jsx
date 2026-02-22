@@ -1217,15 +1217,17 @@ const App = () => {
                         </tr>
                       </thead>
                       <tbody>
-                        {visibleUsers.map((u) => {
+                        {visibleUsers.map((u, index) => {
                           const name = u.name || u.fullName || u.username || '—';
                           const username = u.username || u.email || '—';
                           const roleLabel = String(u.role || '').toUpperCase();
                           const currentRole = (u.role || 'staff').toLowerCase();
                           const uid = u.id ?? u.userId;
+                          const uidNum = Number(uid);
+                          const rowKey = `user-${uid}-${String(username)}-${index}`;
                           const isEditingRole = role === 'admin' && Number(uid) !== Number(currentUser?.id);
                           return (
-                            <tr key={uid} className="border-b last:border-0 border-slate-100">
+                            <tr key={rowKey} className="border-b last:border-0 border-slate-100" data-userid={String(uid)}>
                               <td className="py-2 pr-4 font-medium text-slate-800">{name}</td>
                               <td className="py-2 pr-4 text-slate-600">{username}</td>
                               <td className="py-2 pr-4 text-slate-600">
@@ -1299,26 +1301,32 @@ const App = () => {
                                       <input
                                         type="checkbox"
                                         checked={!!u.canManageAttendance}
-                                        onChange={async () => {
-                                          setAttendanceUpdateMsg({ id: uid, text: '' });
+                                        data-userid={String(uid)}
+                                        onChange={async (e) => {
+                                          const tr = e.currentTarget.closest('tr');
+                                          const rawId = tr?.getAttribute('data-userid') ?? e.currentTarget.getAttribute('data-userid') ?? String(uid);
+                                          const targetUserId = Number(rawId);
+                                          if (!targetUserId || Number.isNaN(targetUserId)) return;
+                                          setAttendanceUpdateMsg({ id: targetUserId, text: '' });
+                                          const newAllowed = !u.canManageAttendance;
                                           try {
-                                            await updateAttendancePermission(uid, !u.canManageAttendance, currentUser.id);
+                                            await updateAttendancePermission(targetUserId, newAllowed, currentUser.id);
                                             const list = await fetchPersonnel(currentUser.id);
                                             setUsers(list);
-                                            setAttendanceUpdateMsg({ id: uid, text: 'Đã cập nhật.' });
-                                            setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 2000);
+                                            setAttendanceUpdateMsg({ id: targetUserId, text: 'Đã cập nhật.' });
+                                            setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === targetUserId ? { id: null, text: '' } : m)), 2000);
                                           } catch (err) {
                                             console.error(err);
                                             const msg = (err && err.message) ? String(err.message).slice(0, 80) : 'Lỗi, thử lại.';
-                                            setAttendanceUpdateMsg({ id: uid, text: msg });
-                                            setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === uid ? { id: null, text: '' } : m)), 5000);
+                                            setAttendanceUpdateMsg({ id: targetUserId, text: msg });
+                                            setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === targetUserId ? { id: null, text: '' } : m)), 5000);
                                           }
                                         }}
                                         className="rounded border-slate-300 text-[#D4384E] focus:ring-[#D4384E]"
                                         title="Quyền chấm công"
                                       />
                                     </label>
-                                    {attendanceUpdateMsg.id === uid && attendanceUpdateMsg.text && (
+                                    {attendanceUpdateMsg.id === uidNum && attendanceUpdateMsg.text && (
                                       <span className={`text-[11px] block ${attendanceUpdateMsg.text.startsWith('Lỗi') ? 'text-red-600' : 'text-emerald-600'}`}>
                                         {attendanceUpdateMsg.text}
                                       </span>
