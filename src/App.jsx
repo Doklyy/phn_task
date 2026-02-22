@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import {
   Plus,
   LayoutDashboard,
@@ -131,6 +131,8 @@ const App = () => {
   const [addUserForm, setAddUserForm] = useState({ username: '', password: '', name: '', role: 'staff', team: 'old_product', newTeamName: '', canManageAttendance: false });
   const [addUserLoading, setAddUserLoading] = useState(false);
   const [addUserError, setAddUserError] = useState('');
+  const mainContentScrollRef = useRef(null);
+  const personnelScrollRestoreRef = useRef(null);
 
   // Tích hợp BE: load tasks khi có user
   useEffect(() => {
@@ -164,6 +166,19 @@ const App = () => {
       .finally(() => setUsersLoading(false));
   }, [role, currentUser?.id]);
 
+  // Khôi phục scroll sau khi cập nhật danh sách nhân sự (tránh list bị đẩy lên đầu)
+  useEffect(() => {
+    const savedScroll = personnelScrollRestoreRef.current;
+    if (savedScroll == null || !mainContentScrollRef.current) return;
+    personnelScrollRestoreRef.current = null;
+    // Restore sau khi DOM đã vẽ xong để list không bị đẩy lên
+    const rafId = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (mainContentScrollRef.current) mainContentScrollRef.current.scrollTop = savedScroll;
+      });
+    });
+    return () => cancelAnimationFrame(rafId);
+  }, [users]);
 
   const [reportTaskId, setReportTaskId] = useState('');
   const [reportResult, setReportResult] = useState('');
@@ -812,7 +827,7 @@ const App = () => {
         </header>
 
         {/* Nội dung chính */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 min-w-0">
+        <div ref={mainContentScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 min-w-0">
           <div className="max-w-5xl mx-auto pb-4">
             {/* Tab: Bảng điều khiển – gọn như mẫu Calendar */}
             {activeTab === 'dash' && (
@@ -1243,6 +1258,7 @@ const App = () => {
                                           try {
                                             await updateUserTeam(uid, name.trim(), currentUser.id);
                                             const list = await fetchPersonnel(currentUser.id);
+                                            personnelScrollRestoreRef.current = mainContentScrollRef.current?.scrollTop ?? null;
                                             setUsers(list);
                                           } catch (err) { console.error(err); }
                                           return;
@@ -1250,6 +1266,7 @@ const App = () => {
                                         try {
                                           await updateUserTeam(uid, v || null, currentUser.id);
                                           const list = await fetchPersonnel(currentUser.id);
+                                          personnelScrollRestoreRef.current = mainContentScrollRef.current?.scrollTop ?? null;
                                           setUsers(list);
                                         } catch (err) { console.error(err); }
                                       }}
@@ -1275,6 +1292,7 @@ const App = () => {
                                       try {
                                         await updateUserRole(uid, newRole, currentUser.id);
                                         const list = await fetchPersonnel(currentUser.id);
+                                        personnelScrollRestoreRef.current = mainContentScrollRef.current?.scrollTop ?? null;
                                         setUsers(list);
                                       } catch (err) {
                                         console.error(err);
@@ -1312,6 +1330,7 @@ const App = () => {
                                           try {
                                             await updateAttendancePermission(targetUserId, newAllowed, currentUser.id);
                                             const list = await fetchPersonnel(currentUser.id);
+                                            personnelScrollRestoreRef.current = mainContentScrollRef.current?.scrollTop ?? null;
                                             setUsers(list);
                                             setAttendanceUpdateMsg({ id: targetUserId, text: 'Đã cập nhật.' });
                                             setTimeout(() => setAttendanceUpdateMsg((m) => (m.id === targetUserId ? { id: null, text: '' } : m)), 2000);
@@ -1343,6 +1362,7 @@ const App = () => {
                                       try {
                                         await deleteUser(uid, currentUser.id);
                                         const list = await fetchPersonnel(currentUser.id);
+                                        personnelScrollRestoreRef.current = mainContentScrollRef.current?.scrollTop ?? null;
                                         setUsers(list);
                                       } catch (err) { console.error(err); }
                                     }}
@@ -1385,6 +1405,7 @@ const App = () => {
                               canManageAttendance: addUserForm.canManageAttendance,
                             }, currentUser.id);
                             const list = await fetchPersonnel(currentUser.id);
+                            personnelScrollRestoreRef.current = mainContentScrollRef.current?.scrollTop ?? null;
                             setUsers(list);
                             setAddUserOpen(false);
                           } catch (err) {
