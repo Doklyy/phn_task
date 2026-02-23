@@ -38,3 +38,40 @@ export async function getTimeWorkScore(userId, year, month) {
   const params = new URLSearchParams({ userId, year, month: String(month) });
   return request(`attendance/time-score?${params}`);
 }
+
+/** GET /api/attendance/codes — danh sách mã trạng thái (code, description) cho dropdown. */
+export async function getAttendanceCodes() {
+  if (!isApiConfigured()) return [];
+  const data = await request('attendance/codes');
+  return Array.isArray(data) ? data : [];
+}
+
+/**
+ * PATCH /api/attendance/records/{id} — cập nhật giờ vào/ra và trạng thái. Chỉ người có quyền chấm công.
+ * checkInAt, checkOutAt: "HH:mm" hoặc null; attendanceCode: "L" | "N_FULL" | ...
+ */
+export async function updateAttendanceRecord(recordId, currentUserId, { checkInAt, checkOutAt, attendanceCode }) {
+  if (!isApiConfigured()) throw new Error('API chưa cấu hình');
+  const params = new URLSearchParams({ currentUserId: String(currentUserId) });
+  if (checkInAt != null && checkInAt !== '') params.set('checkInAt', String(checkInAt).slice(0, 5));
+  if (checkOutAt != null && checkOutAt !== '') params.set('checkOutAt', String(checkOutAt).slice(0, 5));
+  if (attendanceCode != null && attendanceCode !== '') params.set('attendanceCode', attendanceCode);
+  return request(`attendance/records/${recordId}?${params}`, { method: 'PATCH' });
+}
+
+/**
+ * POST /api/attendance/records — tạo bản ghi chấm công. Chỉ người có quyền.
+ * recordDate: "yyyy-MM-dd"
+ */
+export async function createAttendanceRecord(currentUserId, userId, recordDate, { checkInAt, checkOutAt, attendanceCode }) {
+  if (!isApiConfigured()) throw new Error('API chưa cấu hình');
+  const params = new URLSearchParams({
+    currentUserId: String(currentUserId),
+    userId: String(userId),
+    recordDate: String(recordDate).slice(0, 10),
+  });
+  if (checkInAt != null && checkInAt !== '') params.set('checkInAt', String(checkInAt).slice(0, 5));
+  if (checkOutAt != null && checkOutAt !== '') params.set('checkOutAt', String(checkOutAt).slice(0, 5));
+  if (attendanceCode != null && attendanceCode !== '') params.set('attendanceCode', attendanceCode);
+  return request(`attendance/records?${params}`, { method: 'POST' });
+}

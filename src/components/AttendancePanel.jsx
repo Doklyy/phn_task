@@ -8,7 +8,7 @@ import {
   Check,
   X,
 } from 'lucide-react';
-import { checkIn, checkOut, getAttendanceRecordsForMonth, getAttendanceRecords, getTimeWorkScore } from '../api/attendance.js';
+import { checkIn, checkOut, getAttendanceRecordsForMonth, getAttendanceRecords, getTimeWorkScore, getAttendanceCodes, updateAttendanceRecord, createAttendanceRecord } from '../api/attendance.js';
 import { fetchPersonnel } from '../api/users.js';
 import { createLeaveRequest, getMyLeaveRequests, getPendingLeaveRequests, approveLeaveRequest, rejectLeaveRequest } from '../api/leaveRequests.js';
 
@@ -44,6 +44,15 @@ const formatDate = (d) => {
   return String(d).slice(0, 10);
 };
 
+/** Chuyển checkInAt/checkOutAt (ISO datetime) sang "HH:mm" cho input type="time". */
+const toTimeInput = (d) => {
+  if (!d) return '';
+  const str = String(d).replace(' ', 'T');
+  const date = new Date(str);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toTimeString().slice(0, 5);
+};
+
 export function AttendancePanel({ currentUser, role, canManageAttendance = false }) {
   const uid = Number(currentUser?.id) || currentUser?.id;
   const isAdmin = role === 'admin';
@@ -67,6 +76,9 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
   const [tableLoading, setTableLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedIds, setSelectedIds] = useState([]);
+  const [attendanceCodes, setAttendanceCodes] = useState([]);
+  const [rowDrafts, setRowDrafts] = useState({});
+  const [savingRecordId, setSavingRecordId] = useState(null);
 
   const [leaveSubTab, setLeaveSubTab] = useState('my');
   const [myLeaves, setMyLeaves] = useState([]);
@@ -127,6 +139,30 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       .catch(() => setPersonnel([]))
       .finally(() => setTableLoading(false));
   }, [canManage, uid]);
+
+  useEffect(() => {
+    if (!canManage) return;
+    getAttendanceCodes()
+      .then(setAttendanceCodes)
+      .catch(() => setAttendanceCodes([]));
+  }, [canManage]);
+
+  useEffect(() => {
+    if (!canManage || personnel.length === 0) return;
+    setRowDrafts((prev) => {
+      const next = { ...prev };
+      personnel.forEach((emp) => {
+        const id = String(emp.id ?? emp.userId);
+        const rec = todayRecordsByUser[id];
+        next[id] = {
+          checkInAt: rec?.checkInAt ? toTimeInput(rec.checkInAt) : '',
+          checkOutAt: rec?.checkOutAt ? toTimeInput(rec.checkOutAt) : '',
+          attendanceCode: (rec && rec.attendanceCode) || 'L',
+        };
+      });
+      return next;
+    });
+  }, [canManage, todayRecordsByUser, personnel.length]);
 
   useEffect(() => {
     if (!canManage || !uid || personnel.length === 0) {
@@ -216,6 +252,35 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       const recs = await getAttendanceRecords(uid, targetUserId, todayStr, todayStr);
       setTodayRecordsByUser((prev) => ({ ...prev, [String(targetUserId)]: recs?.[0] || null }));
     } catch {}
+  };
+
+  const setDraft = (empId, field, value) => {
+    setRowDrafts((prev) => ({
+      ...prev,
+      [empId]: { ...(prev[empId] || { checkInAt: '', checkOutAt: '', attendanceCode: 'L' }), [field]: value },
+    }));
+  };
+
+  const handleSaveRecord = async (empId, rec) => {
+    if (!uid) return;
+    const draft = rowDrafts[empId] || {};
+    const checkInAt = draft.checkInAt || null;
+    const checkOutAt = draft.checkOutAt || null;
+    const attendanceCode = draft.attendanceCode || 'L';
+    setSavingRecordId(empId);
+    try {
+      if (rec?.id) {
+        await updateAttendanceRecord(rec.id, uid, { checkInAt, checkOutAt, attendanceCode });
+      } else {
+        await createAttendanceRecord(uid, Number(empId), todayStr, { checkInAt, checkOutAt, attendanceCode });
+      }
+      const recs = await getAttendanceRecords(uid, Number(empId), todayStr, todayStr);
+      setTodayRecordsByUser((prev) => ({ ...prev, [empId]: recs?.[0] || null }));
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setSavingRecordId(null);
+    }
   };
 
   const handleBatchCheckIn = async () => {
@@ -433,9 +498,15 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                       const empId = String(emp.id ?? emp.userId);
                       const rec = todayRecordsByUser[empId];
                       const status = getStatusFromRecord(rec);
+                      const draft = rowDrafts[empId] || {
+                        checkInAt: rec?.checkInAt ? toTimeInput(rec.checkInAt) : '',
+                        checkOutAt: rec?.checkOutAt ? toTimeInput(rec.checkOutAt) : '',
+                        attendanceCode: (rec && rec.attendanceCode) || 'L',
+                      };
                       const timeIn = rec?.checkInAt ? formatTimeShort(rec.checkInAt) : '';
                       const timeOut = rec?.checkOutAt ? formatTimeShort(rec.checkOutAt) : '';
                       const name = emp.name || emp.fullName || emp.username || '—';
+                      const saving = savingRecordId === empId;
                       return (
                         <tr key={empId} className="hover:bg-slate-50/80 transition-colors">
                           <td className="px-6 py-4 text-center">
@@ -460,27 +531,56 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                               </div>
                             </div>
                           </td>
-                          <td className="px-6 py-4 text-center">
-                            <span
-                              className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold ${
-                                status === 'present'
-                                  ? 'bg-green-50 text-green-700 border border-green-200'
-                                  : status === 'late'
-                                    ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                                    : status === 'not_yet'
-                                      ? 'bg-gray-50 text-gray-500 border border-gray-200'
+                          <td className="px-6 py-4">
+                            {attendanceCodes.length > 0 ? (
+                              <select
+                                value={draft.attendanceCode}
+                                onChange={(e) => setDraft(empId, 'attendanceCode', e.target.value)}
+                                className="w-full min-w-[180px] border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+                              >
+                                {attendanceCodes.map((c) => (
+                                  <option key={c.code} value={c.code}>{c.description}</option>
+                                ))}
+                              </select>
+                            ) : (
+                              <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold ${
+                                status === 'present' ? 'bg-green-50 text-green-700 border border-green-200'
+                                  : status === 'late' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+                                    : status === 'not_yet' ? 'bg-gray-50 text-gray-500 border border-gray-200'
                                       : 'bg-blue-50 text-blue-700 border border-blue-200'
-                              }`}
-                            >
-                              {status === 'not_yet' && 'Chưa chấm công'}
-                              {status === 'present' && 'Đã vào ca'}
-                              {status === 'late' && 'Đi muộn'}
-                              {status === 'finished' && 'Đã tan ca'}
-                            </span>
+                              }`}>
+                                {status === 'not_yet' && 'Chưa chấm công'}
+                                {status === 'present' && 'Đã vào ca'}
+                                {status === 'late' && 'Đi muộn'}
+                                {status === 'finished' && (rec?.attendanceCodeDescription || 'Đã tan ca')}
+                              </span>
+                            )}
                           </td>
-                          <td className="px-6 py-4 text-center font-mono text-slate-700">{timeIn || '—'}</td>
-                          <td className="px-6 py-4 text-center font-mono text-slate-700">{timeOut || '—'}</td>
-                          <td className="px-6 py-4 text-right">
+                          <td className="px-6 py-4">
+                            {attendanceCodes.length > 0 ? (
+                              <input
+                                type="time"
+                                value={draft.checkInAt}
+                                onChange={(e) => setDraft(empId, 'checkInAt', e.target.value)}
+                                className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+                              />
+                            ) : (
+                              <span className="font-mono text-slate-700">{timeIn || '—'}</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4">
+                            {attendanceCodes.length > 0 ? (
+                              <input
+                                type="time"
+                                value={draft.checkOutAt}
+                                onChange={(e) => setDraft(empId, 'checkOutAt', e.target.value)}
+                                className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+                              />
+                            ) : (
+                              <span className="font-mono text-slate-700">{timeOut || '—'}</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 text-right flex flex-wrap gap-2 justify-end">
                             {status === 'not_yet' && (
                               <button
                                 type="button"
@@ -502,7 +602,17 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                                 Tan ca
                               </button>
                             )}
-                            {status === 'finished' && <span className="text-xs font-medium text-slate-400">Xong ca</span>}
+                            {attendanceCodes.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={() => handleSaveRecord(empId, rec)}
+                                disabled={saving}
+                                className="inline-flex items-center px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                              >
+                                {saving ? 'Đang lưu...' : rec?.id ? 'Cập nhật' : 'Tạo bản ghi'}
+                              </button>
+                            )}
+                            {attendanceCodes.length === 0 && status === 'finished' && <span className="text-xs font-medium text-slate-400">Xong ca</span>}
                           </td>
                         </tr>
                       );
