@@ -114,3 +114,25 @@ export function getUploadedFileUrl(path) {
   const baseUrl = BASE.replace(/\/$/, '');
   return `${baseUrl}/upload/file?path=${encodeURIComponent(p)}`;
 }
+
+/**
+ * Tải file đính kèm xuống máy (fetch + blob, có gửi token).
+ * Gọi khi bấm "Tải file đính kèm" để chắc chắn file được tải xuống thay vì mở trong tab.
+ */
+export async function downloadAttachment(path) {
+  if (!path) return;
+  const url = getUploadedFileUrl(path);
+  if (!url) return;
+  const token = getToken();
+  const headers = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+  const res = await fetch(url, { method: 'GET', headers });
+  if (!res.ok) throw new Error(res.status === 401 ? 'Phiên đăng nhập hết hạn' : `Lỗi ${res.status}`);
+  const blob = await res.blob();
+  const name = String(path).replace(/^.*[/\\]/, '') || 'attachment';
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}

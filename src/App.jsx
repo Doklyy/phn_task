@@ -25,7 +25,7 @@ import LoginScreen from './components/LoginScreen.jsx';
 import { fetchTasksForCurrentUser, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
-import { uploadFile, getUploadedFileUrl } from './api/client.js';
+import { uploadFile, getUploadedFileUrl, downloadAttachment } from './api/client.js';
 import { AttendancePanel } from './components/AttendancePanel.jsx';
 
 // Danh sách user để hiển thị tên (BE có thể trả về hoặc lấy từ API users)
@@ -948,46 +948,51 @@ const App = () => {
                     </div>
                   </div>
 
-                  {/* Doughnut + Legend % và Biểu đồ đường (xu hướng) */}
+                  {/* Chuyên cần, Chất lượng, Tất cả nhiệm vụ */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Dashboard chuyên cần</p>
+                      <p className="text-2xl font-bold text-amber-600">{attendanceScore}%</p>
+                      <p className="text-slate-500 text-xs mt-0.5">Tỉ lệ báo cáo đúng quy định</p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Chất lượng công việc</p>
+                      <p className="text-2xl font-bold text-emerald-600">{completionRatePersonal}%</p>
+                      <p className="text-slate-500 text-xs mt-0.5">Hoàn thành cá nhân (kỳ)</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => { setListFilter('all'); setActiveTab('tasks'); }}
+                      className="bg-slate-50 hover:bg-slate-100 rounded-xl p-4 text-left border border-slate-200 hover:border-slate-300 transition-colors"
+                    >
+                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Tất cả nhiệm vụ</p>
+                      <p className="text-2xl font-bold text-slate-900">{filteredTasks.length}</p>
+                      <p className="text-slate-500 text-xs mt-0.5">Xem danh sách →</p>
+                    </button>
+                  </div>
+
+                  {/* Biểu đồ tròn phân bố + Biểu đồ đường (bảng Phân bổ % đã bỏ, dùng thẻ chỉ số phía trên) */}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                     <div>
                       <h3 className="text-sm font-bold text-slate-800 mb-4">Phân bố nhiệm vụ</h3>
-                      <div className="flex flex-col sm:flex-row items-center gap-6">
-                        <ResponsiveContainer width={200} height={200}>
-                          <PieChart>
-                            <Pie
-                              data={pieData.length ? pieData : [{ name: 'Chưa có', value: 1, fill: '#94a3b8' }]}
-                              dataKey="value"
-                              nameKey="name"
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={50}
-                              outerRadius={80}
-                            >
-                              {(pieData.length ? pieData : [{ fill: '#94a3b8' }]).map((entry, i) => (
-                                <Cell key={i} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <Tooltip formatter={(v, n, props) => [`${v}`, props.payload.name]} />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="flex-1 w-full rounded-xl border border-slate-200 bg-slate-50/80 p-4 min-w-0">
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Phân bổ nhiệm vụ</p>
-                          <ul className="space-y-2.5">
-                            {(pieData.length ? pieData : [{ name: 'Chưa có', value: 1 }]).map((entry, i) => {
-                              const total = (pieData.length ? pieData : [{ value: 1 }]).reduce((s, e) => s + e.value, 0);
-                              const pct = total ? Math.round((entry.value / total) * 100) : 0;
-                              return (
-                                <li key={i} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-white border border-slate-100">
-                                  <span className="w-4 h-4 rounded-full shrink-0 border border-slate-200" style={{ backgroundColor: entry.fill || '#94a3b8' }} />
-                                  <span className="text-sm font-medium text-slate-700 flex-1">{entry.name}</span>
-                                  <span className="text-sm font-bold text-slate-900 tabular-nums">{pct}%</span>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      </div>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie
+                            data={pieData.length ? pieData : [{ name: 'Chưa có', value: 1, fill: '#94a3b8' }]}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                          >
+                            {(pieData.length ? pieData : [{ fill: '#94a3b8' }]).map((entry, i) => (
+                              <Cell key={i} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v, n, props) => [`${v}`, props.payload.name]} />
+                        </PieChart>
+                      </ResponsiveContainer>
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-slate-800 mb-4">Số báo cáo theo ngày (7 ngày gần nhất)</h3>
@@ -1704,10 +1709,14 @@ const App = () => {
                                   <span className="text-xs text-slate-500">· {r.taskTitle || 'Nhiệm vụ'}</span>
                                   <p className="w-full text-sm text-slate-700 mt-0.5">{r.result}</p>
                                   {r.attachmentPath ? (
-                                    <a href={getUploadedFileUrl(r.attachmentPath)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20 transition-colors">
+                                    <button
+                                      type="button"
+                                      onClick={() => downloadAttachment(r.attachmentPath).catch((e) => alert(e?.message || 'Tải file thất bại'))}
+                                      className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20 transition-colors"
+                                    >
                                       <Download size={14} />
                                       Tải file đính kèm
-                                    </a>
+                                    </button>
                                   ) : null}
                                 </li>
                               ))}
@@ -1913,9 +1922,13 @@ const App = () => {
                       <p className="text-[11px] text-slate-500 mb-1">W: {r.weight ?? '—'}</p>
                       <p className="text-slate-700 text-sm whitespace-pre-wrap">{r.result}</p>
                       {r.attachmentPath && (
-                        <a href={getUploadedFileUrl(r.attachmentPath)} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#D4384E] hover:underline mt-1 inline-block">
+                        <button
+                          type="button"
+                          onClick={() => downloadAttachment(r.attachmentPath).catch((e) => alert(e?.message || 'Tải file thất bại'))}
+                          className="text-xs font-medium text-[#D4384E] hover:underline mt-1 inline-block"
+                        >
                           Tải file đính kèm
-                        </a>
+                        </button>
                       )}
                     </li>
                   ))}
