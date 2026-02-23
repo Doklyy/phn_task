@@ -187,7 +187,6 @@ const App = () => {
   const [reportFileUploading, setReportFileUploading] = useState(false);
   const [reportErrors, setReportErrors] = useState({});
   const [reportSent, setReportSent] = useState(false);
-  const [reportPanelOpen, setReportPanelOpen] = useState(false);
 
   const [reportHistoryByTask, setReportHistoryByTask] = useState({});
 
@@ -336,7 +335,7 @@ const App = () => {
 
   const [allReportsList, setAllReportsList] = useState([]);
   const [allReportsLoading, setAllReportsLoading] = useState(false);
-  const [reportsSubTab, setReportsSubTab] = useState('dashboard'); // 'today' | 'dashboard'
+  const [reportsSubTab, setReportsSubTab] = useState('today'); // 'today' | 'dashboard'
   useEffect(() => {
     if (activeTab !== 'reports' || role !== 'admin' || !currentUser?.id) return;
     setAllReportsLoading(true);
@@ -686,7 +685,7 @@ const App = () => {
             {role !== 'admin' && (
               <button
                 type="button"
-                onClick={() => setReportPanelOpen(true)}
+                onClick={() => { setActiveTab('reports'); setReportsSubTab('today'); }}
                 className="p-2 rounded-lg text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-colors"
                 title="Báo cáo ngày"
               >
@@ -1525,8 +1524,8 @@ const App = () => {
               </section>
             )}
 
-            {/* Tab: Báo cáo công việc hàng ngày (Admin/Leader) – giao diện theo mẫu */}
-            {activeTab === 'reports' && role !== 'staff' && (
+            {/* Tab: Báo cáo công việc hàng ngày – form full-width trong sub-tab "Báo cáo hôm nay" */}
+            {activeTab === 'reports' && (
               <section className="bg-white border border-slate-200 rounded-2xl p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                   <div>
@@ -1551,6 +1550,7 @@ const App = () => {
                   >
                     <FileText size={18} /> Báo cáo hôm nay
                   </button>
+                  {role !== 'staff' && (
                   <button
                     type="button"
                     onClick={() => setReportsSubTab('dashboard')}
@@ -1558,10 +1558,119 @@ const App = () => {
                   >
                     <TrendingUp size={18} /> Dashboard theo dõi
                   </button>
+                  )}
                 </div>
 
                 {reportsSubTab === 'today' && (
-                  <div>
+                  <div className="space-y-8">
+                    {/* Form báo cáo kết quả ngày – full width */}
+                    <div className="max-w-2xl">
+                      <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-1">
+                        <FileText size={20} style={{ color: VIETTEL_RED }} />
+                        Báo cáo kết quả ngày
+                      </h3>
+                      <p className="text-sm text-slate-500 mb-4">Cập nhật trước 17h30 hàng ngày</p>
+                      <form onSubmit={handleSubmitReport} className="space-y-4">
+                        <div>
+                          <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">
+                            Chọn nhiệm vụ <span className="text-red-500">*</span>
+                          </label>
+                          <select
+                            value={reportTaskId}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setReportTaskId(val);
+                              if (reportErrors.taskId) setReportErrors((prev) => ({ ...prev, taskId: null }));
+                              const task = filteredTasks.find((t) => String(t.id) === val);
+                              setReportWeight(task && task.weight != null ? String(task.weight) : '');
+                            }}
+                            className={`w-full max-w-md bg-slate-50 border rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none transition-all ${
+                              reportErrors.taskId ? 'border-red-400' : 'border-slate-200'
+                            }`}
+                          >
+                            <option value="">-- Chọn nhiệm vụ --</option>
+                            {filteredTasks.map((t) => (
+                              <option key={t.id} value={t.id}>{t.title}</option>
+                            ))}
+                          </select>
+                          {reportErrors.taskId && <p className="text-xs text-red-500 mt-1">{reportErrors.taskId}</p>}
+                        </div>
+                        <div>
+                          <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">
+                            Kết quả đạt được <span className="text-red-500">*</span>
+                          </label>
+                          <textarea
+                            value={reportResult}
+                            onChange={(e) => {
+                              setReportResult(e.target.value);
+                              if (reportErrors.result) setReportErrors((prev) => ({ ...prev, result: null }));
+                            }}
+                            placeholder="Mô tả việc đã hoàn thành (tối thiểu 10 ký tự)..."
+                            rows={4}
+                            className={`w-full bg-slate-50 border rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none transition-all placeholder:text-slate-300 resize-y min-h-[5rem] ${
+                              reportErrors.result ? 'border-red-400' : 'border-slate-200'
+                            }`}
+                          />
+                          {reportErrors.result && <p className="text-xs text-red-500 mt-1">{reportErrors.result}</p>}
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
+                          <div>
+                            <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">Trọng số (W)</label>
+                            <input
+                              type="number"
+                              step="0.1"
+                              min="0"
+                              max="1"
+                              value={reportWeight}
+                              onChange={(e) => {
+                                setReportWeight(e.target.value);
+                                if (reportErrors.weight) setReportErrors((prev) => ({ ...prev, weight: null }));
+                              }}
+                              className={`w-full bg-slate-50 border rounded-lg py-2.5 px-3 text-sm font-medium focus:ring-2 focus:ring-[#D4384E]/20 outline-none transition-all ${
+                                reportErrors.weight ? 'border-red-400' : 'border-slate-200'
+                              }`}
+                              placeholder="0–1"
+                            />
+                            {reportErrors.weight && <p className="text-xs text-red-500 mt-1">{reportErrors.weight}</p>}
+                          </div>
+                          <div>
+                            <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">File đính kèm</label>
+                            <input
+                              type="file"
+                              id="report-file-tab"
+                              className="hidden"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                setReportErrors((prev) => ({ ...prev, file: null }));
+                                setReportFileUploading(true);
+                                uploadFile(file)
+                                  .then((path) => setReportAttachmentPath(path))
+                                  .catch(() => setReportErrors((prev) => ({ ...prev, file: 'Tải file lên thất bại.' })))
+                                  .finally(() => { setReportFileUploading(false); e.target.value = ''; });
+                              }}
+                            />
+                            <label
+                              htmlFor="report-file-tab"
+                              className={`flex items-center justify-center w-full h-[42px] bg-white border border-slate-200 border-dashed rounded-lg text-sm font-bold cursor-pointer transition-all ${reportFileUploading ? 'opacity-60 pointer-events-none' : 'hover:border-[#D4384E]/50 hover:text-[#D4384E] text-slate-400'}`}
+                            >
+                              {reportFileUploading ? 'Đang tải...' : reportAttachmentPath ? 'Đã chọn file ✓' : 'Tải lên'}
+                            </label>
+                            {reportErrors.file && <p className="text-xs text-red-500 mt-1">{reportErrors.file}</p>}
+                          </div>
+                        </div>
+                        <button
+                          type="submit"
+                          disabled={reportSent}
+                          className="text-white py-3 px-6 rounded-xl font-bold text-sm transition-all disabled:opacity-70 disabled:pointer-events-none hover:opacity-90"
+                          style={{ backgroundColor: VIETTEL_RED }}
+                        >
+                          {reportSent ? 'ĐÃ GỬI ✓' : 'GỬI BÁO CÁO'}
+                        </button>
+                      </form>
+                    </div>
+
+                    <div>
                     <h3 className="text-sm font-bold text-slate-800 mb-3">Tất cả báo cáo gần đây</h3>
                     {role === 'admin' && (
                       allReportsLoading ? (
@@ -1584,6 +1693,7 @@ const App = () => {
                     {role === 'leader' && (
                       <p className="text-slate-500 text-sm">Bạn có thể xem báo cáo từng thành viên tại tab Nhân sự → Xem báo cáo ngày.</p>
                     )}
+                    </div>
                   </div>
                 )}
 
@@ -1785,129 +1895,6 @@ const App = () => {
         </div>
       )}
 
-      {/* Sidebar Báo cáo kết quả ngày - chỉ hiện khi bấm tab "Báo cáo ngày" */}
-      {reportPanelOpen && (
-      <aside className="w-full md:w-80 bg-white border-l border-slate-200 shadow-2xl flex flex-col z-10 shrink-0 overflow-hidden">
-        <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/50 shrink-0 flex items-start justify-between gap-2">
-      <div>
-            <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm">
-              <FileText className="shrink-0" size={18} style={{ color: VIETTEL_RED }} />
-              Báo cáo kết quả ngày
-            </h3>
-            <p className="text-[11px] text-slate-400 mt-0.5 italic">Cập nhật trước 17h30 hàng ngày</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setReportPanelOpen(false)}
-            className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-200 hover:text-slate-600 transition-colors shrink-0"
-            aria-label="Đóng"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmitReport} className="flex-1 p-4 space-y-3 overflow-y-auto flex flex-col min-h-0">
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              Chọn nhiệm vụ <span className="text-red-500">*</span>
-            </label>
-            <select
-              value={reportTaskId}
-              onChange={(e) => {
-                setReportTaskId(e.target.value);
-                if (reportErrors.taskId) setReportErrors((prev) => ({ ...prev, taskId: null }));
-              }}
-              className={`w-full bg-slate-50 border rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none transition-all ${
-                reportErrors.taskId ? 'border-red-400' : 'border-slate-200'
-              }`}
-            >
-              <option value="">-- Chọn nhiệm vụ --</option>
-              {filteredTasks.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.title}
-                </option>
-              ))}
-            </select>
-            {reportErrors.taskId && <p className="text-[11px] text-red-500">{reportErrors.taskId}</p>}
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-              Kết quả đạt được <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              value={reportResult}
-              onChange={(e) => {
-                setReportResult(e.target.value);
-                if (reportErrors.result) setReportErrors((prev) => ({ ...prev, result: null }));
-              }}
-              placeholder="Mô tả việc đã hoàn thành (tối thiểu 10 ký tự)..."
-              rows={3}
-              className={`w-full bg-slate-50 border rounded-lg py-2 px-3 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none transition-all placeholder:text-slate-300 resize-y min-h-[4.5rem] ${
-                reportErrors.result ? 'border-red-400' : 'border-slate-200'
-              }`}
-            />
-            {reportErrors.result && <p className="text-[11px] text-red-500">{reportErrors.result}</p>}
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Trọng số (W)</label>
-              <input
-                type="number"
-                step="0.1"
-                min="0"
-                max="1"
-                value={reportWeight}
-                onChange={(e) => {
-                  setReportWeight(e.target.value);
-                  if (reportErrors.weight) setReportErrors((prev) => ({ ...prev, weight: null }));
-                }}
-                className={`w-full bg-slate-50 border rounded-lg py-2 px-3 text-sm font-medium focus:ring-2 focus:ring-[#D4384E]/20 outline-none transition-all ${
-                  reportErrors.weight ? 'border-red-400' : 'border-slate-200'
-                }`}
-                placeholder="0–1"
-              />
-              {reportErrors.weight && <p className="text-[11px] text-red-500">{reportErrors.weight}</p>}
-            </div>
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">File đính kèm</label>
-              <input
-                type="file"
-                id="report-file"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  setReportErrors((prev) => ({ ...prev, file: null }));
-                  setReportFileUploading(true);
-                  uploadFile(file)
-                    .then((path) => setReportAttachmentPath(path))
-                    .catch(() => setReportErrors((prev) => ({ ...prev, file: 'Tải file lên thất bại.' })))
-                    .finally(() => { setReportFileUploading(false); e.target.value = ''; });
-                }}
-              />
-              <label
-                htmlFor="report-file"
-                className={`flex items-center justify-center w-full h-[34px] bg-white border border-slate-200 border-dashed rounded-lg text-[10px] font-bold cursor-pointer transition-all ${reportFileUploading ? 'opacity-60 pointer-events-none' : 'hover:border-[#D4384E]/50 hover:text-[#D4384E] text-slate-400'}`}
-              >
-                {reportFileUploading ? 'Đang tải...' : reportAttachmentPath ? 'Đã chọn file ✓' : 'Tải lên'}
-              </label>
-              {reportErrors.file && <p className="text-[11px] text-red-500">{reportErrors.file}</p>}
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            disabled={reportSent}
-            className="w-full text-white py-2.5 rounded-xl font-bold text-sm transition-all mt-2 disabled:opacity-70 disabled:pointer-events-none hover:opacity-90"
-            style={{ backgroundColor: VIETTEL_RED }}
-          >
-            {reportSent ? 'ĐÃ GỬI ✓' : 'GỬI BÁO CÁO'}
-          </button>
-        </form>
-      </aside>
-      )}
     </div>
   );
 };
