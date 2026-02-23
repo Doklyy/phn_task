@@ -882,16 +882,16 @@ const App = () => {
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tổng số</p>
                       <p className="text-xl font-bold text-slate-900 mt-0.5">{filteredTasks.length}</p>
                     </div>
-                    <div className="flex-1 min-w-[200px] px-4 py-3 border-r border-slate-200 bg-white">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Trạng thái</p>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                        <button type="button" onClick={() => { setListFilter('overdue'); setActiveTab('tasks'); }} className="font-semibold text-red-600 hover:underline">Quá hạn: {statOverdue}</button>
-                        <span className="text-slate-300">|</span>
-                        <button type="button" onClick={() => { setListFilter('in_progress'); setActiveTab('tasks'); }} className="font-semibold text-emerald-600 hover:underline">Đang TH: {statInProgress}</button>
-                        <span className="text-slate-300">|</span>
-                        <button type="button" onClick={() => { setListFilter('completed'); setActiveTab('tasks'); }} className="font-semibold text-slate-600 hover:underline">Hoàn thành: {statCompleted}</button>
-                        <span className="text-slate-300">|</span>
-                        <button type="button" onClick={() => { setListFilter('paused'); setActiveTab('tasks'); }} className="font-semibold text-violet-600 hover:underline">Tạm dừng: {tasksPaused.length}</button>
+                    <div className="flex-1 min-w-[320px] px-6 py-5 border-r border-slate-200 bg-white">
+                      <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Trạng thái</p>
+                      <div className="flex flex-wrap gap-x-6 gap-y-2 text-base">
+                        <button type="button" onClick={() => { setListFilter('overdue'); setActiveTab('tasks'); }} className="font-bold text-red-600 hover:underline text-lg">Quá hạn: {statOverdue}</button>
+                        <span className="text-slate-300 text-lg">|</span>
+                        <button type="button" onClick={() => { setListFilter('in_progress'); setActiveTab('tasks'); }} className="font-bold text-emerald-600 hover:underline text-lg">Đang TH: {statInProgress}</button>
+                        <span className="text-slate-300 text-lg">|</span>
+                        <button type="button" onClick={() => { setListFilter('completed'); setActiveTab('tasks'); }} className="font-bold text-slate-600 hover:underline text-lg">Hoàn thành: {statCompleted}</button>
+                        <span className="text-slate-300 text-lg">|</span>
+                        <button type="button" onClick={() => { setListFilter('paused'); setActiveTab('tasks'); }} className="font-bold text-violet-600 hover:underline text-lg">Tạm dừng: {tasksPaused.length}</button>
                       </div>
                     </div>
                     <div className="w-20 shrink-0 px-3 py-3 bg-amber-50/80 text-center">
