@@ -14,6 +14,23 @@ import { createLeaveRequest, getMyLeaveRequests, getPendingLeaveRequests, approv
 
 const VIETTEL_RED = '#D4384E';
 
+/** Danh sách mã trạng thái chấm công (dùng khi API /attendance/codes chưa load). */
+const ATTENDANCE_CODES_FALLBACK = [
+  { code: 'L', description: 'Làm cả ngày' },
+  { code: 'N_FULL', description: 'Nghỉ cả ngày (được duyệt)' },
+  { code: 'N_HALF', description: 'Nghỉ nửa ngày' },
+  { code: 'N_LATE', description: 'Xin đến muộn' },
+  { code: 'N_EARLY', description: 'Xin về sớm' },
+  { code: 'M', description: 'Đến muộn bị nhắc nhở' },
+  { code: 'V', description: 'Vắng chưa được đồng ý' },
+  { code: 'L_HOLIDAY', description: 'Nghỉ lễ' },
+  { code: 'T_HOLIDAY', description: 'Trực lễ' },
+  { code: 'CN', description: 'Nghỉ chủ nhật' },
+  { code: 'T7', description: 'Nghỉ thứ 7' },
+  { code: 'TT7', description: 'Trực thứ 7 (theo vòng)' },
+  { code: 'TCN', description: 'Trực CN theo yêu cầu công việc' },
+];
+
 const LEAVE_TYPES = [
   { value: 'FULL_DAY', label: 'Nghỉ cả ngày' },
   { value: 'HALF_DAY_MORNING', label: 'Nghỉ nửa ngày (sáng)' },
@@ -370,6 +387,9 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       String(p.id ?? p.userId ?? '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  /** Mã trạng thái cho dropdown: ưu tiên từ API, không có thì dùng danh sách mặc định. */
+  const codesForSelect = attendanceCodes.length > 0 ? attendanceCodes : ATTENDANCE_CODES_FALLBACK;
+
   const getStatusFromRecord = (rec) => {
     if (!rec) return 'not_yet';
     if (rec.checkOutAt) return 'finished';
@@ -532,53 +552,31 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            {attendanceCodes.length > 0 ? (
-                              <select
-                                value={draft.attendanceCode}
-                                onChange={(e) => setDraft(empId, 'attendanceCode', e.target.value)}
-                                className="w-full min-w-[180px] border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
-                              >
-                                {attendanceCodes.map((c) => (
-                                  <option key={c.code} value={c.code}>{c.description}</option>
-                                ))}
-                              </select>
-                            ) : (
-                              <span className={`inline-flex items-center px-3 py-1 rounded-lg text-xs font-semibold ${
-                                status === 'present' ? 'bg-green-50 text-green-700 border border-green-200'
-                                  : status === 'late' ? 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-                                    : status === 'not_yet' ? 'bg-gray-50 text-gray-500 border border-gray-200'
-                                      : 'bg-blue-50 text-blue-700 border border-blue-200'
-                              }`}>
-                                {status === 'not_yet' && 'Chưa chấm công'}
-                                {status === 'present' && 'Đã vào ca'}
-                                {status === 'late' && 'Đi muộn'}
-                                {status === 'finished' && (rec?.attendanceCodeDescription || 'Đã tan ca')}
-                              </span>
-                            )}
+                            <select
+                              value={draft.attendanceCode}
+                              onChange={(e) => setDraft(empId, 'attendanceCode', e.target.value)}
+                              className="w-full min-w-[180px] border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+                            >
+                              {codesForSelect.map((c) => (
+                                <option key={c.code} value={c.code}>{c.description}</option>
+                              ))}
+                            </select>
                           </td>
                           <td className="px-6 py-4">
-                            {attendanceCodes.length > 0 ? (
-                              <input
-                                type="time"
-                                value={draft.checkInAt}
-                                onChange={(e) => setDraft(empId, 'checkInAt', e.target.value)}
-                                className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
-                              />
-                            ) : (
-                              <span className="font-mono text-slate-700">{timeIn || '—'}</span>
-                            )}
+                            <input
+                              type="time"
+                              value={draft.checkInAt}
+                              onChange={(e) => setDraft(empId, 'checkInAt', e.target.value)}
+                              className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+                            />
                           </td>
                           <td className="px-6 py-4">
-                            {attendanceCodes.length > 0 ? (
-                              <input
-                                type="time"
-                                value={draft.checkOutAt}
-                                onChange={(e) => setDraft(empId, 'checkOutAt', e.target.value)}
-                                className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
-                              />
-                            ) : (
-                              <span className="font-mono text-slate-700">{timeOut || '—'}</span>
-                            )}
+                            <input
+                              type="time"
+                              value={draft.checkOutAt}
+                              onChange={(e) => setDraft(empId, 'checkOutAt', e.target.value)}
+                              className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+                            />
                           </td>
                           <td className="px-6 py-4 text-right flex flex-wrap gap-2 justify-end">
                             {status === 'not_yet' && (
@@ -602,17 +600,14 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                                 Tan ca
                               </button>
                             )}
-                            {attendanceCodes.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={() => handleSaveRecord(empId, rec)}
-                                disabled={saving}
-                                className="inline-flex items-center px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-                              >
-                                {saving ? 'Đang lưu...' : rec?.id ? 'Cập nhật' : 'Tạo bản ghi'}
-                              </button>
-                            )}
-                            {attendanceCodes.length === 0 && status === 'finished' && <span className="text-xs font-medium text-slate-400">Xong ca</span>}
+                            <button
+                              type="button"
+                              onClick={() => handleSaveRecord(empId, rec)}
+                              disabled={saving}
+                              className="inline-flex items-center px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                            >
+                              {saving ? 'Đang lưu...' : rec?.id ? 'Cập nhật' : 'Tạo bản ghi'}
+                            </button>
                           </td>
                         </tr>
                       );
