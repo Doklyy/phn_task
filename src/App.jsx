@@ -1797,20 +1797,24 @@ const TaskDetailModal = ({
                         }
                         setReportError('');
                         setReportSubmitting(true);
-                        onAddReport({
+                        const submitPromise = onAddReport({
                           reportDate,
                           result: reportResult.trim(),
                           weight: reportWeight ? Number(reportWeight) : undefined,
                           attachmentPath: reportAttachmentPaths.length ? reportAttachmentPaths.join('|') : undefined,
-                        })
+                        });
+                        const timeoutMs = 30000;
+                        const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Gửi báo cáo quá thời gian. Kiểm tra mạng hoặc thử lại.')), timeoutMs));
+                        Promise.race([submitPromise, timeoutPromise])
                           .then(() => {
-                            setReportSubmitting(false);
                             setReportResult('');
                             setReportAttachmentPaths([]);
                             setReportChoice(null);
                           })
                           .catch((err) => {
                             setReportError(err?.message || 'Gửi báo cáo thất bại.');
+                          })
+                          .finally(() => {
                             setReportSubmitting(false);
                           });
                       }}
