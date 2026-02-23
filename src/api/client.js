@@ -100,3 +100,16 @@ export async function uploadFile(file) {
   const data = await res.json();
   return data.path || data.filePath || '';
 }
+
+/**
+ * URL để mở/tải file đính kèm (báo cáo).
+ * Nếu path là URL đầy đủ (http...) thì dùng luôn; không thì ghép với backend: GET /api/upload/files/{path}.
+ */
+export function getUploadedFileUrl(path) {
+  if (!path) return '';
+  const s = String(path).trim();
+  if (s.startsWith('http://') || s.startsWith('https://')) return s;
+  if (!BASE) return '';
+  const p = s.replace(/^\//, '');
+  return `${BASE.replace(/\/$/, '')}/upload/files/${encodeURIComponent(p)}`;
+}

@@ -25,7 +25,7 @@ import LoginScreen from './components/LoginScreen.jsx';
 import { fetchTasksForCurrentUser, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
-import { uploadFile } from './api/client.js';
+import { uploadFile, getUploadedFileUrl } from './api/client.js';
 import { AttendancePanel } from './components/AttendancePanel.jsx';
 
 // Danh sách user để hiển thị tên (BE có thể trả về hoặc lấy từ API users)
@@ -335,6 +335,7 @@ const App = () => {
 
   const [allReportsList, setAllReportsList] = useState([]);
   const [allReportsLoading, setAllReportsLoading] = useState(false);
+  const [reportFilterName, setReportFilterName] = useState('');
   const [reportsSubTab, setReportsSubTab] = useState('today'); // 'today' | 'dashboard'
   useEffect(() => {
     if (activeTab !== 'reports' || role !== 'admin' || !currentUser?.id) return;
@@ -1563,7 +1564,8 @@ const App = () => {
 
                 {reportsSubTab === 'today' && (
                   <div className="space-y-8">
-                    {/* Form báo cáo kết quả ngày – full width */}
+                    {/* Form báo cáo kết quả ngày – không hiện cho Admin */}
+                    {role !== 'admin' && (
                     <div className="max-w-2xl">
                       <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-1">
                         <FileText size={20} style={{ color: VIETTEL_RED }} />
@@ -1582,7 +1584,8 @@ const App = () => {
                               setReportTaskId(val);
                               if (reportErrors.taskId) setReportErrors((prev) => ({ ...prev, taskId: null }));
                               const task = filteredTasks.find((t) => String(t.id) === val);
-                              setReportWeight(task && task.weight != null ? String(task.weight) : '');
+                              const num = task?.weight != null ? Number(task.weight) : NaN;
+                              setReportWeight(!Number.isNaN(num) && num >= 0 && num <= 1 ? String(num) : '');
                             }}
                             className={`w-full max-w-md bg-slate-50 border rounded-lg py-2.5 px-3 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none transition-all ${
                               reportErrors.taskId ? 'border-red-400' : 'border-slate-200'
@@ -1669,26 +1672,49 @@ const App = () => {
                         </button>
                       </form>
                     </div>
+                    )}
 
                     <div>
                     <h3 className="text-sm font-bold text-slate-800 mb-3">Tất cả báo cáo gần đây</h3>
                     {role === 'admin' && (
-                      allReportsLoading ? (
-                        <p className="text-slate-500 text-sm">Đang tải danh sách báo cáo...</p>
-                      ) : allReportsList.length === 0 ? (
-                        <p className="text-slate-400 text-sm">Chưa có báo cáo nào.</p>
-                      ) : (
-                        <ul className="space-y-2 border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
-                          {allReportsList.map((r) => (
-                            <li key={r.id} className="flex flex-wrap items-start gap-2 p-3 bg-slate-50/50 hover:bg-slate-50">
-                              <span className="text-[11px] font-semibold text-slate-500 shrink-0">{r.date}</span>
-                              <span className="text-xs font-medium text-slate-700">{r.userName || '—'}</span>
-                              <span className="text-xs text-slate-500">· {r.taskTitle || 'Nhiệm vụ'}</span>
-                              <p className="w-full text-sm text-slate-700 mt-0.5">{r.result}</p>
-                            </li>
-                          ))}
-                        </ul>
-                      )
+                      <>
+                        <div className="mb-3">
+                          <input
+                            type="text"
+                            placeholder="Lọc theo tên người báo cáo..."
+                            value={reportFilterName}
+                            onChange={(e) => setReportFilterName(e.target.value)}
+                            className="w-full max-w-xs border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+                          />
+                        </div>
+                        {allReportsLoading ? (
+                          <p className="text-slate-500 text-sm">Đang tải danh sách báo cáo...</p>
+                        ) : (() => {
+                          const filtered = reportFilterName.trim()
+                            ? allReportsList.filter((r) => (r.userName || '').toLowerCase().includes(reportFilterName.trim().toLowerCase()))
+                            : allReportsList;
+                          return filtered.length === 0 ? (
+                            <p className="text-slate-400 text-sm">{reportFilterName.trim() ? 'Không có báo cáo nào trùng với tên đã nhập.' : 'Chưa có báo cáo nào.'}</p>
+                          ) : (
+                            <ul className="space-y-2 border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
+                              {filtered.map((r) => (
+                                <li key={r.id} className="flex flex-wrap items-start gap-2 p-3 bg-slate-50/50 hover:bg-slate-50">
+                                  <span className="text-[11px] font-semibold text-slate-500 shrink-0">{r.date}</span>
+                                  <span className="text-xs font-medium text-slate-700">{r.userName || '—'}</span>
+                                  <span className="text-xs text-slate-500">· {r.taskTitle || 'Nhiệm vụ'}</span>
+                                  <p className="w-full text-sm text-slate-700 mt-0.5">{r.result}</p>
+                                  {r.attachmentPath ? (
+                                    <a href={getUploadedFileUrl(r.attachmentPath)} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 mt-1 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20 transition-colors">
+                                      <Download size={14} />
+                                      Tải file đính kèm
+                                    </a>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          );
+                        })()}
+                      </>
                     )}
                     {role === 'leader' && (
                       <p className="text-slate-500 text-sm">Bạn có thể xem báo cáo từng thành viên tại tab Nhân sự → Xem báo cáo ngày.</p>
@@ -1886,6 +1912,11 @@ const App = () => {
                       </div>
                       <p className="text-[11px] text-slate-500 mb-1">W: {r.weight ?? '—'}</p>
                       <p className="text-slate-700 text-sm whitespace-pre-wrap">{r.result}</p>
+                      {r.attachmentPath && (
+                        <a href={getUploadedFileUrl(r.attachmentPath)} target="_blank" rel="noopener noreferrer" className="text-xs font-medium text-[#D4384E] hover:underline mt-1 inline-block">
+                          Tải file đính kèm
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ul>

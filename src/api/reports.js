@@ -91,6 +91,7 @@ function normalizeReport(r) {
     date: date ? String(date).slice(0, 10) : '',
     result: r.result ?? r.content ?? '',
     weight: r.weight != null ? Number(r.weight) : null,
+    attachmentPath: r.attachmentPath ?? r.attachment_path ?? null,
   };
 }
 
