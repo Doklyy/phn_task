@@ -1862,7 +1862,7 @@ const App = () => {
             onAddReport={(report) => {
               if (!currentUser?.id) return;
               submitReport(
-                { taskId: selectedTaskId, reportDate: report.reportDate, result: report.result, weight: report.weight },
+                { taskId: selectedTaskId, reportDate: report.reportDate, result: report.result, weight: report.weight, attachmentPath: report.attachmentPath },
                 currentUser.id
               )
                 .then((r) => addReportToHistory(selectedTaskId, { reportDate: r.date, result: r.result, weight: r.weight }))
@@ -1961,6 +1961,14 @@ const TaskDetailModal = ({
   currentUserId,
   onSaveEdit,
 }) => {
+  const [reportChoice, setReportChoice] = useState(null);
+  const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reportResult, setReportResult] = useState('');
+  const [reportWeight, setReportWeight] = useState(task.weight != null ? String(task.weight) : '0.5');
+  const [reportAttachmentPath, setReportAttachmentPath] = useState('');
+  const [reportFileUploading, setReportFileUploading] = useState(false);
+  const [reportSubmitting, setReportSubmitting] = useState(false);
+  const [reportError, setReportError] = useState('');
   const [completionNote, setCompletionNote] = useState('');
   const [completionLink, setCompletionLink] = useState('');
   const [completionFilePath, setCompletionFilePath] = useState('');
@@ -1973,6 +1981,14 @@ const TaskDetailModal = ({
   const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  useEffect(() => {
+    setReportChoice(null);
+    setReportDate(new Date().toISOString().slice(0, 10));
+    setReportResult('');
+    setReportWeight(task?.weight != null ? String(task.weight) : '0.5');
+    setReportAttachmentPath('');
+    setReportError('');
+  }, [task?.id, task?.weight]);
   const toDatetimeLocal = (v) => {
     if (!v) return '';
     const d = new Date(String(v).replace(' ', 'T'));
@@ -2051,74 +2067,146 @@ const TaskDetailModal = ({
             <>
               <div className="pt-4 border-t border-slate-100">
                 <h4 className="text-sm font-bold text-slate-800 mb-3">Báo cáo</h4>
-                <p className="text-slate-500 text-sm mb-3">Ghi chú, link hoặc file đính kèm (tùy chọn). Khi bấm Hoàn thành, nhiệm vụ chuyển sang Đợi duyệt; người phân công (Leader) duyệt hoặc trả về tồn đọng.</p>
-                <div className="space-y-3">
-                  {completionError && (
-                    <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{completionError}</p>
-                  )}
-                  <textarea
-                    value={completionNote}
-                    onChange={(e) => { setCompletionNote(e.target.value); setCompletionError(''); }}
-                    placeholder="Ghi chú (tùy chọn)..."
-                    rows={2}
-                    className="w-full border border-slate-200 rounded-xl p-3 text-sm"
-                  />
-                  <input
-                    type="url"
-                    value={completionLink}
-                    onChange={(e) => setCompletionLink(e.target.value)}
-                    placeholder="Link (URL) nếu có..."
-                    className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  />
-                  <div>
-                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm</label>
-                    <input
-                      type="file"
-                      id="completion-file"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-                        setCompletionFileUploading(true);
-                        setCompletionError('');
-                        uploadFile(file)
-                          .then((path) => setCompletionFilePath(path))
-                          .catch(() => setCompletionError('Tải file lên thất bại. Kiểm tra kết nối.'))
-                          .finally(() => { setCompletionFileUploading(false); e.target.value = ''; });
-                      }}
-                    />
-                    <label
-                      htmlFor="completion-file"
-                      className={`flex items-center justify-center w-full py-2 border border-slate-200 border-dashed rounded-lg text-sm font-medium cursor-pointer transition-all ${completionFileUploading ? 'opacity-60 pointer-events-none bg-slate-50' : 'hover:border-[#D4384E]/50 hover:bg-slate-50 text-slate-500'}`}
-                    >
-                      {completionFileUploading ? 'Đang tải file...' : completionFilePath ? `Đã chọn file ✓ (${completionFilePath})` : 'Chọn file tải lên'}
-                    </label>
-                  </div>
-                  {String(currentUserId) === String(task.assigneeId) && onComplete && (
-                    <button
-                      type="button"
-                      disabled={completionSubmitting}
-                      onClick={() => {
-                        setCompletionError('');
-                        setCompletionSubmitting(true);
-                        onComplete({
-                          completionNote: completionNote.trim() || null,
-                          completionLink: completionLink.trim() || null,
-                          completionFilePath: completionFilePath.trim() || null,
+                {String(currentUserId) !== String(task.assigneeId) ? (
+                  <p className="text-slate-500 text-sm">Chỉ người thực hiện mới có thể báo cáo tiến độ hoặc báo cáo kết thúc.</p>
+                ) : reportChoice === null ? (
+                  <>
+                    <p className="text-slate-500 text-sm mb-3">Bạn muốn</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setReportChoice('progress')}
+                        className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition-colors"
+                      >
+                        <span className="font-bold text-slate-900 block mb-1">Báo cáo ngày / Báo cáo tiến độ</span>
+                        <span className="text-xs text-slate-500">Việc chưa xong — cập nhật tiến độ trong ngày (đang ở bước nào trong quy trình).</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setReportChoice('completion')}
+                        className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-amber-400 hover:bg-amber-50/50 transition-colors"
+                      >
+                        <span className="font-bold text-slate-900 block mb-1">Báo cáo kết thúc công việc</span>
+                        <span className="text-xs text-slate-500">Việc đã hoàn thành — gửi báo cáo kết thúc để chờ lãnh đạo phê duyệt.</span>
+                      </button>
+                    </div>
+                  </>
+                ) : reportChoice === 'progress' ? (
+                  <>
+                    <p className="mb-2">
+                      <button type="button" onClick={() => { setReportChoice(null); setReportError(''); }} className="text-sm text-slate-500 hover:underline">← Chọn lại</button>
+                    </p>
+                    <h5 className="text-sm font-bold text-slate-700 mb-2">Báo cáo ngày / Báo cáo tiến độ</h5>
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        if (!reportResult.trim() || reportResult.trim().length < 10) {
+                          setReportError('Kết quả / tiến độ tối thiểu 10 ký tự.');
+                          return;
+                        }
+                        setReportError('');
+                        setReportSubmitting(true);
+                        onAddReport({
+                          reportDate,
+                          result: reportResult.trim(),
+                          weight: reportWeight ? Number(reportWeight) : undefined,
+                          attachmentPath: reportAttachmentPath || undefined,
                         })
-                          .then(() => { setCompletionSubmitting(false); })
+                          .then(() => {
+                            setReportSubmitting(false);
+                            setReportResult('');
+                            setReportChoice(null);
+                          })
                           .catch((err) => {
-                            setCompletionError(err?.message || 'Không gửi được. Kiểm tra kết nối hoặc quyền.');
-                            setCompletionSubmitting(false);
+                            setReportError(err?.message || 'Gửi báo cáo thất bại.');
+                            setReportSubmitting(false);
                           });
                       }}
-                      className="text-white px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 hover:opacity-90"
-                      style={{ backgroundColor: VIETTEL_RED }}
+                      className="space-y-3"
                     >
-                      {completionSubmitting ? 'Đang gửi...' : 'Hoàn thành (gửi đợi duyệt)'}
-                    </button>
-                  )}
-                </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Ngày báo cáo</label>
+                        <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kết quả / Tiến độ (tối thiểu 10 ký tự)</label>
+                        <textarea value={reportResult} onChange={(e) => { setReportResult(e.target.value); setReportError(''); }} minLength={10} maxLength={4000} rows={3} placeholder="Mô tả tiến độ: đang ở bước nào, đã làm được gì trong ngày..." required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số (0–1, tùy chọn)</label>
+                        <input type="number" min={0} max={1} step={0.1} value={reportWeight} onChange={(e) => setReportWeight(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm w-24" />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm (tùy chọn)</label>
+                        <input type="file" id="report-day-file" className="hidden" onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setReportFileUploading(true);
+                          setReportError('');
+                          uploadFile(file).then((path) => setReportAttachmentPath(path)).catch(() => setReportError('Tải file lên thất bại.')).finally(() => { setReportFileUploading(false); e.target.value = ''; });
+                        }} />
+                        <label htmlFor="report-day-file" className={`flex items-center justify-center w-full py-2 border border-slate-200 border-dashed rounded-lg text-sm font-medium cursor-pointer ${reportFileUploading ? 'opacity-60 pointer-events-none bg-slate-50' : 'hover:border-[#D4384E]/50 hover:bg-slate-50 text-slate-500'}`}>
+                          {reportFileUploading ? 'Đang tải file...' : reportAttachmentPath ? `Đã chọn file ✓` : 'Chọn file tải lên'}
+                        </label>
+                      </div>
+                      {reportError && <p className="text-red-600 text-sm">{reportError}</p>}
+                      <button type="submit" disabled={reportSubmitting} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50">
+                        {reportSubmitting ? 'Đang gửi...' : 'Gửi báo cáo'}
+                      </button>
+                    </form>
+                  </>
+                ) : (
+                  <>
+                    <p className="mb-2">
+                      <button type="button" onClick={() => { setReportChoice(null); setCompletionError(''); }} className="text-sm text-slate-500 hover:underline">← Chọn lại</button>
+                    </p>
+                    <p className="text-slate-500 text-sm mb-3">Ghi chú, link hoặc file đính kèm (tùy chọn). Khi bấm Hoàn thành, nhiệm vụ chuyển sang Đợi duyệt; người phân công (Leader) duyệt hoặc trả về tồn đọng.</p>
+                    <div className="space-y-3">
+                      {completionError && (
+                        <p className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">{completionError}</p>
+                      )}
+                      <textarea value={completionNote} onChange={(e) => { setCompletionNote(e.target.value); setCompletionError(''); }} placeholder="Ghi chú (tùy chọn)..." rows={2} className="w-full border border-slate-200 rounded-xl p-3 text-sm" />
+                      <input type="url" value={completionLink} onChange={(e) => setCompletionLink(e.target.value)} placeholder="Link (URL) nếu có..." className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                      <div>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm</label>
+                        <input type="file" id="completion-file" className="hidden" onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setCompletionFileUploading(true);
+                          setCompletionError('');
+                          uploadFile(file).then((path) => setCompletionFilePath(path)).catch(() => setCompletionError('Tải file lên thất bại. Kiểm tra kết nối.')).finally(() => { setCompletionFileUploading(false); e.target.value = ''; });
+                        }} />
+                        <label htmlFor="completion-file" className={`flex items-center justify-center w-full py-2 border border-slate-200 border-dashed rounded-lg text-sm font-medium cursor-pointer transition-all ${completionFileUploading ? 'opacity-60 pointer-events-none bg-slate-50' : 'hover:border-[#D4384E]/50 hover:bg-slate-50 text-slate-500'}`}>
+                          {completionFileUploading ? 'Đang tải file...' : completionFilePath ? `Đã chọn file ✓ (${completionFilePath})` : 'Chọn file tải lên'}
+                        </label>
+                      </div>
+                      {onComplete && (
+                        <button
+                          type="button"
+                          disabled={completionSubmitting}
+                          onClick={() => {
+                            setCompletionError('');
+                            setCompletionSubmitting(true);
+                            onComplete({
+                              completionNote: completionNote.trim() || null,
+                              completionLink: completionLink.trim() || null,
+                              completionFilePath: completionFilePath.trim() || null,
+                            })
+                              .then(() => { setCompletionSubmitting(false); })
+                              .catch((err) => {
+                                setCompletionError(err?.message || 'Không gửi được. Kiểm tra kết nối hoặc quyền.');
+                                setCompletionSubmitting(false);
+                              });
+                          }}
+                          className="text-white px-5 py-2.5 rounded-xl text-sm font-bold disabled:opacity-50 hover:opacity-90"
+                          style={{ backgroundColor: VIETTEL_RED }}
+                        >
+                          {completionSubmitting ? 'Đang gửi...' : 'Hoàn thành (gửi đợi duyệt)'}
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
               <div className="pt-4 border-t border-slate-100">
                 <h4 className="text-sm font-bold text-slate-800 mb-2">Lịch sử báo cáo</h4>
