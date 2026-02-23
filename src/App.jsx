@@ -876,14 +876,14 @@ const App = () => {
                     </div>
                   </div>
 
-                  {/* Một dòng, 3 khu vực rõ rệt: (1) Tổng số (2) Trạng thái (3) Tồn đọng */}
+                  {/* Một dòng: Tổng số gọn, Trạng thái rộng, Tồn đọng */}
                   <div className="flex flex-wrap items-stretch gap-0 rounded-xl border border-slate-200 overflow-hidden mb-4">
-                    <div className="flex-1 min-w-[120px] bg-slate-50 px-4 py-3 border-r border-slate-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">(1) Tổng số nhiệm vụ</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-0.5">{filteredTasks.length}</p>
+                    <div className="w-24 shrink-0 bg-slate-50 px-3 py-3 border-r border-slate-200 text-center">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tổng số</p>
+                      <p className="text-xl font-bold text-slate-900 mt-0.5">{filteredTasks.length}</p>
                     </div>
                     <div className="flex-1 min-w-[200px] px-4 py-3 border-r border-slate-200 bg-white">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">(2) Trạng thái</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Trạng thái</p>
                       <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
                         <button type="button" onClick={() => { setListFilter('overdue'); setActiveTab('tasks'); }} className="font-semibold text-red-600 hover:underline">Quá hạn: {statOverdue}</button>
                         <span className="text-slate-300">|</span>
@@ -894,23 +894,44 @@ const App = () => {
                         <button type="button" onClick={() => { setListFilter('paused'); setActiveTab('tasks'); }} className="font-semibold text-violet-600 hover:underline">Tạm dừng: {tasksPaused.length}</button>
                       </div>
                     </div>
-                    <div className="min-w-[100px] px-4 py-3 bg-amber-50/80">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">(3) Tồn đọng</p>
-                      <p className="text-2xl font-bold text-amber-700 mt-0.5">{backlogCount}</p>
+                    <div className="w-20 shrink-0 px-3 py-3 bg-amber-50/80 text-center">
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tồn đọng</p>
+                      <p className="text-xl font-bold text-amber-700 mt-0.5">{backlogCount}</p>
                     </div>
                   </div>
 
-                  {/* Một dòng: Chuyên cần · Chất lượng · Tất cả nhiệm vụ (tiết kiệm diện tích) */}
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 px-3 rounded-lg bg-slate-50/80 border border-slate-100 text-sm mb-4">
-                    <span className="font-medium text-slate-700">Chuyên cần: <strong className="text-amber-600">{attendanceScore}%</strong></span>
-                    <span className="text-slate-300">·</span>
-                    <span className="font-medium text-slate-700">Chất lượng: <strong className="text-emerald-600">{completionRatePersonal}%</strong></span>
-                    <span className="text-slate-300">·</span>
-                    <button type="button" onClick={() => { setListFilter('all'); setActiveTab('tasks'); }} className="font-medium text-[#D4384E] hover:underline">Tất cả nhiệm vụ: {filteredTasks.length} →</button>
-                  </div>
-
-                  {/* Biểu đồ tròn phân bố + Biểu đồ đường (bảng Phân bổ % đã bỏ, dùng thẻ chỉ số phía trên) */}
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  {/* Biểu đồ tròn: Chuyên cần & Chất lượng (như Phân bố nhiệm vụ) + Phân bố nhiệm vụ + Đường */}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <h3 className="text-sm font-bold text-slate-800 mb-4">Chuyên cần & Chất lượng</h3>
+                      <ResponsiveContainer width="100%" height={200}>
+                        <PieChart>
+                          <Pie
+                            data={[
+                              { name: `Chuyên cần ${attendanceScore}%`, value: Math.max(attendanceScore, 0.1), fill: '#f59e0b' },
+                              { name: `Chất lượng ${completionRatePersonal}%`, value: Math.max(completionRatePersonal, 0.1), fill: '#10b981' },
+                            ]}
+                            dataKey="value"
+                            nameKey="name"
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={50}
+                            outerRadius={80}
+                          >
+                            {[
+                              { fill: '#f59e0b' },
+                              { fill: '#10b981' },
+                            ].map((entry, i) => (
+                              <Cell key={i} fill={entry.fill} />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(v, n, props) => [props.payload.name, '']} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <p className="text-center text-xs text-slate-500 mt-1">
+                        <button type="button" onClick={() => { setListFilter('all'); setActiveTab('tasks'); }} className="text-[#D4384E] hover:underline font-medium">Tất cả nhiệm vụ: {filteredTasks.length} →</button>
+                      </p>
+                    </div>
                     <div>
                       <h3 className="text-sm font-bold text-slate-800 mb-4">Phân bố nhiệm vụ</h3>
                       <ResponsiveContainer width="100%" height={200}>
