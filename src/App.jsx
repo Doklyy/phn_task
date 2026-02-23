@@ -621,7 +621,7 @@ const App = () => {
           <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0" style={{ backgroundColor: VIETTEL_RED }}>
             P
           </div>
-          <span className="font-semibold text-slate-800 text-sm">PHN</span>
+          <span className="font-semibold text-slate-800 text-sm">Phòng hàng nặng</span>
         </div>
 
         <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
