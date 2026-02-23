@@ -8,6 +8,11 @@ export async function checkIn(userId) {
   return request(`attendance/check-in?userId=${encodeURIComponent(userId)}`, { method: 'POST' });
 }
 
+export async function checkOut(userId) {
+  if (!isApiConfigured()) throw new Error('API chưa cấu hình');
+  return request(`attendance/check-out?userId=${encodeURIComponent(userId)}`, { method: 'POST' });
+}
+
 /**
  * GET /api/attendance/records — cần currentUserId và userId (và from/to nếu có).
  */

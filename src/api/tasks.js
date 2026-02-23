@@ -36,6 +36,16 @@ function normalizeTask(t) {
 }
 
 /**
+ * Thống kê Phân bổ nhiệm vụ cho dashboard: overdue, inProgress, completed, pendingApproval, total.
+ * GET /api/tasks/dashboard-stats?userId=...
+ */
+export async function getDashboardStats(userId) {
+  if (!isApiConfigured()) return null;
+  const data = await request(`tasks/dashboard-stats?userId=${encodeURIComponent(userId)}`);
+  return data;
+}
+
+/**
  * Lấy danh sách nhiệm vụ theo user hiện tại (từ token hoặc userId).
  * GET /tasks hoặc GET /tasks?userId=...
  * BE trả về đúng phạm vi: admin = tất cả, leader = việc mình chủ trì + mình làm, staff = việc mình làm.

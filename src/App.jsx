@@ -22,7 +22,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { utils, writeFileXLSX } from 'xlsx';
 import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
-import { fetchTasksForCurrentUser, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
+import { fetchTasksForCurrentUser, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
 import { uploadFile } from './api/client.js';
@@ -326,6 +326,14 @@ const App = () => {
       .finally(() => setComplianceLoading(false));
   }, [activeTab, reportMonth, currentUser?.id, role]);
 
+  const [dashboardStats, setDashboardStats] = useState(null);
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    getDashboardStats(Number(currentUser.id) || currentUser.id)
+      .then(setDashboardStats)
+      .catch(() => setDashboardStats(null));
+  }, [currentUser?.id, tasks.length]);
+
   const [allReportsList, setAllReportsList] = useState([]);
   const [allReportsLoading, setAllReportsLoading] = useState(false);
   const [reportsSubTab, setReportsSubTab] = useState('dashboard'); // 'today' | 'dashboard'
@@ -408,8 +416,11 @@ const App = () => {
   const completionRatePersonal = personalTotal ? Math.round((personalCompleted / personalTotal) * 100) : 0;
   // Tồn đọng = Mới + Đang thực hiện (chưa hoàn thành, không tính Tạm dừng, Đợi duyệt)
   const backlogCount = filteredTasks.filter((t) => t.status === 'new' || t.status === 'accepted').length;
-  const totalForPct = filteredTasks.length || 1;
+  const totalForPct = (dashboardStats?.total != null ? dashboardStats.total : filteredTasks.length) || 1;
   const pct = (n) => Math.round((n / totalForPct) * 100);
+  const statOverdue = dashboardStats?.overdue ?? tasksOverdue.length;
+  const statInProgress = dashboardStats?.inProgress ?? tasksInProgress.length;
+  const statCompleted = dashboardStats?.completed ?? tasksCompleted.length;
   // Điểm chuyên cần: tỉ lệ ngày báo cáo (mẫu: số ngày có báo cáo / số ngày làm việc trong tháng)
   const daysInPeriod = useMemo(() => {
     if (periodType === 'month' && periodValue) {
@@ -521,26 +532,26 @@ const App = () => {
     writeFileXLSX(wb, 'danh-sach-nhiem-vu.xlsx');
   };
 
-  // Dữ liệu biểu đồ Dashboard (Quá hạn, Đang thực hiện, Hoàn thành, Tạm dừng)
+  // Dữ liệu biểu đồ Dashboard (Quá hạn, Đang thực hiện, Hoàn thành, Tạm dừng) — ưu tiên từ API dashboard-stats
   const chartData = useMemo(
     () => [
-      { name: 'Quá hạn', count: tasksOverdue.length, fill: VIETTEL_RED },
-      { name: 'Đang thực hiện', count: tasksInProgress.length, fill: '#22c55e' },
-      { name: 'Hoàn thành', count: tasksCompleted.length, fill: '#64748b' },
+      { name: 'Quá hạn', count: statOverdue, fill: VIETTEL_RED },
+      { name: 'Đang thực hiện', count: statInProgress, fill: '#22c55e' },
+      { name: 'Hoàn thành', count: statCompleted, fill: '#64748b' },
       { name: 'Tạm dừng', count: tasksPaused.length, fill: '#8b5cf6' },
     ],
-    [tasksOverdue.length, tasksInProgress.length, tasksCompleted.length, tasksPaused.length]
+    [statOverdue, statInProgress, statCompleted, tasksPaused.length]
   );
 
   const pieData = useMemo(
     () =>
       [
-        { name: 'Quá hạn', value: tasksOverdue.length, fill: VIETTEL_RED },
-        { name: 'Đang thực hiện', value: tasksInProgress.length, fill: '#22c55e' },
-        { name: 'Hoàn thành', value: tasksCompleted.length, fill: '#64748b' },
+        { name: 'Quá hạn', value: statOverdue, fill: VIETTEL_RED },
+        { name: 'Đang thực hiện', value: statInProgress, fill: '#22c55e' },
+        { name: 'Hoàn thành', value: statCompleted, fill: '#64748b' },
         { name: 'Tạm dừng', value: tasksPaused.length, fill: '#8b5cf6' },
       ].filter((d) => d.value > 0),
-    [tasksOverdue.length, tasksInProgress.length, tasksCompleted.length, tasksPaused.length]
+    [statOverdue, statInProgress, statCompleted, tasksPaused.length]
   );
 
   // Biểu đồ trọng số: quan trọng (W >= 0.6) / không quan trọng (W < 0.6)
@@ -892,7 +903,7 @@ const App = () => {
                       <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center mb-2">
                         <Clock size={16} className="text-red-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksOverdue.length} <span className="text-sm font-medium text-slate-500">({pct(tasksOverdue.length)}%)</span></p>
+                      <p className="text-xl font-bold text-slate-900">{statOverdue} <span className="text-sm font-medium text-slate-500">({pct(statOverdue)}%)</span></p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Quá hạn</p>
                     </button>
                     <button
@@ -903,7 +914,7 @@ const App = () => {
                       <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mb-2">
                         <TrendingUp size={16} className="text-emerald-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksInProgress.length} <span className="text-sm font-medium text-slate-500">({pct(tasksInProgress.length)}%)</span></p>
+                      <p className="text-xl font-bold text-slate-900">{statInProgress} <span className="text-sm font-medium text-slate-500">({pct(statInProgress)}%)</span></p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Đang thực hiện</p>
                     </button>
                     <button
@@ -914,7 +925,7 @@ const App = () => {
                       <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center mb-2">
                         <ClipboardList size={16} className="text-slate-600" />
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksCompleted.length} <span className="text-sm font-medium text-slate-500">({pct(tasksCompleted.length)}%)</span></p>
+                      <p className="text-xl font-bold text-slate-900">{statCompleted} <span className="text-sm font-medium text-slate-500">({pct(statCompleted)}%)</span></p>
                       <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Hoàn thành</p>
                     </button>
                     <button
@@ -1612,6 +1623,9 @@ const App = () => {
                             </p>
                           </div>
                         </div>
+                        <p className="text-slate-500 text-sm mb-4">
+                          Dữ liệu import từ CSV (sheet Báo cáo CV cuối ngày) nằm ở tháng 01/2026 — chọn tháng đó trong ô &quot;Tháng&quot; phía trên để xem cột Đã báo cáo và Điểm tháng.
+                        </p>
 
                         <div className="overflow-x-auto">
                           <table className="min-w-full text-sm">
