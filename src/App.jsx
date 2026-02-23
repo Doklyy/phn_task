@@ -825,19 +825,19 @@ const App = () => {
             {/* Tab: Bảng điều khiển – gọn như mẫu Calendar */}
             {activeTab === 'dash' && (
               <section className="mb-3">
-                {/* Tab phụ: TỔNG QUAN | CÁ NHÂN | TRỌNG SỐ */}
+                {/* Tab phụ: TỔNG QUAN | CÁ NHÂN */}
                 <div className="flex gap-1 mb-3 border-b border-slate-200 pb-0">
-                  {['overview', 'personal', 'weight'].map((key) => (
+                  {['overview', 'personal'].map((key) => (
                     <button
                       key={key}
                       type="button"
                       onClick={() => setDashSubTab(key)}
                       className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
-                        dashSubTab === key ? 'bg-white border border-slate-200 border-b-0 -mb-px' : 'text-slate-500 hover:text-slate-700'
+                        (dashSubTab === key || (key === 'overview' && dashSubTab === 'weight')) ? 'bg-white border border-slate-200 border-b-0 -mb-px' : 'text-slate-500 hover:text-slate-700'
                       }`}
-                      style={dashSubTab === key ? { color: VIETTEL_RED } : undefined}
+                      style={(dashSubTab === key || (key === 'overview' && dashSubTab === 'weight')) ? { color: VIETTEL_RED } : undefined}
                     >
-                      {key === 'overview' ? 'Tổng quan' : key === 'personal' ? 'Cá nhân' : 'Trọng số'}
+                      {key === 'overview' ? 'Tổng quan' : 'Cá nhân'}
                     </button>
                   ))}
                 </div>
@@ -876,13 +876,13 @@ const App = () => {
                     </div>
                   </div>
 
-                  {/* Một dòng: Tổng số gọn, Trạng thái rộng, Tồn đọng */}
+                  {/* Một dòng: Tổng số + Trạng thái (gồm Tồn đọng) */}
                   <div className="flex flex-wrap items-stretch gap-0 rounded-xl border border-slate-200 overflow-hidden mb-4">
                     <div className="w-24 shrink-0 bg-slate-50 px-3 py-3 border-r border-slate-200 text-center">
                       <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tổng số</p>
                       <p className="text-xl font-bold text-slate-900 mt-0.5">{filteredTasks.length}</p>
                     </div>
-                    <div className="flex-1 min-w-[320px] px-6 py-5 border-r border-slate-200 bg-white">
+                    <div className="flex-1 min-w-[320px] px-6 py-5 bg-white">
                       <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Trạng thái</p>
                       <div className="flex flex-wrap gap-x-6 gap-y-2 text-base">
                         <button type="button" onClick={() => { setListFilter('overdue'); setActiveTab('tasks'); }} className="font-bold text-red-600 hover:underline text-lg">Quá hạn: {statOverdue}</button>
@@ -892,11 +892,9 @@ const App = () => {
                         <button type="button" onClick={() => { setListFilter('completed'); setActiveTab('tasks'); }} className="font-bold text-slate-600 hover:underline text-lg">Hoàn thành: {statCompleted}</button>
                         <span className="text-slate-300 text-lg">|</span>
                         <button type="button" onClick={() => { setListFilter('paused'); setActiveTab('tasks'); }} className="font-bold text-violet-600 hover:underline text-lg">Tạm dừng: {tasksPaused.length}</button>
+                        <span className="text-slate-300 text-lg">|</span>
+                        <span className="font-bold text-amber-700 text-lg">Tồn đọng: {backlogCount}</span>
                       </div>
-                    </div>
-                    <div className="w-20 shrink-0 px-3 py-3 bg-amber-50/80 text-center">
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tồn đọng</p>
-                      <p className="text-xl font-bold text-amber-700 mt-0.5">{backlogCount}</p>
                     </div>
                   </div>
 
@@ -988,44 +986,6 @@ const App = () => {
                     </div>
                   )}
 
-                  {/* Tab Trọng số: biểu đồ trọng số */}
-                  {dashSubTab === 'weight' && (
-                    <div className="mt-8 pt-6 border-t border-slate-100">
-                      <h3 className="text-sm font-bold text-slate-800 mb-4">Trọng số công việc (Quan trọng / Không quan trọng)</h3>
-                      <div className="flex flex-col sm:flex-row items-center gap-6">
-                        <ResponsiveContainer width={180} height={180}>
-                          <PieChart>
-                            <Pie
-                              data={weightChartData.length ? weightChartData : [{ name: 'Chưa có', value: 1, fill: '#94a3b8' }]}
-                              dataKey="value"
-                              nameKey="name"
-                              cx="50%"
-                              cy="50%"
-                              innerRadius={40}
-                              outerRadius={70}
-                            >
-                              {(weightChartData.length ? weightChartData : [{ fill: '#94a3b8' }]).map((entry, i) => (
-                                <Cell key={i} fill={entry.fill} />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                          </PieChart>
-                        </ResponsiveContainer>
-                        <div className="rounded-xl border border-slate-200 bg-slate-50/80 p-4">
-                          <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Trọng số</p>
-                          <ul className="space-y-2.5">
-                            {(weightChartData.length ? weightChartData : [{ name: 'Chưa có', value: 1, fill: '#94a3b8' }]).map((entry, i) => (
-                              <li key={i} className="flex items-center gap-3 py-2 px-3 rounded-lg bg-white border border-slate-100">
-                                <span className="w-4 h-4 rounded-full border border-slate-200 shrink-0" style={{ backgroundColor: entry.fill }} />
-                                <span className="text-sm font-medium text-slate-700 flex-1">{entry.name}</span>
-                                <span className="text-sm font-bold text-slate-900 tabular-nums">{entry.value}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </section>
             )}
