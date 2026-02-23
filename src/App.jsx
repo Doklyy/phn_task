@@ -2078,7 +2078,7 @@ const TaskDetailModal = ({
                         onClick={() => setReportChoice('progress')}
                         className="text-left p-4 rounded-xl border-2 border-slate-200 hover:border-emerald-400 hover:bg-emerald-50/50 transition-colors"
                       >
-                        <span className="font-bold text-slate-900 block mb-1">Báo cáo ngày / Báo cáo tiến độ</span>
+                        <span className="font-bold text-slate-900 block mb-1">Báo cáo tiến độ</span>
                         <span className="text-xs text-slate-500">Việc chưa xong — cập nhật tiến độ trong ngày (đang ở bước nào trong quy trình).</span>
                       </button>
                       <button
@@ -2096,7 +2096,7 @@ const TaskDetailModal = ({
                     <p className="mb-2">
                       <button type="button" onClick={() => { setReportChoice(null); setReportError(''); }} className="text-sm text-slate-500 hover:underline">← Chọn lại</button>
                     </p>
-                    <h5 className="text-sm font-bold text-slate-700 mb-2">Báo cáo ngày / Báo cáo tiến độ</h5>
+                    <h5 className="text-sm font-bold text-slate-700 mb-2">Báo cáo tiến độ</h5>
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
