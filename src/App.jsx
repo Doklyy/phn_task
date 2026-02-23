@@ -1686,7 +1686,7 @@ const App = () => {
 
             {/* Tab: Chấm công */}
             {activeTab === 'attendance' && (
-              <AttendancePanel currentUser={currentUser} role={role} />
+              <AttendancePanel currentUser={currentUser} role={role} canManageAttendance={currentUser?.canManageAttendance} />
             )}
 
             {/* Tab: Xếp hạng */}
