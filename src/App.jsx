@@ -637,12 +637,20 @@ const App = () => {
             active={activeTab === 'tasks'}
             onClick={() => setActiveTab('tasks')}
           />
-          {role !== 'staff' && (
+{role !== 'staff' && (
+              <SidebarLink
+                icon={<Users size={20} />}
+                label="Nhân sự"
+                active={activeTab === 'users'}
+                onClick={() => setActiveTab('users')}
+              />
+            )}
+          {role === 'admin' && (
             <SidebarLink
-              icon={<Users size={20} />}
-              label="Nhân sự"
-              active={activeTab === 'users'}
-              onClick={() => setActiveTab('users')}
+              icon={<FileText size={20} />}
+              label="Báo cáo"
+              active={activeTab === 'reports'}
+              onClick={() => setActiveTab('reports')}
             />
           )}
           <SidebarLink
@@ -1449,6 +1457,61 @@ const App = () => {
               </section>
             )}
 
+            {/* Tab: Báo cáo – chỉ Admin, xem tất cả báo cáo của mọi người */}
+            {activeTab === 'reports' && role === 'admin' && (
+              <section className="bg-white border border-slate-200 rounded-2xl p-6">
+                <h2 className="text-xl font-bold text-slate-900 mb-4">Tất cả báo cáo gần đây</h2>
+                <div className="mb-4">
+                  <input
+                    type="text"
+                    placeholder="Lọc theo tên người báo cáo..."
+                    value={reportFilterName}
+                    onChange={(e) => setReportFilterName(e.target.value)}
+                    className="w-full max-w-md border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+                  />
+                </div>
+                {allReportsLoading ? (
+                  <p className="text-slate-500 text-sm">Đang tải danh sách báo cáo...</p>
+                ) : (() => {
+                  const filtered = reportFilterName.trim()
+                    ? allReportsList.filter((r) => (r.userName || '').toLowerCase().includes(reportFilterName.trim().toLowerCase()))
+                    : allReportsList;
+                  return filtered.length === 0 ? (
+                    <p className="text-slate-400 text-sm">{reportFilterName.trim() ? 'Không có báo cáo nào trùng với tên đã nhập.' : 'Chưa có báo cáo nào.'}</p>
+                  ) : (
+                    <ul className="space-y-2 border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
+                      {filtered.map((r) => (
+                        <li key={r.id} className="flex flex-wrap items-start gap-2 p-3 bg-slate-50/50 hover:bg-slate-50">
+                          <span className="text-[11px] font-semibold text-slate-500 shrink-0">{r.date}</span>
+                          <span className="text-xs font-medium text-slate-700">{r.userName || '—'}</span>
+                          <span className="text-xs text-slate-500">· {r.taskTitle || 'Nhiệm vụ'}</span>
+                          <p className="w-full text-sm text-slate-700 mt-0.5">{r.result}</p>
+                          {r.attachmentPath && (() => {
+                            const paths = String(r.attachmentPath).split('|').filter(Boolean);
+                            return paths.length > 0 ? (
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {paths.map((path, idx) => (
+                                  <button
+                                    key={idx}
+                                    type="button"
+                                    onClick={() => downloadAttachment(path).catch((e) => alert(e?.message || 'Tải file thất bại'))}
+                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20 transition-colors"
+                                  >
+                                    <Download size={14} />
+                                    {paths.length > 1 ? `Tải file ${idx + 1}` : 'Tải file đính kèm'}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null;
+                          })()}
+                        </li>
+                      ))}
+                    </ul>
+                  );
+                })()}
+              </section>
+            )}
+
             {/* Tab: Chấm công */}
             {activeTab === 'attendance' && (
               <AttendancePanel currentUser={currentUser} role={role} canManageAttendance={currentUser?.canManageAttendance} />
@@ -1541,15 +1604,23 @@ const App = () => {
                       </div>
                       <p className="text-[11px] text-slate-500 mb-1">W: {r.weight ?? '—'}</p>
                       <p className="text-slate-700 text-sm whitespace-pre-wrap">{r.result}</p>
-                      {r.attachmentPath && (
-                        <button
-                          type="button"
-                          onClick={() => downloadAttachment(r.attachmentPath).catch((e) => alert(e?.message || 'Tải file thất bại'))}
-                          className="text-xs font-medium text-[#D4384E] hover:underline mt-1 inline-block"
-                        >
-                          Tải file đính kèm
-                        </button>
-                      )}
+                      {r.attachmentPath && (() => {
+                        const paths = String(r.attachmentPath).split('|').filter(Boolean);
+                        return paths.length > 0 ? (
+                          <div className="flex flex-wrap gap-2 mt-1">
+                            {paths.map((path, idx) => (
+                              <button
+                                key={idx}
+                                type="button"
+                                onClick={() => downloadAttachment(path).catch((e) => alert(e?.message || 'Tải file thất bại'))}
+                                className="text-xs font-medium text-[#D4384E] hover:underline"
+                              >
+                                {paths.length > 1 ? `Tải file ${idx + 1}` : 'Tải file đính kèm'}
+                              </button>
+                            ))}
+                          </div>
+                        ) : null;
+                      })()}
                     </li>
                   ))}
                 </ul>
@@ -1585,7 +1656,7 @@ const TaskDetailModal = ({
   const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
   const [reportResult, setReportResult] = useState('');
   const [reportWeight, setReportWeight] = useState(task.weight != null ? String(task.weight) : '0.5');
-  const [reportAttachmentPath, setReportAttachmentPath] = useState('');
+  const [reportAttachmentPaths, setReportAttachmentPaths] = useState([]);
   const [reportFileUploading, setReportFileUploading] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
   const [reportError, setReportError] = useState('');
@@ -1606,7 +1677,7 @@ const TaskDetailModal = ({
     setReportDate(new Date().toISOString().slice(0, 10));
     setReportResult('');
     setReportWeight(task?.weight != null ? String(task.weight) : '0.5');
-    setReportAttachmentPath('');
+    setReportAttachmentPaths([]);
     setReportError('');
   }, [task?.id, task?.weight]);
   const toDatetimeLocal = (v) => {
@@ -1730,11 +1801,12 @@ const TaskDetailModal = ({
                           reportDate,
                           result: reportResult.trim(),
                           weight: reportWeight ? Number(reportWeight) : undefined,
-                          attachmentPath: reportAttachmentPath || undefined,
+                          attachmentPath: reportAttachmentPaths.length ? reportAttachmentPaths.join('|') : undefined,
                         })
                           .then(() => {
                             setReportSubmitting(false);
                             setReportResult('');
+                            setReportAttachmentPaths([]);
                             setReportChoice(null);
                           })
                           .catch((err) => {
@@ -1757,17 +1829,38 @@ const TaskDetailModal = ({
                         <input type="number" min={0} max={1} step={0.1} value={reportWeight} onChange={(e) => setReportWeight(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm w-24" />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm (tùy chọn)</label>
-                        <input type="file" id="report-day-file" className="hidden" onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          setReportFileUploading(true);
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm (tùy chọn, nhiều file)</label>
+                        <input type="file" id="report-day-file" className="hidden" multiple onChange={async (e) => {
+                          const files = e.target.files;
+                          if (!files?.length) return;
                           setReportError('');
-                          uploadFile(file).then((path) => setReportAttachmentPath(path)).catch(() => setReportError('Tải file lên thất bại.')).finally(() => { setReportFileUploading(false); e.target.value = ''; });
+                          setReportFileUploading(true);
+                          const newPaths = [];
+                          for (let i = 0; i < files.length; i++) {
+                            try {
+                              const path = await uploadFile(files[i]);
+                              if (path) newPaths.push(path);
+                            } catch {
+                              setReportError('Một hoặc nhiều file tải lên thất bại.');
+                            }
+                          }
+                          setReportAttachmentPaths((prev) => [...prev, ...newPaths]);
+                          setReportFileUploading(false);
+                          e.target.value = '';
                         }} />
                         <label htmlFor="report-day-file" className={`flex items-center justify-center w-full py-2 border border-slate-200 border-dashed rounded-lg text-sm font-medium cursor-pointer ${reportFileUploading ? 'opacity-60 pointer-events-none bg-slate-50' : 'hover:border-[#D4384E]/50 hover:bg-slate-50 text-slate-500'}`}>
-                          {reportFileUploading ? 'Đang tải file...' : reportAttachmentPath ? `Đã chọn file ✓` : 'Chọn file tải lên'}
+                          {reportFileUploading ? 'Đang tải file...' : reportAttachmentPaths.length ? `Đã chọn ${reportAttachmentPaths.length} file ✓` : 'Chọn file tải lên (có thể chọn nhiều)'}
                         </label>
+                        {reportAttachmentPaths.length > 0 && (
+                          <ul className="mt-2 space-y-1">
+                            {reportAttachmentPaths.map((p, i) => (
+                              <li key={i} className="flex items-center justify-between text-xs text-slate-600 bg-slate-50 rounded px-2 py-1">
+                                <span className="truncate flex-1">{p.replace(/^.*[/\\]/, '')}</span>
+                                <button type="button" onClick={() => setReportAttachmentPaths((prev) => prev.filter((_, j) => j !== i))} className="text-red-500 hover:underline ml-2 shrink-0">Xóa</button>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </div>
                       {reportError && <p className="text-red-600 text-sm">{reportError}</p>}
                       <button type="submit" disabled={reportSubmitting} className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50">
