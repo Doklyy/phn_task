@@ -843,11 +843,13 @@ const App = () => {
                 </div>
 
                 <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                  {/* Hàng 1: Tổng số nhiệm vụ lên trên cùng + bộ lọc kỳ */}
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                    <div>
+                    <div className="flex items-baseline gap-3 flex-wrap">
                       <h2 className="text-xl font-bold text-slate-900">Tổng quan công việc</h2>
+                      <span className="text-3xl font-black text-slate-900">{filteredTasks.length}</span>
+                      <span className="text-sm font-medium text-slate-500">nhiệm vụ</span>
                     </div>
-                    {/* Bộ lọc dạng pill: THÁNG | QUÝ | NĂM */}
                     <div className="flex items-center gap-2">
                       {['month', 'quarter', 'year'].map((type) => (
                         <button
@@ -874,82 +876,37 @@ const App = () => {
                     </div>
                   </div>
 
-                  {/* Thẻ chỉ số: tỉ lệ % + số (tiết kiệm diện tích, chuẩn: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng) */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
-                    <button
-                      type="button"
-                      onClick={() => { setListFilter('overdue'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-red-50 rounded-xl p-3 text-left transition-colors group border border-transparent hover:border-red-100"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center mb-2">
-                        <Clock size={16} className="text-red-600" />
+                  {/* Một dòng, 3 khu vực rõ rệt: (1) Tổng số (2) Trạng thái (3) Tồn đọng */}
+                  <div className="flex flex-wrap items-stretch gap-0 rounded-xl border border-slate-200 overflow-hidden mb-4">
+                    <div className="flex-1 min-w-[120px] bg-slate-50 px-4 py-3 border-r border-slate-200">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">(1) Tổng số nhiệm vụ</p>
+                      <p className="text-2xl font-bold text-slate-900 mt-0.5">{filteredTasks.length}</p>
+                    </div>
+                    <div className="flex-1 min-w-[200px] px-4 py-3 border-r border-slate-200 bg-white">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">(2) Trạng thái</p>
+                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                        <button type="button" onClick={() => { setListFilter('overdue'); setActiveTab('tasks'); }} className="font-semibold text-red-600 hover:underline">Quá hạn: {statOverdue}</button>
+                        <span className="text-slate-300">|</span>
+                        <button type="button" onClick={() => { setListFilter('in_progress'); setActiveTab('tasks'); }} className="font-semibold text-emerald-600 hover:underline">Đang TH: {statInProgress}</button>
+                        <span className="text-slate-300">|</span>
+                        <button type="button" onClick={() => { setListFilter('completed'); setActiveTab('tasks'); }} className="font-semibold text-slate-600 hover:underline">Hoàn thành: {statCompleted}</button>
+                        <span className="text-slate-300">|</span>
+                        <button type="button" onClick={() => { setListFilter('paused'); setActiveTab('tasks'); }} className="font-semibold text-violet-600 hover:underline">Tạm dừng: {tasksPaused.length}</button>
                       </div>
-                      <p className="text-xl font-bold text-slate-900">{statOverdue} <span className="text-sm font-medium text-slate-500">({pct(statOverdue)}%)</span></p>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Quá hạn</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setListFilter('in_progress'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-emerald-50 rounded-xl p-3 text-left transition-colors group border border-transparent hover:border-emerald-100"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center mb-2">
-                        <TrendingUp size={16} className="text-emerald-600" />
-                      </div>
-                      <p className="text-xl font-bold text-slate-900">{statInProgress} <span className="text-sm font-medium text-slate-500">({pct(statInProgress)}%)</span></p>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Đang thực hiện</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setListFilter('completed'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-slate-100 rounded-xl p-3 text-left transition-colors group border border-transparent hover:border-slate-200"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-slate-200 flex items-center justify-center mb-2">
-                        <ClipboardList size={16} className="text-slate-600" />
-                      </div>
-                      <p className="text-xl font-bold text-slate-900">{statCompleted} <span className="text-sm font-medium text-slate-500">({pct(statCompleted)}%)</span></p>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Hoàn thành</p>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setListFilter('paused'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-violet-50 rounded-xl p-3 text-left transition-colors group border border-transparent hover:border-violet-100"
-                    >
-                      <div className="w-8 h-8 rounded-lg bg-violet-100 flex items-center justify-center mb-2">
-                        <Pause size={16} className="text-violet-600" />
-                      </div>
-                      <p className="text-xl font-bold text-slate-900">{tasksPaused.length} <span className="text-sm font-medium text-slate-500">({pct(tasksPaused.length)}%)</span></p>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Tạm dừng</p>
-                    </button>
-                    <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                      <div className="w-8 h-8 rounded-lg bg-amber-100 flex items-center justify-center mb-2">
-                        <FileText size={16} className="text-amber-600" />
-                      </div>
-                      <p className="text-xl font-bold text-slate-900">{backlogCount} <span className="text-sm font-medium text-slate-500">({pct(backlogCount)}%)</span></p>
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mt-0.5">Tồn đọng</p>
+                    </div>
+                    <div className="min-w-[100px] px-4 py-3 bg-amber-50/80">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">(3) Tồn đọng</p>
+                      <p className="text-2xl font-bold text-amber-700 mt-0.5">{backlogCount}</p>
                     </div>
                   </div>
 
-                  {/* Chuyên cần, Chất lượng, Tất cả nhiệm vụ */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Dashboard chuyên cần</p>
-                      <p className="text-2xl font-bold text-amber-600">{attendanceScore}%</p>
-                      <p className="text-slate-500 text-xs mt-0.5">Tỉ lệ báo cáo đúng quy định</p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Chất lượng công việc</p>
-                      <p className="text-2xl font-bold text-emerald-600">{completionRatePersonal}%</p>
-                      <p className="text-slate-500 text-xs mt-0.5">Hoàn thành cá nhân (kỳ)</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => { setListFilter('all'); setActiveTab('tasks'); }}
-                      className="bg-slate-50 hover:bg-slate-100 rounded-xl p-4 text-left border border-slate-200 hover:border-slate-300 transition-colors"
-                    >
-                      <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Tất cả nhiệm vụ</p>
-                      <p className="text-2xl font-bold text-slate-900">{filteredTasks.length}</p>
-                      <p className="text-slate-500 text-xs mt-0.5">Xem danh sách →</p>
-                    </button>
+                  {/* Một dòng: Chuyên cần · Chất lượng · Tất cả nhiệm vụ (tiết kiệm diện tích) */}
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 py-2 px-3 rounded-lg bg-slate-50/80 border border-slate-100 text-sm mb-4">
+                    <span className="font-medium text-slate-700">Chuyên cần: <strong className="text-amber-600">{attendanceScore}%</strong></span>
+                    <span className="text-slate-300">·</span>
+                    <span className="font-medium text-slate-700">Chất lượng: <strong className="text-emerald-600">{completionRatePersonal}%</strong></span>
+                    <span className="text-slate-300">·</span>
+                    <button type="button" onClick={() => { setListFilter('all'); setActiveTab('tasks'); }} className="font-medium text-[#D4384E] hover:underline">Tất cả nhiệm vụ: {filteredTasks.length} →</button>
                   </div>
 
                   {/* Biểu đồ tròn phân bố + Biểu đồ đường (bảng Phân bổ % đã bỏ, dùng thẻ chỉ số phía trên) */}
