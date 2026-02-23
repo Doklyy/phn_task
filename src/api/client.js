@@ -103,7 +103,7 @@ export async function uploadFile(file) {
 
 /**
  * URL để mở/tải file đính kèm (báo cáo).
- * Nếu path là URL đầy đủ (http...) thì dùng luôn; không thì ghép với backend: GET /api/upload/files/{path}.
+ * Dùng query param path: GET /api/upload/file?path=... để tránh lỗi 400 khi path chứa /
  */
 export function getUploadedFileUrl(path) {
   if (!path) return '';
@@ -111,5 +111,6 @@ export function getUploadedFileUrl(path) {
   if (s.startsWith('http://') || s.startsWith('https://')) return s;
   if (!BASE) return '';
   const p = s.replace(/^\//, '');
-  return `${BASE.replace(/\/$/, '')}/upload/files/${encodeURIComponent(p)}`;
+  const baseUrl = BASE.replace(/\/$/, '');
+  return `${baseUrl}/upload/file?path=${encodeURIComponent(p)}`;
 }
