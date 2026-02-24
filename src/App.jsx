@@ -650,29 +650,29 @@ const App = () => {
         }}
       />
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* Header: logo trái, search giữa, chuông + nút + avatar phải */}
-        <header className="h-16 bg-white border-b border-slate-200 flex items-center gap-6 px-6 shrink-0">
+        {/* Header: logo trái, search giữa, chuông + nút + avatar phải — bố cục gọn, thuận mắt */}
+        <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center gap-4 md:gap-6 px-4 md:px-6 shrink-0">
           <button
             type="button"
             onClick={() => setActiveTab('dash')}
-            className="flex items-center gap-2 shrink-0 cursor-pointer bg-transparent border-0 p-0"
+            className="flex items-center gap-2.5 shrink-0 cursor-pointer bg-transparent border-0 p-0 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-colors"
           >
-            <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs" style={{ backgroundColor: VIETTEL_RED }}>P</div>
-            <span className="font-semibold text-slate-800 hidden sm:inline">Quản lý công việc</span>
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm" style={{ backgroundColor: VIETTEL_RED }}>P</div>
+            <span className="font-semibold text-slate-800 hidden sm:inline text-[15px]">Quản lý công việc</span>
           </button>
-          <div className="flex-1 max-w-xl min-w-0">
+          <div className="flex-1 min-w-0 max-w-md">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0" size={18} />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0 pointer-events-none" size={18} />
               <input
                 type="text"
                 placeholder="Tìm kiếm công việc..."
-                className="w-full pl-10 pr-4 py-2 bg-slate-100 border-0 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D4384E]/25 focus:bg-white"
+                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E]/50 focus:bg-white transition-colors"
                 value={taskSearch}
                 onChange={(e) => setTaskSearch(e.target.value)}
               />
             </div>
           </div>
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-2 md:gap-3 shrink-0">
             <div className="relative">
               <button
                 type="button"
@@ -751,38 +751,38 @@ const App = () => {
                 <button
                   type="button"
                   onClick={() => setActiveTab('attendance')}
-                  className="flex items-center gap-2 text-white px-4 py-2 rounded-xl text-xs font-bold transition-colors hover:opacity-90"
+                  className="flex items-center gap-2 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-95 active:scale-[0.98] shadow-sm"
                   style={{ backgroundColor: VIETTEL_RED }}
                 >
-                  <Clock size={16} /> Chấm công
+                  <Clock size={18} /> Chấm công
                 </button>
               )}
               {role !== 'staff' && (
                 <button
                   type="button"
                   onClick={() => setActiveTab('assign')}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors"
                 >
-                  <Plus size={14} /> Giao việc
+                  <Plus size={16} /> Giao việc
                 </button>
               )}
             </div>
-            {/* User menu: click để mở panel dọc giống Facebook */}
+            {/* User menu */}
             <div className="relative shrink-0">
               <button
                 type="button"
                 onClick={() => setUserCardOpen((o) => !o)}
-                className="flex items-center gap-2 pl-2 pr-1.5 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 transition-colors"
+                className="flex items-center gap-2 pl-2.5 pr-2 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors"
                 aria-label="Mở menu tài khoản"
               >
-                <div className="w-8 h-8 rounded-full bg-slate-300 flex items-center justify-center text-slate-600 font-semibold text-sm">
-                  {currentUser.name.charAt(0)}
+                <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-semibold text-sm">
+                  {(currentUser.name || 'U').charAt(0).toUpperCase()}
                 </div>
-                <div className="hidden sm:flex flex-col items-start">
-                  <span className="text-xs font-semibold text-slate-800 leading-tight max-w-[140px] truncate">
-                    {currentUser.name}
+                <div className="hidden sm:flex flex-col items-start min-w-0">
+                  <span className="text-sm font-semibold text-slate-800 leading-tight max-w-[160px] truncate">
+                    {currentUser.name || currentUser.username || 'Tài khoản'}
                   </span>
-                  <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wide leading-tight">
+                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide leading-tight">
                     {role === 'admin' ? 'ADMIN' : role === 'leader' ? 'LEADER' : 'STAFF'}
                   </span>
                 </div>

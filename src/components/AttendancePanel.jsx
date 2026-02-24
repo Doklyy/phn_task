@@ -96,6 +96,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
   const [attendanceCodes, setAttendanceCodes] = useState([]);
   const [rowDrafts, setRowDrafts] = useState({});
   const [savingRecordId, setSavingRecordId] = useState(null);
+  const [settingAllFullDay, setSettingAllFullDay] = useState(false);
 
   const [leaveSubTab, setLeaveSubTab] = useState('my');
   const [myLeaves, setMyLeaves] = useState([]);
@@ -164,6 +165,9 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       .catch(() => setAttendanceCodes([]));
   }, [canManage]);
 
+  /** Mặc định: không có bản ghi thì coi như "Làm cả ngày" (L) 08:00–17:00 */
+  const DEFAULT_FULL_DAY = { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: 'L' };
+
   useEffect(() => {
     if (!canManage || personnel.length === 0) return;
     setRowDrafts((prev) => {
@@ -171,11 +175,15 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       personnel.forEach((emp) => {
         const id = String(emp.id ?? emp.userId);
         const rec = todayRecordsByUser[id];
-        next[id] = {
-          checkInAt: rec?.checkInAt ? toTimeInput(rec.checkInAt) : '',
-          checkOutAt: rec?.checkOutAt ? toTimeInput(rec.checkOutAt) : '',
-          attendanceCode: (rec && rec.attendanceCode) || 'L',
-        };
+        if (rec) {
+          next[id] = {
+            checkInAt: rec.checkInAt ? toTimeInput(rec.checkInAt) : DEFAULT_FULL_DAY.checkInAt,
+            checkOutAt: rec.checkOutAt ? toTimeInput(rec.checkOutAt) : DEFAULT_FULL_DAY.checkOutAt,
+            attendanceCode: rec.attendanceCode || 'L',
+          };
+        } else {
+          next[id] = { ...DEFAULT_FULL_DAY };
+        }
       });
       return next;
     });
@@ -307,6 +315,46 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       if (!rec?.checkInAt) await handleClockInFor(Number(id));
     }
     setSelectedIds([]);
+  };
+
+  /** Đặt tất cả nhân viên chưa có bản ghi hôm nay thành "Làm cả ngày" (L) 08:00–17:00; đã có bản ghi giữ nguyên. Sau khi lưu, mỗi người sẽ thấy trạng thái/điểm của mình. */
+  const handleSetAllFullDay = async () => {
+    if (!uid || personnel.length === 0) return;
+    setSettingAllFullDay(true);
+    try {
+      const toCreate = personnel.filter((p) => {
+        const id = String(p.id ?? p.userId);
+        return !todayRecordsByUser[id];
+      });
+      for (const emp of toCreate) {
+        const empId = Number(emp.id ?? emp.userId);
+        try {
+          await createAttendanceRecord(uid, empId, todayStr, {
+            checkInAt: '08:00',
+            checkOutAt: '17:00',
+            attendanceCode: 'L',
+          });
+        } catch (e) {
+          console.warn('createAttendanceRecord', empId, e);
+        }
+      }
+      const byUser = {};
+      await Promise.all(
+        personnel.map(async (u) => {
+          const userId = u.id ?? u.userId;
+          if (!userId) return;
+          try {
+            const recs = await getAttendanceRecords(uid, userId, todayStr, todayStr);
+            byUser[String(userId)] = recs?.[0] || null;
+          } catch {
+            byUser[String(userId)] = null;
+          }
+        })
+      );
+      setTodayRecordsByUser(byUser);
+    } finally {
+      setSettingAllFullDay(false);
+    }
   };
 
   const handleSelectAll = (e) => {
@@ -472,17 +520,28 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
               </div>
-              {selectedIds.length > 0 && (
+              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <button
                   type="button"
-                  onClick={handleBatchCheckIn}
-                  className="flex items-center px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                  style={{ backgroundColor: VIETTEL_RED }}
+                  onClick={handleSetAllFullDay}
+                  disabled={settingAllFullDay || personnel.length === 0}
+                  className="flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
-                  <CheckSquare className="w-4 h-4 mr-2" />
-                  Chấm công nhanh ({selectedIds.length})
+                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                  {settingAllFullDay ? 'Đang đặt...' : 'Đặt tất cả: Làm cả ngày'}
                 </button>
-              )}
+                {selectedIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={handleBatchCheckIn}
+                    className="flex items-center px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                    style={{ backgroundColor: VIETTEL_RED }}
+                  >
+                    <CheckSquare className="w-4 h-4 mr-2" />
+                    Chấm công nhanh ({selectedIds.length})
+                  </button>
+                )}
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-600">
@@ -616,13 +675,14 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                 </tbody>
               </table>
             </div>
-            <div className="p-4 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500 bg-slate-50">
-              <span>Tổng: {filteredPersonnel.length} nhân viên</span>
-              <div className="flex items-center gap-4">
+            <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-slate-500 bg-slate-50">
+              <div className="flex items-center gap-4 flex-wrap">
+                <span>Tổng: {filteredPersonnel.length} nhân viên</span>
                 <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-green-500 mr-1" /> Đúng giờ</span>
                 <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-yellow-500 mr-1" /> Đi muộn</span>
                 <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-gray-400 mr-1" /> Chưa chấm</span>
               </div>
+              <p className="text-slate-400 italic">Trạng thái và điểm chấm công được lưu theo từng người; mỗi nhân viên xem được dữ liệu của mình.</p>
             </div>
           </>
         ) : (
