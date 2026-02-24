@@ -137,6 +137,7 @@ const App = () => {
   const [addUserError, setAddUserError] = useState('');
   const mainContentScrollRef = useRef(null);
   const personnelScrollRestoreRef = useRef(null);
+  const [taskSearch, setTaskSearch] = useState('');
 
   // Tích hợp BE: load tasks khi có user
   useEffect(() => {
@@ -380,10 +381,20 @@ const App = () => {
   // Lọc Task theo quyền (BE đã trả về đúng phạm vi; FE lọc thêm nếu cần)
   const filteredTasks = useMemo(() => {
     if (!currentUser?.id) return [];
-    if (role === 'admin') return tasks;
-    if (role === 'leader') return tasks.filter((t) => t.leaderId === currentUser.id || t.assigneeId === currentUser.id);
-    return tasks.filter((t) => t.assigneeId === currentUser.id);
-  }, [tasks, role, currentUser?.id]);
+    let base;
+    if (role === 'admin') base = tasks;
+    else if (role === 'leader') base = tasks.filter((t) => t.leaderId === currentUser.id || t.assigneeId === currentUser.id);
+    else base = tasks.filter((t) => t.assigneeId === currentUser.id);
+
+    const q = taskSearch.trim().toLowerCase();
+    if (!q) return base;
+    return base.filter((t) => {
+      const title = (t.title || '').toLowerCase();
+      const content = (t.content || '').toLowerCase();
+      const objective = (t.objective || '').toLowerCase();
+      return title.includes(q) || content.includes(q) || objective.includes(q);
+    });
+  }, [tasks, role, currentUser?.id, taskSearch]);
 
   // Phân nhóm theo trạng thái: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng (chuẩn hóa nhãn)
   // Quá hạn: chưa xong, quá hạn (loại đợi duyệt để tránh báo đỏ khi đã gửi hoàn thành)
@@ -628,7 +639,7 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       <ReportReminderOverlay
         userId={currentUser?.id}
         refetchTrigger={reminderRefetchTrigger}
@@ -637,34 +648,6 @@ const App = () => {
           setTimeout(() => mainContentScrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }}
       />
-      {/* Sidebar gọn, xám nhạt – giống mẫu Calendar */}
-      <aside className="w-56 bg-white border-r border-slate-200 flex flex-col z-20 shrink-0">
-        <div className="p-5 flex items-center gap-3 border-b border-slate-100">
-          <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shrink-0" style={{ backgroundColor: VIETTEL_RED }}>
-            P
-          </div>
-          <span className="font-semibold text-slate-800 text-sm">Phòng hàng nặng</span>
-        </div>
-
-        <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
-          <SidebarLink
-            icon={<ClipboardList size={20} />}
-            label="Nhiệm vụ"
-            active={activeTab === 'tasks'}
-            onClick={() => setActiveTab('tasks')}
-          />
-          <SidebarLink
-            icon={<Star size={20} />}
-            label="Xếp hạng"
-            active={activeTab === 'wqt'}
-            onClick={() => setActiveTab('wqt')}
-          />
-        </nav>
-
-        {/* Footer sidebar bỏ trống (đã dời thông tin user + Đăng xuất lên header) */}
-        <div className="p-4 border-t border-slate-100" />
-      </aside>
-
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Header: logo trái, search giữa, chuông + nút + avatar phải */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center gap-6 px-6 shrink-0">
@@ -683,6 +666,8 @@ const App = () => {
                 type="text"
                 placeholder="Tìm kiếm công việc..."
                 className="w-full pl-10 pr-4 py-2 bg-slate-100 border-0 rounded-lg text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D4384E]/25 focus:bg-white"
+                value={taskSearch}
+                onChange={(e) => setTaskSearch(e.target.value)}
               />
             </div>
           </div>

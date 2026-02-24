@@ -164,7 +164,7 @@ export default function DashboardAttendanceMock({ currentUser }) {
     setLoading(true);
     setError('');
     Promise.all([
-      getAttendanceRecordsForMonth(uid, year, month, uid),
+      getAttendanceRecordsForMonth(uid, year, month),
       getMyReports({ from, to }),
     ])
       .then(([recs, reps]) => {
