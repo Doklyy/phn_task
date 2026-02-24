@@ -159,6 +159,34 @@ const App = () => {
   });
   const [adminAttendanceMap, setAdminAttendanceMap] = useState({});
   const [adminAttendanceLoading, setAdminAttendanceLoading] = useState(false);
+
+  // Danh sách tất cả báo cáo (Admin dùng cho tab Báo cáo + bảng chuyên cần)
+  const [allReportsList, setAllReportsList] = useState([]);
+  const [allReportsLoading, setAllReportsLoading] = useState(false);
+  const [reportFilterName, setReportFilterName] = useState('');
+  const [reportDateFilter, setReportDateFilter] = useState(''); // Ngày xem báo cáo (YYYY-MM-DD)
+  const [reportsSubTab, setReportsSubTab] = useState('today');
+  useEffect(() => {
+    const shouldLoad = (activeTab === 'reports' && role === 'admin')
+      || (activeTab === 'dash' && dashView === 'attendance' && role === 'admin');
+    if (!shouldLoad || !currentUser?.id) return;
+    setAllReportsLoading(true);
+    getAllReportsForAdmin(Number(currentUser.id) || currentUser.id)
+      .then((list) => {
+        setAllReportsList(list || []);
+        if (!reportDateFilter && list?.length > 0) {
+          const dates = [...new Set(
+            (list || [])
+              .map((r) => (r.date || r.reportDate || '').slice(0, 10))
+              .filter(Boolean),
+          )].sort((a, b) => b.localeCompare(a));
+          if (dates[0]) setReportDateFilter(dates[0]);
+        }
+      })
+      .catch(() => setAllReportsList([]))
+      .finally(() => setAllReportsLoading(false));
+  }, [activeTab, role, currentUser?.id, dashView, reportDateFilter]);
+
   const reportCountByUserId = useMemo(() => {
     const [y, m] = dashMonth.split('-').map(Number);
     if (!y || !m) return {};
@@ -426,27 +454,6 @@ const App = () => {
   useEffect(() => {
     getRanking().then((r) => setRanking(Array.isArray(r) ? r : [])).catch(() => setRanking([]));
   }, [currentUser?.id]);
-
-  const [allReportsList, setAllReportsList] = useState([]);
-  const [allReportsLoading, setAllReportsLoading] = useState(false);
-  const [reportFilterName, setReportFilterName] = useState('');
-  const [reportDateFilter, setReportDateFilter] = useState(''); // Ngày xem báo cáo (YYYY-MM-DD)
-  const [reportsSubTab, setReportsSubTab] = useState('today');
-  useEffect(() => {
-    const shouldLoad = (activeTab === 'reports' && role === 'admin') || (activeTab === 'dash' && dashView === 'attendance' && role === 'admin');
-    if (!shouldLoad || !currentUser?.id) return;
-    setAllReportsLoading(true);
-    getAllReportsForAdmin(Number(currentUser.id) || currentUser.id)
-      .then((list) => {
-        setAllReportsList(list || []);
-        if (!reportDateFilter && list?.length > 0) {
-          const dates = [...new Set((list || []).map((r) => (r.date || r.reportDate || '').slice(0, 10)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
-          if (dates[0]) setReportDateFilter(dates[0]);
-        }
-      })
-      .catch(() => setAllReportsList([]))
-      .finally(() => setAllReportsLoading(false));
-  }, [activeTab, role, currentUser?.id, dashView]);
 
   const openUserReports = useCallback(async (user) => {
     if (!user?.id && !user?.userId) return;
