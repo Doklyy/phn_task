@@ -7,6 +7,7 @@ const pad = (n) => String(n).padStart(2, '0');
 
 function buildDayInfo({ year, month, records, reports }) {
   const today = new Date();
+  const todayIso = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
   const daysInMonth = new Date(year, month, 0).getDate();
   const list = [];
 
@@ -68,12 +69,15 @@ function buildDayInfo({ year, month, records, reports }) {
         : '—';
 
     if (!rec && !hasReport) {
+      const isToday = iso === todayIso;
       list.push({
         day,
         date: dateStr,
         type: 'danger',
-        title: 'Thiếu chấm công',
-        details: ['Chưa có bản ghi chấm công', 'Chưa có báo cáo tiến độ ngày'],
+        title: isToday ? 'Chưa chấm công / Chưa báo cáo ngày' : 'Thiếu chấm công',
+        details: isToday
+          ? ['Chưa có bản ghi chấm công hôm nay', 'Chưa có báo cáo tiến độ ngày', '→ Bấm "Chấm công" trên thanh menu để vào ca; nộp báo cáo trong chi tiết từng nhiệm vụ.']
+          : ['Chưa có bản ghi chấm công', 'Chưa có báo cáo tiến độ ngày'],
       });
       continue;
     }
@@ -164,8 +168,8 @@ export default function DashboardAttendanceMock({ currentUser }) {
     setLoading(true);
     setError('');
     Promise.all([
-      getAttendanceRecordsForMonth(uid, year, month),
-      getMyReports({ from, to }),
+      getAttendanceRecordsForMonth(uid, year, month, null),
+      getMyReports({ userId: uid, from, to }),
     ])
       .then(([recs, reps]) => {
         setRecords(Array.isArray(recs) ? recs : []);

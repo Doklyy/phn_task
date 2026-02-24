@@ -650,27 +650,41 @@ const App = () => {
         }}
       />
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
-        {/* Header: logo trái, search giữa, chuông + nút + avatar phải — bố cục gọn, thuận mắt */}
-        <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center gap-4 md:gap-6 px-4 md:px-6 shrink-0">
-          <button
-            type="button"
-            onClick={() => setActiveTab('dash')}
-            className="flex items-center gap-2.5 shrink-0 cursor-pointer bg-transparent border-0 p-0 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-colors"
-          >
-            <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm" style={{ backgroundColor: VIETTEL_RED }}>P</div>
-            <span className="font-semibold text-slate-800 hidden sm:inline text-[15px]">Quản lý công việc</span>
-          </button>
-          <div className="flex-1 min-w-0 max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0 pointer-events-none" size={18} />
-              <input
-                type="text"
-                placeholder="Tìm kiếm công việc..."
-                className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E]/50 focus:bg-white transition-colors"
-                value={taskSearch}
-                onChange={(e) => setTaskSearch(e.target.value)}
-              />
+        {/* Header: logo + search trái, ngày giữa, chuông + nút + avatar phải — không để trống */}
+        <header className="h-14 md:h-16 bg-white border-b border-slate-200 flex items-center justify-between gap-3 px-4 md:px-6 shrink-0">
+          <div className="flex items-center gap-3 md:gap-4 min-w-0 flex-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab('dash')}
+              className="flex items-center gap-2.5 shrink-0 cursor-pointer bg-transparent border-0 p-0 rounded-lg hover:bg-slate-50 active:bg-slate-100 transition-colors"
+            >
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm" style={{ backgroundColor: VIETTEL_RED }}>P</div>
+              <span className="font-semibold text-slate-800 hidden sm:inline text-[15px]">Quản lý công việc</span>
+            </button>
+            {role === 'staff' && (
+              <button
+                type="button"
+                onClick={() => setActiveTab('add-task')}
+                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors shrink-0"
+              >
+                <Plus size={16} /> Thêm việc
+              </button>
+            )}
+            <div className="w-full max-w-xs md:max-w-md min-w-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0 pointer-events-none" size={18} />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm công việc..."
+                  className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E]/50 focus:bg-white transition-colors"
+                  value={taskSearch}
+                  onChange={(e) => setTaskSearch(e.target.value)}
+                />
+              </div>
             </div>
+          </div>
+          <div className="hidden md:flex flex-shrink-0 items-center text-sm text-slate-500 font-medium px-2 border-l border-slate-200">
+            {formatTodayLabel()}
           </div>
           <div className="flex items-center gap-2 md:gap-3 shrink-0">
             <div className="relative">
@@ -713,6 +727,26 @@ const App = () => {
                       )}
                     </div>
                     <div className="overflow-y-auto flex-1 min-h-0">
+                      {role === 'admin' && tasksPendingApproval.length > 0 && (
+                        <div className="px-4 py-3 border-b border-slate-200 bg-amber-50/80">
+                          <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt (theo dõi)</h3>
+                          <p className="text-xs text-slate-600 mb-2">
+                            Có {tasksPendingApproval.length} nhiệm vụ đang đợi Leader duyệt. Admin chỉ theo dõi.
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setBellOpen(false);
+                              setActiveTab('tasks');
+                              setListFilter('pending_approval');
+                              setTimeout(() => mainContentScrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                            }}
+                            className="text-xs font-semibold text-amber-700 hover:text-amber-800 underline"
+                          >
+                            Xem danh sách Đợi duyệt →
+                          </button>
+                        </div>
+                      )}
                       <ReportReminderBellBlock
                         userId={currentUser?.id}
                         onGoReport={() => {
@@ -1209,6 +1243,17 @@ const App = () => {
               </>
             )}
 
+            {/* Tab: Thêm việc (Staff – tự giao cho mình, không chọn người/nhóm) */}
+            {activeTab === 'add-task' && role === 'staff' && (
+              <AddTaskForSelfForm
+                currentUser={currentUser}
+                onCreated={(t) => {
+                  setTasks((prev) => [t, ...prev]);
+                  setActiveTab('tasks');
+                }}
+              />
+            )}
+
             {/* Tab: Giao việc mới (Admin / Leader) */}
             {activeTab === 'assign' && role !== 'staff' && (
               <AssignTaskForm
@@ -1569,37 +1614,56 @@ const App = () => {
                   const filtered = reportFilterName.trim()
                     ? allReportsList.filter((r) => (r.userName || '').toLowerCase().includes(reportFilterName.trim().toLowerCase()))
                     : allReportsList;
-                  return filtered.length === 0 ? (
-                    <p className="text-slate-400 text-sm">{reportFilterName.trim() ? 'Không có báo cáo nào trùng với tên đã nhập.' : 'Chưa có báo cáo nào.'}</p>
-                  ) : (
-                    <ul className="space-y-2 border border-slate-200 rounded-xl divide-y divide-slate-100 overflow-hidden">
-                      {filtered.map((r) => (
-                        <li key={r.id} className="flex flex-wrap items-start gap-2 p-3 bg-slate-50/50 hover:bg-slate-50">
-                          <span className="text-[11px] font-semibold text-slate-500 shrink-0">{r.date}</span>
-                          <span className="text-xs font-medium text-slate-700">{r.userName || '—'}</span>
-                          <span className="text-xs text-slate-500">· {r.taskTitle || 'Nhiệm vụ'}</span>
-                          <p className="w-full text-sm text-slate-700 mt-0.5">{r.result}</p>
-                          {r.attachmentPath && (() => {
-                            const paths = String(r.attachmentPath).split('|').filter(Boolean);
-                            return paths.length > 0 ? (
-                              <div className="flex flex-wrap gap-2 mt-1">
-                                {paths.map((path, idx) => (
-                                  <button
-                                    key={idx}
-                                    type="button"
-                                    onClick={() => downloadAttachment(path).catch((e) => alert(e?.message || 'Tải file thất bại'))}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20 transition-colors"
-                                  >
-                                    <Download size={14} />
-                                    {paths.length > 1 ? `Tải file ${idx + 1}` : 'Tải file đính kèm'}
-                                  </button>
-                                ))}
-                              </div>
-                            ) : null;
-                          })()}
-                        </li>
+                  if (filtered.length === 0) {
+                    return <p className="text-slate-400 text-sm">{reportFilterName.trim() ? 'Không có báo cáo nào trùng với tên đã nhập.' : 'Chưa có báo cáo nào.'}</p>;
+                  }
+                  const byDay = {};
+                  filtered.forEach((r) => {
+                    const d = (r.date || r.reportDate || '').slice(0, 10);
+                    if (!byDay[d]) byDay[d] = [];
+                    byDay[d].push(r);
+                  });
+                  const sortedDays = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
+                  return (
+                    <div className="space-y-6">
+                      {sortedDays.map((day) => (
+                        <div key={day} className="border border-slate-200 rounded-xl overflow-hidden">
+                          <div className="bg-slate-100 px-4 py-2.5 border-b border-slate-200">
+                            <span className="text-sm font-bold text-slate-800">
+                              Ngày {day.slice(8, 10)}/{day.slice(5, 7)}/{day.slice(0, 4)}
+                            </span>
+                            <span className="ml-2 text-xs text-slate-500">({byDay[day].length} báo cáo)</span>
+                          </div>
+                          <ul className="divide-y divide-slate-100">
+                            {byDay[day].map((r) => (
+                              <li key={r.id} className="flex flex-wrap items-start gap-2 p-4 bg-white hover:bg-slate-50/50">
+                                <span className="text-xs font-medium text-slate-700">{r.userName || '—'}</span>
+                                <span className="text-xs text-slate-500">· {r.taskTitle || 'Nhiệm vụ'}</span>
+                                <p className="w-full text-sm text-slate-700 mt-1">{r.result}</p>
+                                {r.attachmentPath && (() => {
+                                  const paths = String(r.attachmentPath).split('|').filter(Boolean);
+                                  return paths.length > 0 ? (
+                                    <div className="flex flex-wrap gap-2 mt-1">
+                                      {paths.map((path, idx) => (
+                                        <button
+                                          key={idx}
+                                          type="button"
+                                          onClick={() => downloadAttachment(path).catch((e) => alert(e?.message || 'Tải file thất bại'))}
+                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20 transition-colors"
+                                        >
+                                          <Download size={14} />
+                                          {paths.length > 1 ? `Tải file ${idx + 1}` : 'Tải file đính kèm'}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  ) : null;
+                                })()}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       ))}
-                    </ul>
+                    </div>
                   );
                 })()}
               </section>
@@ -1925,23 +1989,23 @@ const TaskDetailModal = ({
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm (tùy chọn, nhiều file)</label>
-                        <input type="file" id="report-day-file" className="hidden" multiple onChange={async (e) => {
+                        <input type="file" id="report-day-file" className="hidden" multiple accept="*/*" onChange={async (e) => {
                           const files = e.target.files;
                           if (!files?.length) return;
                           setReportError('');
                           setReportFileUploading(true);
-                          const newPaths = [];
-                          for (let i = 0; i < files.length; i++) {
-                            try {
-                              const path = await uploadFile(files[i]);
-                              if (path) newPaths.push(path);
-                            } catch {
-                              setReportError('Một hoặc nhiều file tải lên thất bại.');
-                            }
+                          try {
+                            const uploads = Array.from(files).map((file) => uploadFile(file));
+                            const results = await Promise.all(uploads);
+                            const newPaths = results.filter(Boolean);
+                            if (newPaths.length !== files.length) setReportError('Một hoặc nhiều file tải lên thất bại.');
+                            setReportAttachmentPaths((prev) => [...prev, ...newPaths]);
+                          } catch {
+                            setReportError('Tải lên thất bại. Kiểm tra kết nối và thử lại.');
+                          } finally {
+                            setReportFileUploading(false);
+                            e.target.value = '';
                           }
-                          setReportAttachmentPaths((prev) => [...prev, ...newPaths]);
-                          setReportFileUploading(false);
-                          e.target.value = '';
                         }} />
                         <label htmlFor="report-day-file" className={`flex items-center justify-center w-full py-2 border border-slate-200 border-dashed rounded-lg text-sm font-medium cursor-pointer ${reportFileUploading ? 'opacity-60 pointer-events-none bg-slate-50' : 'hover:border-[#D4384E]/50 hover:bg-slate-50 text-slate-500'}`}>
                           {reportFileUploading ? 'Đang tải file...' : reportAttachmentPaths.length ? `Đã chọn ${reportAttachmentPaths.length} file ✓` : 'Chọn file tải lên (có thể chọn nhiều)'}
@@ -2253,6 +2317,141 @@ const TaskDetailModal = ({
         </div>
       </div>
     </div>
+  );
+};
+
+/** Tab Thêm việc (Staff): form tạo nhiệm vụ cho chính mình – không chọn người thực hiện, không chọn nhóm. */
+const AddTaskForSelfForm = ({ currentUser, onCreated }) => {
+  const [title, setTitle] = useState('');
+  const [objective, setObjective] = useState('');
+  const [content, setContent] = useState('');
+  const [deadline, setDeadline] = useState('');
+  const [weight, setWeight] = useState(String(WEIGHT_LEVELS[2].value));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    if (!title.trim()) {
+      setError('Tiêu đề không được để trống.');
+      return;
+    }
+    if (!deadline) {
+      setError('Vui lòng chọn hạn chót.');
+      return;
+    }
+    const uid = Number(currentUser?.id) || currentUser?.id;
+    if (!uid) {
+      setError('Phiên đăng nhập không hợp lệ.');
+      return;
+    }
+    try {
+      setSaving(true);
+      const newTask = await createTask(
+        {
+          title: title.trim(),
+          objective: objective.trim(),
+          content: content.trim(),
+          deadline: deadline || null,
+          weight: weight ? Number(weight) : WEIGHT_LEVELS[2].value,
+          leaderId: uid,
+          assigneeId: uid,
+        },
+        uid,
+      );
+      onCreated(newTask);
+      setTitle('');
+      setObjective('');
+      setContent('');
+      setDeadline('');
+      setWeight(String(WEIGHT_LEVELS[2].value));
+    } catch (err) {
+      setError(err?.message || 'Không tạo được nhiệm vụ.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="bg-white border border-slate-200 rounded-2xl p-6">
+      <div className="mb-6">
+        <h2 className="text-2xl font-black text-slate-900">Thêm việc</h2>
+        <p className="text-slate-500 text-sm mt-0.5">
+          Tạo nhiệm vụ cho chính bạn. Bạn là người thực hiện; không cần chọn người hay nhóm.
+        </p>
+      </div>
+      <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+            Tiêu đề nhiệm vụ <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            placeholder="Ví dụ: Rà soát tài liệu dự án"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Mục tiêu</label>
+          <textarea
+            rows={2}
+            value={objective}
+            onChange={(e) => setObjective(e.target.value)}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            placeholder="Mục tiêu chính của nhiệm vụ..."
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nội dung chi tiết</label>
+          <textarea
+            rows={3}
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            placeholder="Mô tả cụ thể các bước, yêu cầu báo cáo..."
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+              Hạn chót <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="datetime-local"
+              value={deadline}
+              onChange={(e) => setDeadline(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số</label>
+            <select
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+            >
+              {WEIGHT_LEVELS.map((lvl) => (
+                <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-5 py-2.5 rounded-xl text-sm font-bold text-white disabled:opacity-60 hover:opacity-90"
+            style={{ backgroundColor: VIETTEL_RED }}
+          >
+            {saving ? 'Đang lưu...' : 'Thêm việc'}
+          </button>
+        </div>
+      </form>
+    </section>
   );
 };
 

@@ -37,17 +37,25 @@ export async function getReportsByUser(userId) {
 }
 
 /**
- * Lấy báo cáo của user trong khoảng ngày (để kiểm tra khóa: đã báo cáo ngày hôm trước chưa)
- * GET /reports?userId=...&from=...&to=...
+ * Lấy báo cáo của user trong khoảng ngày (để tab Chuyên cần, khóa tiếp nhận...).
+ * GET /reports?userId=... (bắt buộc); lọc from/to ở client nếu có.
  */
 export async function getMyReports(filters = {}) {
-  const params = new URLSearchParams();
-  if (filters.from) params.set('from', filters.from);
-  if (filters.to) params.set('to', filters.to);
-  const q = params.toString();
+  const userId = filters.userId ?? filters.user_id;
+  if (!isApiConfigured() || !userId) return [];
+  const params = new URLSearchParams({ userId: String(userId) });
   try {
-    const list = await request(`reports${q ? `?${q}` : ''}`);
-    return Array.isArray(list) ? list.map(normalizeReport) : [];
+    const list = await request(`reports?${params}`);
+    const arr = Array.isArray(list) ? list.map(normalizeReport) : [];
+    const from = filters.from ? String(filters.from).slice(0, 10) : null;
+    const to = filters.to ? String(filters.to).slice(0, 10) : null;
+    if (from && to) {
+      return arr.filter((r) => {
+        const d = (r.date ?? r.reportDate ?? '').slice(0, 10);
+        return d >= from && d <= to;
+      });
+    }
+    return arr;
   } catch (e) {
     throw e;
   }
