@@ -89,13 +89,13 @@ const DEFAULT_TEAM_OPTIONS = [
   { value: 'new_product', label: 'Sản phẩm mới' },
 ];
 
-/** Trọng số hiển thị dưới dạng mức chữ (rất thấp → rất cao), map về giá trị 0–1. */
+/** Thang TRỌNG SỐ W1–W5 (1–8 điểm). */
 const WEIGHT_LEVELS = [
-  { value: 0.2, label: 'Rất thấp' },
-  { value: 0.4, label: 'Thấp' },
-  { value: 0.6, label: 'Trung bình' },
-  { value: 0.8, label: 'Cao' },
-  { value: 1.0, label: 'Rất cao' },
+  { code: 'W1', value: 1, label: 'Rất thấp' },
+  { code: 'W2', value: 2, label: 'Thấp' },
+  { code: 'W3', value: 3, label: 'Bình thường' },
+  { code: 'W4', value: 5, label: 'Cao' },
+  { code: 'W5', value: 8, label: 'Rất cao' },
 ];
 
 const weightLabel = (weight) => {
@@ -111,7 +111,52 @@ const weightLabel = (weight) => {
       bestDiff = diff;
     }
   }
-  return best.label;
+  return `${best.code} – ${best.label}`;
+};
+
+/** Thang ĐÁNH GIÁ CHẤT LƯỢNG Q1–Q5. */
+const QUALITY_LEVELS = [
+  {
+    code: 'Q1',
+    value: 0.0,
+    label: 'Không đạt',
+  },
+  {
+    code: 'Q2',
+    value: 0.6,
+    label: 'Đạt tối thiểu',
+  },
+  {
+    code: 'Q3',
+    value: 1.0,
+    label: 'Đạt chuẩn',
+  },
+  {
+    code: 'Q4',
+    value: 1.1,
+    label: 'Tốt',
+  },
+  {
+    code: 'Q5',
+    value: 1.3,
+    label: 'Xuất sắc',
+  },
+];
+
+const qualityLabel = (quality) => {
+  if (quality == null || quality === '') return '—';
+  const q = Number(quality);
+  if (Number.isNaN(q)) return String(quality);
+  let best = QUALITY_LEVELS[0];
+  let bestDiff = Math.abs(q - best.value);
+  for (const level of QUALITY_LEVELS) {
+    const diff = Math.abs(q - level.value);
+    if (diff < bestDiff) {
+      best = level;
+      bestDiff = diff;
+    }
+  }
+  return `${best.code} – ${best.label}`;
 };
 
 const getInitials = (name) => {
@@ -2287,13 +2332,15 @@ const TaskDetailModal = ({
             </>
           )}
 
-          {task.status === 'pending_approval' && (
+          {(task.status === 'pending_approval' || (role === 'admin' || role === 'leader')) && (
             <div className="pt-4 border-t border-slate-100 space-y-4">
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
-                <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Leader/Admin điền kết quả đánh giá bên dưới rồi Duyệt hoặc Trả về.</p>
-              </div>
-              {(task.completionNote || task.completionLink) && (
+              {task.status === 'pending_approval' && (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
+                  <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Leader/Admin điền kết quả đánh giá bên dưới rồi Duyệt hoặc Trả về.</p>
+                </div>
+              )}
+              {task.status === 'pending_approval' && (task.completionNote || task.completionLink) && (
                 <div>
                   <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Nội dung báo cáo hoàn thành</h4>
                   {task.completionNote && <p className="text-slate-700 text-sm whitespace-pre-wrap mb-2">{task.completionNote}</p>}
@@ -2306,12 +2353,22 @@ const TaskDetailModal = ({
               )}
               {(role === 'leader' || role === 'admin') && onApprove && onReject && (String(currentUserId) === String(task.leaderId) || String(currentUserId) === String(task.assignerId) || role === 'admin') && (
                 <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5 space-y-4">
-                  <h4 className="text-base font-bold text-slate-800 border-b border-slate-200 pb-2">Kết quả đánh giá (Chỉ huy / Admin)</h4>
-                  <p className="text-slate-600 text-sm">Trọng số công việc · Trạng thái công việc · Đánh giá chất lượng · Đánh giá của chỉ huy</p>
+                  <h4 className="text-base font-bold text-slate-800 border-b border-slate-200 pb-2">Kết quả đánh giá</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số công việc (0–1)</label>
-                      <input type="number" step="0.01" min="0" max="1" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số công việc (W1–W5)</label>
+                      <select
+                        value={editWeight}
+                        onChange={(e) => setEditWeight(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                      >
+                        <option value="">Chưa chọn</option>
+                        {WEIGHT_LEVELS.map((lvl) => (
+                          <option key={lvl.code} value={lvl.value}>
+                            {lvl.code} – {lvl.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trạng thái công việc</label>
@@ -2322,8 +2379,19 @@ const TaskDetailModal = ({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá chất lượng (0–1)</label>
-                      <input type="number" step="0.01" min="0" max="1" value={approveQuality} onChange={(e) => setApproveQuality(e.target.value)} placeholder="0.9" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá chất lượng (Q1–Q5)</label>
+                      <select
+                        value={approveQuality}
+                        onChange={(e) => setApproveQuality(e.target.value)}
+                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
+                      >
+                        <option value="">Chưa chọn</option>
+                        {QUALITY_LEVELS.map((lvl) => (
+                          <option key={lvl.code} value={lvl.value}>
+                            {lvl.code} – {lvl.label}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá của chỉ huy</label>
@@ -2337,9 +2405,18 @@ const TaskDetailModal = ({
                       onClick={() => {
                         setApproveSubmitting(true);
                         const q = approveQuality !== '' ? Number(approveQuality) : undefined;
-                        const payload = { weight: editWeight !== '' ? Number(editWeight) : undefined, status: editStatus, quality: q };
+                        const payload = {
+                          weight: editWeight !== '' ? Number(editWeight) : undefined,
+                          status: editStatus,
+                          quality: q,
+                        };
                         (onSaveEdit ? onSaveEdit(payload) : Promise.resolve())
-                          .then(() => { if (editStatus === 'COMPLETED' && onApprove) return onApprove(q); })
+                          .then(() => {
+                            if (task.status === 'pending_approval' && editStatus === 'COMPLETED' && onApprove) {
+                              return onApprove(q);
+                            }
+                            return undefined;
+                          })
                           .catch(() => {})
                           .finally(() => setApproveSubmitting(false));
                       }}
@@ -2853,6 +2930,7 @@ const TaskListCard = ({ task, users, onClick }) => {
   const displayChuTriName = task.assigneeName
     || (users && users.find((u) => String(u.id ?? u.userId) === String(task.assigneeId))?.name)
     || null;
+  const qualityText = qualityLabel(task.quality);
   return (
     <button
       type="button"
@@ -2868,6 +2946,12 @@ const TaskListCard = ({ task, users, onClick }) => {
         <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${statusClass}`}>{statusLabel}</span>
       </div>
       <p className="text-slate-500 text-sm line-clamp-2">{task.objective}</p>
+      {(task.weight != null || task.quality != null) && (
+        <p className="text-[11px] text-slate-600 mt-2">
+          <span className="font-semibold text-slate-700">Đánh giá:&nbsp;</span>
+          Trọng số: {weightLabel(task.weight)} · Trạng thái: {statusLabel} · Chất lượng: {qualityText}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-100">
         <TaskMetric label="Chủ trì" value={displayChuTriName} icon={<Users size={14} />} />
         <TaskMetric label="Hạn chót" value={task.deadline} icon={<Clock size={14} />} />
