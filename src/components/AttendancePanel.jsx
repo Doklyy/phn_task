@@ -165,29 +165,33 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       .catch(() => setAttendanceCodes([]));
   }, [canManage]);
 
-  /** Mặc định: không có bản ghi thì coi như "Làm cả ngày" (L) 08:00–17:00 */
+  /** Mặc định: Thứ 2–7 = Làm cả ngày (L), Chủ nhật = CN. Không dùng giờ vào/ra. */
+  const todayDayOfWeek = new Date(todayStr).getDay();
+  const defaultCode = todayDayOfWeek === 0 ? 'CN' : 'L';
   const DEFAULT_FULL_DAY = { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: 'L' };
 
   useEffect(() => {
     if (!canManage || personnel.length === 0) return;
     setRowDrafts((prev) => {
       const next = { ...prev };
+      const isSunday = new Date(todayStr).getDay() === 0;
+      const codeDefault = isSunday ? 'CN' : 'L';
       personnel.forEach((emp) => {
         const id = String(emp.id ?? emp.userId);
         const rec = todayRecordsByUser[id];
         if (rec) {
           next[id] = {
-            checkInAt: rec.checkInAt ? toTimeInput(rec.checkInAt) : DEFAULT_FULL_DAY.checkInAt,
-            checkOutAt: rec.checkOutAt ? toTimeInput(rec.checkOutAt) : DEFAULT_FULL_DAY.checkOutAt,
-            attendanceCode: rec.attendanceCode || 'L',
+            checkInAt: rec.checkInAt ? toTimeInput(rec.checkInAt) : '08:00',
+            checkOutAt: rec.checkOutAt ? toTimeInput(rec.checkOutAt) : '17:00',
+            attendanceCode: rec.attendanceCode || codeDefault,
           };
         } else {
-          next[id] = { ...DEFAULT_FULL_DAY };
+          next[id] = { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: codeDefault };
         }
       });
       return next;
     });
-  }, [canManage, todayRecordsByUser, personnel.length]);
+  }, [canManage, todayRecordsByUser, personnel.length, todayStr]);
 
   useEffect(() => {
     if (!canManage || !uid || personnel.length === 0) {
@@ -326,13 +330,15 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
         const id = String(p.id ?? p.userId);
         return !todayRecordsByUser[id];
       });
+      const isSunday = new Date(todayStr).getDay() === 0;
+      const codeDefault = isSunday ? 'CN' : 'L';
       for (const emp of toCreate) {
         const empId = Number(emp.id ?? emp.userId);
         try {
           await createAttendanceRecord(uid, empId, todayStr, {
             checkInAt: '08:00',
             checkOutAt: '17:00',
-            attendanceCode: 'L',
+            attendanceCode: codeDefault,
           });
         } catch (e) {
           console.warn('createAttendanceRecord', empId, e);
@@ -438,23 +444,6 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
   /** Mã trạng thái cho dropdown: ưu tiên từ API, không có thì dùng danh sách mặc định. */
   const codesForSelect = attendanceCodes.length > 0 ? attendanceCodes : ATTENDANCE_CODES_FALLBACK;
 
-  const getStatusFromRecord = (rec) => {
-    if (!rec) return 'not_yet';
-    if (rec.checkOutAt) return 'finished';
-    return rec.isLate ? 'late' : 'present';
-  };
-
-  const stats =
-    canManage && personnel.length > 0
-      ? {
-          total: personnel.length,
-          present: personnel.filter((p) => getStatusFromRecord(todayRecordsByUser[String(p.id ?? p.userId)]) === 'present').length,
-          late: personnel.filter((p) => getStatusFromRecord(todayRecordsByUser[String(p.id ?? p.userId)]) === 'late').length,
-          notYet: personnel.filter((p) => getStatusFromRecord(todayRecordsByUser[String(p.id ?? p.userId)]) === 'not_yet').length,
-          finished: personnel.filter((p) => getStatusFromRecord(todayRecordsByUser[String(p.id ?? p.userId)]) === 'finished').length,
-        }
-      : null;
-
   return (
     <section className="space-y-6">
       {/* Header & Clock — giống mẫu Bảng Chấm công Nhân viên */}
@@ -483,29 +472,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
         </div>
       </div>
 
-      {/* Quick Stats — khi có quyền xem nhiều nhân viên */}
-      {canManage && stats && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-            <div className="text-slate-500 text-sm mb-1">Tổng cộng</div>
-            <div className="text-2xl font-bold">{stats.total}</div>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-green-500">
-            <div className="text-slate-500 text-sm mb-1">Đã đến</div>
-            <div className="text-2xl font-bold text-green-600">{stats.present + stats.late}</div>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-yellow-500">
-            <div className="text-slate-500 text-sm mb-1">Vào muộn</div>
-            <div className="text-2xl font-bold text-yellow-600">{stats.late}</div>
-          </div>
-          <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm border-l-4 border-l-gray-400">
-            <div className="text-slate-500 text-sm mb-1">Chưa chấm</div>
-            <div className="text-2xl font-bold text-gray-600">{stats.notYet}</div>
-          </div>
-        </div>
-      )}
-
-      {/* Nội dung chính: Bảng nhiều người (Admin/quyền chấm) hoặc 1 card (Nhân viên) */}
+      {/* Nội dung chính: Bảng nhiều người (Admin/quyền chấm) hoặc 1 card (Nhân viên) — không hiện bảng tổng, không giờ vào/ra */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {canManage ? (
           <>
@@ -528,77 +495,38 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                   className="flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <CheckCircle2 className="w-4 h-4 mr-2" />
-                  {settingAllFullDay ? 'Đang đặt...' : 'Đặt tất cả: Làm cả ngày'}
+                  {settingAllFullDay ? 'Đang đặt...' : todayDayOfWeek === 0 ? 'Đặt tất cả: Chủ nhật (CN)' : 'Đặt tất cả: Làm cả ngày'}
                 </button>
-                {selectedIds.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={handleBatchCheckIn}
-                    className="flex items-center px-4 py-2 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                    style={{ backgroundColor: VIETTEL_RED }}
-                  >
-                    <CheckSquare className="w-4 h-4 mr-2" />
-                    Chấm công nhanh ({selectedIds.length})
-                  </button>
-                )}
               </div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-700 font-medium border-b border-slate-200">
                   <tr>
-                    <th className="px-6 py-4 w-12 text-center">
-                      <input
-                        type="checkbox"
-                        className="rounded border-slate-300 focus:ring-[#D4384E]"
-                        style={{ accentColor: VIETTEL_RED }}
-                        checked={filteredPersonnel.length > 0 && selectedIds.length === filteredPersonnel.length}
-                        onChange={handleSelectAll}
-                      />
-                    </th>
                     <th className="px-6 py-4">Họ và Tên</th>
-                    <th className="px-6 py-4 text-center">Trạng thái</th>
-                    <th className="px-6 py-4 text-center">Giờ vào</th>
-                    <th className="px-6 py-4 text-center">Giờ ra</th>
+                    <th className="px-6 py-4">Trạng thái</th>
                     <th className="px-6 py-4 text-right">Hành động</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {tableLoading ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center text-slate-500">Đang tải...</td>
+                      <td colSpan="3" className="px-6 py-12 text-center text-slate-500">Đang tải...</td>
                     </tr>
                   ) : filteredPersonnel.length === 0 ? (
                     <tr>
-                      <td colSpan="6" className="px-6 py-12 text-center text-slate-500 italic">Không có dữ liệu nhân viên.</td>
+                      <td colSpan="3" className="px-6 py-12 text-center text-slate-500 italic">Không có dữ liệu nhân viên.</td>
                     </tr>
                   ) : (
                     filteredPersonnel.map((emp) => {
                       const empId = String(emp.id ?? emp.userId);
                       const rec = todayRecordsByUser[empId];
-                      const status = getStatusFromRecord(rec);
-                      const draft = rowDrafts[empId] || {
-                        checkInAt: rec?.checkInAt ? toTimeInput(rec.checkInAt) : '',
-                        checkOutAt: rec?.checkOutAt ? toTimeInput(rec.checkOutAt) : '',
-                        attendanceCode: (rec && rec.attendanceCode) || 'L',
-                      };
-                      const timeIn = rec?.checkInAt ? formatTimeShort(rec.checkInAt) : '';
-                      const timeOut = rec?.checkOutAt ? formatTimeShort(rec.checkOutAt) : '';
+                      const isSun = new Date(todayStr).getDay() === 0;
+                      const draft = rowDrafts[empId] || { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: isSun ? 'CN' : 'L' };
                       const name = emp.name || emp.fullName || emp.username || '—';
                       const saving = savingRecordId === empId;
                       return (
                         <tr key={empId} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="px-6 py-4 text-center">
-                            {status === 'not_yet' && (
-                              <input
-                                type="checkbox"
-                                className="rounded border-slate-300 focus:ring-[#D4384E]"
-                                style={{ accentColor: VIETTEL_RED }}
-                                checked={selectedIds.includes(empId)}
-                                onChange={() => toggleSelect(empId)}
-                              />
-                            )}
-                          </td>
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs">
@@ -614,58 +542,21 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                             <select
                               value={draft.attendanceCode}
                               onChange={(e) => setDraft(empId, 'attendanceCode', e.target.value)}
-                              className="w-full min-w-[180px] border border-slate-200 rounded-lg px-2 py-1.5 text-xs focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+                              className="w-full min-w-[180px] border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
                             >
                               {codesForSelect.map((c) => (
                                 <option key={c.code} value={c.code}>{c.description}</option>
                               ))}
                             </select>
                           </td>
-                          <td className="px-6 py-4">
-                            <input
-                              type="time"
-                              value={draft.checkInAt}
-                              onChange={(e) => setDraft(empId, 'checkInAt', e.target.value)}
-                              className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
-                            />
-                          </td>
-                          <td className="px-6 py-4">
-                            <input
-                              type="time"
-                              value={draft.checkOutAt}
-                              onChange={(e) => setDraft(empId, 'checkOutAt', e.target.value)}
-                              className="w-28 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-mono focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
-                            />
-                          </td>
-                          <td className="px-6 py-4 text-right flex flex-wrap gap-2 justify-end">
-                            {status === 'not_yet' && (
-                              <button
-                                type="button"
-                                onClick={() => handleClockInFor(Number(emp.id ?? emp.userId))}
-                                className="inline-flex items-center px-4 py-2 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
-                                style={{ backgroundColor: VIETTEL_RED }}
-                              >
-                                <CheckCircle2 className="w-3 h-3 mr-1.5" />
-                                Vào ca
-                              </button>
-                            )}
-                            {(status === 'present' || status === 'late') && (
-                              <button
-                                type="button"
-                                onClick={() => handleClockOutFor(Number(emp.id ?? emp.userId))}
-                                className="inline-flex items-center px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-all shadow-sm"
-                              >
-                                <XCircle className="w-3 h-3 mr-1.5" />
-                                Tan ca
-                              </button>
-                            )}
+                          <td className="px-6 py-4 text-right">
                             <button
                               type="button"
                               onClick={() => handleSaveRecord(empId, rec)}
                               disabled={saving}
-                              className="inline-flex items-center px-3 py-1.5 border border-slate-300 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                              className="inline-flex items-center px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
                             >
-                              {saving ? 'Đang lưu...' : rec?.id ? 'Cập nhật' : 'Tạo bản ghi'}
+                              {saving ? 'Đang lưu...' : rec?.id ? 'Cập nhật' : 'Lưu'}
                             </button>
                           </td>
                         </tr>
@@ -675,14 +566,8 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                 </tbody>
               </table>
             </div>
-            <div className="p-4 border-t border-slate-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-xs text-slate-500 bg-slate-50">
-              <div className="flex items-center gap-4 flex-wrap">
-                <span>Tổng: {filteredPersonnel.length} nhân viên</span>
-                <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-green-500 mr-1" /> Đúng giờ</span>
-                <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-yellow-500 mr-1" /> Đi muộn</span>
-                <span className="flex items-center"><span className="w-2 h-2 rounded-full bg-gray-400 mr-1" /> Chưa chấm</span>
-              </div>
-              <p className="text-slate-400 italic">Trạng thái và điểm chấm công được lưu theo từng người; mỗi nhân viên xem được dữ liệu của mình.</p>
+            <div className="p-4 border-t border-slate-200 text-xs text-slate-500 bg-slate-50">
+              Tổng: {filteredPersonnel.length} nhân viên. Mặc định đi làm cả ngày (trừ Chủ nhật). Chỉnh trạng thái và bấm Lưu.
             </div>
           </>
         ) : (
@@ -738,106 +623,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
         )}
       </div>
 
-      {/* Xin nghỉ / Đơn của tôi / Duyệt đơn */}
-      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-        <div className="flex gap-1 border-b border-slate-200 p-2">
-          {['my', 'request', ...(isAdmin ? ['admin'] : [])].map((key) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setLeaveSubTab(key)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${leaveSubTab === key ? 'text-white' : 'text-slate-600 hover:bg-slate-100'}`}
-              style={leaveSubTab === key ? { backgroundColor: VIETTEL_RED } : undefined}
-            >
-              {key === 'my' ? 'Đơn của tôi' : key === 'request' ? 'Xin nghỉ / Xin muộn' : 'Duyệt đơn'}
-            </button>
-          ))}
-        </div>
-        <div className="p-6">
-          {leaveSubTab === 'my' && (
-            <>
-              {leaveLoading ? (
-                <p className="text-slate-500 text-sm">Đang tải...</p>
-              ) : myLeaves.length === 0 ? (
-                <p className="text-slate-400 text-sm">Chưa có đơn nào.</p>
-              ) : (
-                <ul className="space-y-3">
-                  {myLeaves.map((lr) => (
-                    <li key={lr.id} className="border border-slate-100 rounded-xl p-4 flex justify-between items-start gap-4">
-                      <div>
-                        <p className="font-semibold text-slate-800">{LEAVE_TYPES.find((t) => t.value === lr.type)?.label || lr.type}</p>
-                        <p className="text-sm text-slate-500">{formatDate(lr.fromDate)} → {formatDate(lr.toDate)}</p>
-                        <p className="text-sm text-slate-600 mt-1">{lr.reason}</p>
-                        <span className={`inline-block mt-2 px-2 py-0.5 rounded text-xs font-medium ${lr.status === 'PENDING' ? 'bg-amber-100 text-amber-800' : lr.status === 'APPROVED' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
-                          {lr.status === 'PENDING' ? 'Chờ duyệt' : lr.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
-                        </span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-          {leaveSubTab === 'request' && (
-            <form onSubmit={handleSubmitLeave} className="space-y-4 max-w-lg">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Loại đơn</label>
-                <select value={leaveForm.type} onChange={(e) => setLeaveForm({ ...leaveForm, type: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/25 outline-none">
-                  {LEAVE_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>{t.label}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Từ ngày</label>
-                  <input type="date" value={leaveForm.fromDate} onChange={(e) => setLeaveForm({ ...leaveForm, fromDate: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/25 outline-none" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Đến ngày</label>
-                  <input type="date" value={leaveForm.toDate} onChange={(e) => setLeaveForm({ ...leaveForm, toDate: e.target.value })} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/25 outline-none" />
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Lý do *</label>
-                <textarea value={leaveForm.reason} onChange={(e) => setLeaveForm({ ...leaveForm, reason: e.target.value })} placeholder="Ghi rõ lý do..." rows={3} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/25 outline-none" />
-              </div>
-              {leaveSubmitError && <p className="text-sm text-red-500">{leaveSubmitError}</p>}
-              <button type="submit" disabled={leaveLoading} className="px-6 py-2.5 rounded-xl text-white font-bold text-sm disabled:opacity-50" style={{ backgroundColor: VIETTEL_RED }}>{leaveLoading ? 'Đang gửi...' : 'Gửi đơn'}</button>
-            </form>
-          )}
-          {leaveSubTab === 'admin' && isAdmin && (
-            <>
-              {leaveLoading ? (
-                <p className="text-slate-500 text-sm">Đang tải...</p>
-              ) : pendingLeaves.length === 0 ? (
-                <p className="text-slate-400 text-sm">Không có đơn chờ duyệt.</p>
-              ) : (
-                <ul className="space-y-4">
-                  {pendingLeaves.map((lr) => (
-                    <li key={lr.id} className="border border-slate-200 rounded-xl p-4">
-                      <div className="flex justify-between items-start gap-4">
-                        <div className="flex-1">
-                          <p className="font-semibold text-slate-800">{lr.userName}</p>
-                          <p className="text-sm text-slate-600">{LEAVE_TYPES.find((t) => t.value === lr.type)?.label || lr.type} — {formatDate(lr.fromDate)} → {formatDate(lr.toDate)}</p>
-                          <p className="text-sm text-slate-500 mt-1">{lr.reason}</p>
-                        </div>
-                        <div className="flex gap-2 shrink-0">
-                          <input type="text" placeholder="Lý do từ chối" value={rejectReasons[lr.id] || ''} onChange={(e) => setRejectReasons((prev) => ({ ...prev, [lr.id]: e.target.value }))} className="text-sm border border-slate-200 rounded px-2 py-1 w-32" />
-                          <button type="button" onClick={() => handleApprove(lr.id)} className="p-2 rounded-lg bg-green-100 text-green-700 hover:bg-green-200"><Check size={18} /></button>
-                          <button type="button" onClick={() => handleReject(lr.id)} className="p-2 rounded-lg bg-red-100 text-red-700 hover:bg-red-200"><X size={18} /></button>
-                        </div>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Bảng chấm công tháng */}
+      {/* Bảng chấm công tháng (cá nhân) */}
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-slate-800">Bảng chấm công tháng</h3>

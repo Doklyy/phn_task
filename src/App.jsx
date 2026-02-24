@@ -17,6 +17,8 @@ import {
   Download,
   X,
   Pause,
+  Calendar,
+  Link as LinkIcon,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { utils, writeFileXLSX } from 'xlsx';
@@ -28,6 +30,7 @@ import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance,
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
 import { uploadFile, getUploadedFileUrl, downloadAttachment } from './api/client.js';
 import { AttendancePanel } from './components/AttendancePanel.jsx';
+import { getAttendanceRecordsForMonth } from './api/attendance.js';
 import ReportReminderOverlay from './components/ReportReminderOverlay.jsx';
 import ReportReminderBellBlock from './components/ReportReminderBellBlock.jsx';
 import DashboardAttendanceMock from './components/DashboardAttendanceMock.jsx';
@@ -111,6 +114,30 @@ const weightLabel = (weight) => {
   return best.label;
 };
 
+const getInitials = (name) => {
+  if (!name || typeof name !== 'string') return '—';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length >= 2) return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+  return name.substring(0, 2).toUpperCase() || '—';
+};
+
+const renderContentWithLinks = (text) => {
+  if (!text) return null;
+  const str = String(text);
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  return str.split(urlRegex).map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a key={index} href={part} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 hover:underline break-all bg-blue-50 px-1 py-0.5 rounded mt-1">
+          <LinkIcon className="w-3 h-3 flex-shrink-0" />
+          {part}
+        </a>
+      );
+    }
+    return <span key={index}>{part}</span>;
+  });
+};
+
 const App = () => {
   const { user: currentUser, loading: authLoading, logout, canShowAttendance } = useAuth();
   const role = currentUser?.role || 'staff';
@@ -126,6 +153,45 @@ const App = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [dashMonth, setDashMonth] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [adminAttendanceMap, setAdminAttendanceMap] = useState({});
+  const [adminAttendanceLoading, setAdminAttendanceLoading] = useState(false);
+  const staffList = useMemo(() => (users || []).filter((u) => String(u.role || '').toLowerCase() !== 'admin'), [users]);
+  useEffect(() => {
+    if (activeTab !== 'dash' || dashView !== 'attendance' || role !== 'admin' || !currentUser?.id || staffList.length === 0) return;
+    const [y, m] = dashMonth.split('-').map(Number);
+    if (!y || !m) return;
+    setAdminAttendanceLoading(true);
+    const uid = Number(currentUser.id) || currentUser.id;
+    Promise.all(staffList.map((s) => getAttendanceRecordsForMonth(uid, y, m, Number(s.id ?? s.userId))))
+      .then((results) => {
+        const next = {};
+        staffList.forEach((s, i) => {
+          const id = String(s.id ?? s.userId);
+          next[id] = Array.isArray(results[i]) ? results[i] : [];
+        });
+        setAdminAttendanceMap(next);
+      })
+      .catch(() => setAdminAttendanceMap({}))
+      .finally(() => setAdminAttendanceLoading(false));
+  }, [activeTab, dashView, role, currentUser?.id, dashMonth, staffList.length]);
+  const reportCountByUserId = useMemo(() => {
+    const [y, m] = dashMonth.split('-').map(Number);
+    if (!y || !m) return {};
+    const prefix = `${y}-${String(m).padStart(2, '0')}`;
+    const count = {};
+    (allReportsList || []).forEach((r) => {
+      const d = (r.date || r.reportDate || '').slice(0, 10);
+      if (!d.startsWith(prefix)) return;
+      const uid = String(r.userId ?? r.user_id ?? '');
+      if (!uid) return;
+      count[uid] = (count[uid] || 0) + 1;
+    });
+    return count;
+  }, [allReportsList, dashMonth]);
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [users, setUsers] = useState([]);
@@ -351,15 +417,23 @@ const App = () => {
   const [allReportsList, setAllReportsList] = useState([]);
   const [allReportsLoading, setAllReportsLoading] = useState(false);
   const [reportFilterName, setReportFilterName] = useState('');
-  const [reportsSubTab, setReportsSubTab] = useState('today'); // 'today' | 'dashboard'
+  const [reportDateFilter, setReportDateFilter] = useState(''); // Ngày xem báo cáo (YYYY-MM-DD)
+  const [reportsSubTab, setReportsSubTab] = useState('today');
   useEffect(() => {
-    if (activeTab !== 'reports' || role !== 'admin' || !currentUser?.id) return;
+    const shouldLoad = (activeTab === 'reports' && role === 'admin') || (activeTab === 'dash' && dashView === 'attendance' && role === 'admin');
+    if (!shouldLoad || !currentUser?.id) return;
     setAllReportsLoading(true);
     getAllReportsForAdmin(Number(currentUser.id) || currentUser.id)
-      .then(setAllReportsList)
+      .then((list) => {
+        setAllReportsList(list || []);
+        if (!reportDateFilter && list?.length > 0) {
+          const dates = [...new Set((list || []).map((r) => (r.date || r.reportDate || '').slice(0, 10)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+          if (dates[0]) setReportDateFilter(dates[0]);
+        }
+      })
       .catch(() => setAllReportsList([]))
       .finally(() => setAllReportsLoading(false));
-  }, [activeTab, role, currentUser?.id]);
+  }, [activeTab, role, currentUser?.id, dashView]);
 
   const openUserReports = useCallback(async (user) => {
     if (!user?.id && !user?.userId) return;
@@ -1106,9 +1180,12 @@ const App = () => {
                         </button>
                       </div>
                       <div className="flex-1 flex justify-end min-w-0">
-                        <select className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                          <option>Tháng 2/2026</option>
-                          <option>Tháng 1/2026</option>
+                        <select value={dashMonth} onChange={(e) => setDashMonth(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                          {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => {
+                            const y = dashMonth ? parseInt(dashMonth.split('-')[0], 10) : new Date().getFullYear();
+                            const v = `${y}-${String(m).padStart(2, '0')}`;
+                            return <option key={v} value={v}>Tháng {m}/{y}</option>;
+                          })}
                         </select>
                       </div>
                     </div>
@@ -1116,11 +1193,60 @@ const App = () => {
 
                   {dashView === 'performance' && renderPerformance()}
                   {dashView === 'tasks' && renderTasksInDashboard()}
-                  {dashView === 'attendance' && (
+                  {dashView === 'attendance' && (role === 'admin' ? (
+                    <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                      <h3 className="text-lg font-bold text-slate-800 mb-3">Bảng chấm công tháng & Tổng báo cáo tiến độ</h3>
+                      <p className="text-slate-500 text-sm mb-4">Tổng hợp theo tháng (trừ admin). Cột &quot;Tổng báo cáo&quot; = số lần báo cáo tiến độ trong tháng.</p>
+                      {adminAttendanceLoading ? (
+                        <p className="text-slate-500 text-sm py-6">Đang tải...</p>
+                      ) : staffList.length === 0 ? (
+                        <p className="text-slate-400 text-sm py-6">Chưa có nhân sự nào.</p>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm border border-slate-200">
+                            <thead>
+                              <tr className="bg-slate-50 border-b border-slate-200">
+                                <th className="text-left py-3 px-2 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-10">Nhân sự</th>
+                                <th className="text-center py-3 px-1 font-semibold text-slate-700">Tổng báo cáo</th>
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                  <th key={day} className="text-center py-2 px-0.5 font-medium text-slate-600 w-8">{day}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {staffList.map((s) => {
+                                const sid = String(s.id ?? s.userId);
+                                const records = adminAttendanceMap[sid] || [];
+                                const recordByDay = {};
+                                records.forEach((r) => {
+                                  const d = (r.recordDate ?? r.date || '').slice(0, 10);
+                                  if (d) {
+                                    const day = parseInt(d.slice(8, 10), 10);
+                                    recordByDay[day] = r.attendanceCode || 'L';
+                                  }
+                                });
+                                const reportCount = reportCountByUserId[sid] || 0;
+                                const name = s.name || s.fullName || s.username || sid;
+                                return (
+                                  <tr key={sid} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                    <td className="py-2 px-2 sticky left-0 bg-white z-10 font-medium text-slate-800">{name}</td>
+                                    <td className="py-2 px-2 text-center font-semibold text-blue-600">{reportCount}</td>
+                                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
+                                      <td key={day} className="py-1 px-0.5 text-center text-xs text-slate-600">{recordByDay[day] || '—'}</td>
+                                    ))}
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </section>
+                  ) : (
                     <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
                       <DashboardAttendanceMock currentUser={currentUser} />
                     </section>
-                  )}
+                  ))}
                 </>
               );
             })()}
@@ -1595,77 +1721,120 @@ const App = () => {
               </section>
             )}
 
-            {/* Tab: Báo cáo – chỉ Admin, xem tất cả báo cáo của mọi người */}
+            {/* Tab: Báo cáo – chỉ Admin, giao diện gộp theo người (avatar, link trong nội dung) */}
             {activeTab === 'reports' && role === 'admin' && (
-              <section className="bg-white border border-slate-200 rounded-2xl p-6">
-                <h2 className="text-xl font-bold text-slate-900 mb-4">Tất cả báo cáo gần đây</h2>
-                <div className="mb-4">
-                  <input
-                    type="text"
-                    placeholder="Lọc theo tên người báo cáo..."
-                    value={reportFilterName}
-                    onChange={(e) => setReportFilterName(e.target.value)}
-                    className="w-full max-w-md border border-slate-200 rounded-lg px-3 py-2 text-sm placeholder:text-slate-400 focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
-                  />
-                </div>
-                {allReportsLoading ? (
-                  <p className="text-slate-500 text-sm">Đang tải danh sách báo cáo...</p>
-                ) : (() => {
-                  const filtered = reportFilterName.trim()
-                    ? allReportsList.filter((r) => (r.userName || '').toLowerCase().includes(reportFilterName.trim().toLowerCase()))
-                    : allReportsList;
-                  if (filtered.length === 0) {
-                    return <p className="text-slate-400 text-sm">{reportFilterName.trim() ? 'Không có báo cáo nào trùng với tên đã nhập.' : 'Chưa có báo cáo nào.'}</p>;
-                  }
-                  const byDay = {};
-                  filtered.forEach((r) => {
-                    const d = (r.date || r.reportDate || '').slice(0, 10);
-                    if (!byDay[d]) byDay[d] = [];
-                    byDay[d].push(r);
-                  });
-                  const sortedDays = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
-                  return (
-                    <div className="space-y-6">
-                      {sortedDays.map((day) => (
-                        <div key={day} className="border border-slate-200 rounded-xl overflow-hidden">
-                          <div className="bg-slate-100 px-4 py-2.5 border-b border-slate-200">
-                            <span className="text-sm font-bold text-slate-800">
-                              Ngày {day.slice(8, 10)}/{day.slice(5, 7)}/{day.slice(0, 4)}
-                            </span>
-                            <span className="ml-2 text-xs text-slate-500">({byDay[day].length} báo cáo)</span>
+              <section className="min-h-screen bg-slate-100 py-6 px-4 sm:px-6 lg:px-8 -mx-4 sm:-mx-6 md:-mx-0">
+                <div className="max-w-4xl mx-auto">
+                  {allReportsLoading ? (
+                    <p className="text-slate-500 text-sm py-8">Đang tải danh sách báo cáo...</p>
+                  ) : (() => {
+                    const filtered = reportFilterName.trim()
+                      ? allReportsList.filter((r) => (r.userName || '').toLowerCase().includes(reportFilterName.trim().toLowerCase()))
+                      : allReportsList;
+                    const byDay = {};
+                    filtered.forEach((r) => {
+                      const d = (r.date || r.reportDate || '').slice(0, 10);
+                      if (!d) return;
+                      if (!byDay[d]) byDay[d] = [];
+                      byDay[d].push(r);
+                    });
+                    const sortedDays = Object.keys(byDay).sort((a, b) => b.localeCompare(a));
+                    const selectedDay = reportDateFilter || sortedDays[0] || new Date().toISOString().slice(0, 10);
+                    const dayReports = byDay[selectedDay] || [];
+                    const groupedByPerson = Object.values(
+                      dayReports.reduce((acc, r) => {
+                        const name = r.userName || r.user_name || 'Chưa rõ tên';
+                        if (!acc[name]) acc[name] = { name, tasks: [] };
+                        acc[name].tasks.push(r);
+                        return acc;
+                      }, {})
+                    );
+                    return (
+                      <>
+                        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5 mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sticky top-4 z-10">
+                          <div className="flex items-center gap-3">
+                            <div className="bg-blue-100 p-2.5 rounded-lg text-blue-600">
+                              <Calendar className="w-6 h-6" />
+                            </div>
+                            <div>
+                              <h1 className="text-xl font-bold text-slate-800">
+                                Ngày {selectedDay ? `${selectedDay.slice(8, 10)}/${selectedDay.slice(5, 7)}/${selectedDay.slice(0, 4)}` : '—'}
+                              </h1>
+                              <p className="text-sm text-slate-500 mt-0.5">Tổng hợp báo cáo công việc hằng ngày</p>
+                            </div>
                           </div>
-                          <ul className="divide-y divide-slate-100">
-                            {byDay[day].map((r) => (
-                              <li key={r.id} className="flex flex-wrap items-start gap-2 p-4 bg-white hover:bg-slate-50/50">
-                                <span className="text-xs font-medium text-slate-700">{r.userName || '—'}</span>
-                                <span className="text-xs text-slate-500">· {r.taskTitle || 'Nhiệm vụ'}</span>
-                                <p className="w-full text-sm text-slate-700 mt-1">{r.result}</p>
-                                {r.attachmentPath && (() => {
-                                  const paths = String(r.attachmentPath).split('|').filter(Boolean);
-                                  return paths.length > 0 ? (
-                                    <div className="flex flex-wrap gap-2 mt-1">
-                                      {paths.map((path, idx) => (
-                                        <button
-                                          key={idx}
-                                          type="button"
-                                          onClick={() => downloadAttachment(path).catch((e) => alert(e?.message || 'Tải file thất bại'))}
-                                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20 transition-colors"
-                                        >
-                                          <Download size={14} />
-                                          {paths.length > 1 ? `Tải file ${idx + 1}` : 'Tải file đính kèm'}
-                                        </button>
-                                      ))}
-                                    </div>
-                                  ) : null;
-                                })()}
-                              </li>
-                            ))}
-                          </ul>
+                          <div className="flex flex-wrap items-center gap-3">
+                            <input
+                              type="date"
+                              value={selectedDay}
+                              onChange={(e) => setReportDateFilter(e.target.value)}
+                              className="border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            />
+                            <input
+                              type="text"
+                              placeholder="Lọc theo tên..."
+                              value={reportFilterName}
+                              onChange={(e) => setReportFilterName(e.target.value)}
+                              className="max-w-[180px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            />
+                            <span className="bg-slate-100 px-4 py-1.5 rounded-full text-sm font-semibold text-slate-700 inline-flex items-center gap-2 border border-slate-200">
+                              <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
+                              {dayReports.length} báo cáo / {groupedByPerson.length} nhân sự
+                            </span>
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                  );
-                })()}
+                        {groupedByPerson.length === 0 ? (
+                          <p className="text-slate-400 text-sm py-8 text-center">Chưa có báo cáo nào cho ngày này.</p>
+                        ) : (
+                          <div className="flex flex-col gap-6">
+                            {groupedByPerson.map((person, personIndex) => (
+                              <div key={personIndex} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-shadow">
+                                <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0">
+                                      {getInitials(person.name)}
+                                    </div>
+                                    <h3 className="font-bold text-slate-800 text-lg">{person.name}</h3>
+                                  </div>
+                                  {person.tasks.length > 1 && (
+                                    <span className="bg-blue-100 text-blue-700 text-xs font-bold px-2.5 py-1 rounded-full">
+                                      {person.tasks.length} nhiệm vụ
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex flex-col">
+                                  {person.tasks.map((task, taskIndex) => (
+                                    <div key={task.id} className={`p-5 ${taskIndex !== person.tasks.length - 1 ? 'border-b border-slate-100' : ''}`}>
+                                      <div className="flex items-start gap-2 mb-2">
+                                        <FileText className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
+                                        <h4 className="font-semibold text-slate-700 text-[15px]">{task.taskTitle || 'Nhiệm vụ'}</h4>
+                                      </div>
+                                      <div className="text-slate-600 text-[14px] leading-relaxed whitespace-pre-line pl-6">
+                                        {renderContentWithLinks(task.result)}
+                                      </div>
+                                      {task.attachmentPath && (() => {
+                                        const paths = String(task.attachmentPath).split('|').filter(Boolean);
+                                        return paths.length > 0 ? (
+                                          <div className="flex flex-wrap gap-2 mt-2 pl-6">
+                                            {paths.map((path, idx) => (
+                                              <button key={idx} type="button" onClick={() => downloadAttachment(path).catch((e) => alert(e?.message || 'Tải file thất bại'))} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20">
+                                                <Download size={14} /> {paths.length > 1 ? `Tải file ${idx + 1}` : 'Tải file đính kèm'}
+                                              </button>
+                                            ))}
+                                          </div>
+                                        ) : null;
+                                      })()}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    );
+                  })()}
+                </div>
               </section>
             )}
 
@@ -2102,7 +2271,7 @@ const TaskDetailModal = ({
             <div className="pt-4 border-t border-slate-100 space-y-4">
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
-                <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Leader (người phân công) duyệt để đánh dấu hoàn thành (có thể đánh giá chất lượng) hoặc trả về công việc tồn đọng.</p>
+                <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Leader/Admin điền kết quả đánh giá bên dưới rồi Duyệt hoặc Trả về.</p>
               </div>
               {(task.completionNote || task.completionLink) && (
                 <div>
@@ -2116,57 +2285,49 @@ const TaskDetailModal = ({
                 </div>
               )}
               {(role === 'leader' || role === 'admin') && onApprove && onReject && (String(currentUserId) === String(task.leaderId) || String(currentUserId) === String(task.assignerId) || role === 'admin') && (
-                <div className="space-y-3">
-                  <div className="flex flex-wrap gap-3 items-end">
+                <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5 space-y-4">
+                  <h4 className="text-base font-bold text-slate-800 border-b border-slate-200 pb-2">Kết quả đánh giá (Chỉ huy / Admin)</h4>
+                  <p className="text-slate-600 text-sm">Trọng số công việc · Trạng thái công việc · Đánh giá chất lượng · Đánh giá của chỉ huy</p>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chất lượng (0–1)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={approveQuality}
-                        onChange={(e) => setApproveQuality(e.target.value)}
-                        placeholder="0.9"
-                        className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                      />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số công việc (0–1)</label>
+                      <input type="number" step="0.01" min="0" max="1" value={editWeight} onChange={(e) => setEditWeight(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                     </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trạng thái công việc</label>
+                      <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
+                        <option value="COMPLETED">Hoàn thành</option>
+                        <option value="PAUSED">Tạm dừng</option>
+                        <option value="ACCEPTED">Trả về (tiếp tục làm)</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá chất lượng (0–1)</label>
+                      <input type="number" step="0.01" min="0" max="1" value={approveQuality} onChange={(e) => setApproveQuality(e.target.value)} placeholder="0.9" className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá của chỉ huy</label>
+                      <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Nhận xét, góp ý cho người thực hiện..." rows={2} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-3 pt-2">
                     <button
                       type="button"
                       disabled={approveSubmitting}
                       onClick={() => {
                         setApproveSubmitting(true);
                         const q = approveQuality !== '' ? Number(approveQuality) : undefined;
-                        onApprove(q).catch(() => {}).finally(() => setApproveSubmitting(false));
+                        const payload = { weight: editWeight !== '' ? Number(editWeight) : undefined, status: editStatus, quality: q };
+                        (onSaveEdit ? onSaveEdit(payload) : Promise.resolve())
+                          .then(() => { if (editStatus === 'COMPLETED' && onApprove) return onApprove(q); })
+                          .catch(() => {})
+                          .finally(() => setApproveSubmitting(false));
                       }}
                       className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50"
                     >
                       {approveSubmitting ? 'Đang duyệt...' : 'Duyệt hoàn thành'}
                     </button>
-                  </div>
-                  <div className="flex flex-wrap gap-3 items-end">
-                    <div className="flex-1 min-w-[200px]">
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
-                        Lý do trả về (không bắt buộc)
-                      </label>
-                      <input
-                        type="text"
-                        value={rejectReason}
-                        onChange={(e) => setRejectReason(e.target.value)}
-                        placeholder="Ghi lý do nếu cần..."
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                      />
-                    </div>
-                    <button
-                      type="button"
-                      disabled={approveSubmitting}
-                      onClick={() => {
-                        setApproveSubmitting(true);
-                        const reason = rejectReason.trim() || null;
-                        onReject(reason).catch(() => {}).finally(() => setApproveSubmitting(false));
-                      }}
-                      className="bg-slate-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-600 disabled:opacity-50"
-                    >
+                    <button type="button" disabled={approveSubmitting} onClick={() => { setApproveSubmitting(true); onReject(rejectReason.trim() || null).catch(() => {}).finally(() => setApproveSubmitting(false)); }} className="bg-slate-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-600 disabled:opacity-50">
                       Trả về tồn đọng
                     </button>
                   </div>
