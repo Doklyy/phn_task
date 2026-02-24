@@ -23,10 +23,14 @@ import { utils, writeFileXLSX } from 'xlsx';
 import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import { fetchTasksForCurrentUser, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
+import { getScoringUser, getRanking } from './api/scoring.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
 import { uploadFile, getUploadedFileUrl, downloadAttachment } from './api/client.js';
 import { AttendancePanel } from './components/AttendancePanel.jsx';
+import ReportReminderOverlay from './components/ReportReminderOverlay.jsx';
+import ReportReminderBellBlock from './components/ReportReminderBellBlock.jsx';
+import RuleBanner from './components/RuleBanner.jsx';
 
 // Danh sách user để hiển thị tên (BE có thể trả về hoặc lấy từ API users)
 const USERS_DB = [
@@ -189,6 +193,7 @@ const App = () => {
   const [reportSent, setReportSent] = useState(false);
 
   const [reportHistoryByTask, setReportHistoryByTask] = useState({});
+  const [reminderRefetchTrigger, setReminderRefetchTrigger] = useState(0);
 
   // Load toàn bộ báo cáo của user khi vào trang → nhận diện đã báo cáo ngày hôm qua (để mở khóa tiếp nhận công việc mới)
   useEffect(() => {
@@ -333,6 +338,16 @@ const App = () => {
       .catch(() => setDashboardStats(null));
   }, [currentUser?.id, tasks.length]);
 
+  const [scoringUser, setScoringUser] = useState(null);
+  const [ranking, setRanking] = useState([]);
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    getScoringUser(currentUser.id).then(setScoringUser).catch(() => setScoringUser(null));
+  }, [currentUser?.id, tasks.length]);
+  useEffect(() => {
+    getRanking().then((r) => setRanking(Array.isArray(r) ? r : [])).catch(() => setRanking([]));
+  }, [currentUser?.id]);
+
   const [allReportsList, setAllReportsList] = useState([]);
   const [allReportsLoading, setAllReportsLoading] = useState(false);
   const [reportFilterName, setReportFilterName] = useState('');
@@ -400,6 +415,7 @@ const App = () => {
     if (listFilter === 'completed') return tasksCompleted;
     if (listFilter === 'paused') return tasksPaused;
     if (listFilter === 'pending_approval') return tasksPendingApproval;
+    if (listFilter === 'backlog') return filteredTasks.filter((t) => t.status === 'new' || t.status === 'accepted');
     return filteredTasks;
   }, [listFilter, filteredTasks, tasksOverdue, tasksInProgress, tasksCompleted, tasksPaused, tasksPendingApproval]);
 
@@ -493,6 +509,7 @@ const App = () => {
       .then((r) => {
         addReportToHistory(taskId, { reportDate: r.date, result: r.result, weight: r.weight });
         setReportSent(true);
+        setReminderRefetchTrigger((t) => t + 1);
         setTimeout(() => {
           setReportTaskId('');
           setReportResult('');
@@ -505,6 +522,7 @@ const App = () => {
       .catch(() => {
         addReportToHistory(taskId, { reportDate, result: reportResult, weight: reportWeight ? Number(reportWeight) : null });
         setReportSent(true);
+        setReminderRefetchTrigger((t) => t + 1);
         setTimeout(() => {
           setReportTaskId('');
           setReportResult('');
@@ -615,6 +633,14 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex font-sans text-slate-900">
+      <ReportReminderOverlay
+        userId={currentUser?.id}
+        refetchTrigger={reminderRefetchTrigger}
+        onGoReport={() => {
+          setActiveTab('tasks');
+          setTimeout(() => mainContentScrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+        }}
+      />
       {/* Sidebar gọn, xám nhạt – giống mẫu Calendar */}
       <aside className="w-56 bg-white border-r border-slate-200 flex flex-col z-20 shrink-0">
         <div className="p-5 flex items-center gap-3 border-b border-slate-100">
@@ -723,6 +749,15 @@ const App = () => {
                       )}
                     </div>
                     <div className="overflow-y-auto flex-1 min-h-0">
+                      <ReportReminderBellBlock
+                        userId={currentUser?.id}
+                        onGoReport={() => {
+                          setBellOpen(false);
+                          setActiveTab('tasks');
+                          setTimeout(() => mainContentScrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                        }}
+                        onClosePopup={() => setBellOpen(false)}
+                      />
                       {notifications.length === 0 ? (
                         <p className="p-4 text-slate-400 text-sm text-center">Chưa có thông báo</p>
                       ) : (
@@ -830,173 +865,146 @@ const App = () => {
         {/* Nội dung chính */}
         <div ref={mainContentScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 min-w-0">
           <div className="max-w-5xl mx-auto pb-4">
-            {/* Tab: Bảng điều khiển – gọn như mẫu Calendar */}
-            {activeTab === 'dash' && (
-              <section className="mb-3">
-                {/* Tab phụ: TỔNG QUAN | CÁ NHÂN */}
-                <div className="flex gap-1 mb-3 border-b border-slate-200 pb-0">
-                  {['overview', 'personal'].map((key) => (
-                    <button
-                      key={key}
-                      type="button"
-                      onClick={() => setDashSubTab(key)}
-                      className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider rounded-t-lg transition-colors ${
-                        (dashSubTab === key || (key === 'overview' && dashSubTab === 'weight')) ? 'bg-white border border-slate-200 border-b-0 -mb-px' : 'text-slate-500 hover:text-slate-700'
-                      }`}
-                      style={(dashSubTab === key || (key === 'overview' && dashSubTab === 'weight')) ? { color: VIETTEL_RED } : undefined}
-                    >
-                      {key === 'overview' ? 'Tổng quan' : 'Cá nhân'}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-                  {/* Hàng 1: Tổng số nhiệm vụ lên trên cùng + bộ lọc kỳ */}
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                    <div className="flex items-baseline gap-3 flex-wrap">
-                      <h2 className="text-xl font-bold text-slate-900">Tổng quan công việc</h2>
-                      <span className="text-3xl font-black text-slate-900">{filteredTasks.length}</span>
-                      <span className="text-sm font-medium text-slate-500">nhiệm vụ</span>
+            <RuleBanner />
+            {/* Tab: Bảng điều khiển – Hoàn thành cá nhân + Danh sách nhiệm vụ */}
+            {activeTab === 'dash' && (() => {
+              const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
+              const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
+              const currentRank = ranking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
+              const totalStat = dashboardStats?.total ?? filteredTasks.length;
+              const overdueStat = dashboardStats?.overdue ?? statOverdue;
+              const inProgressStat = dashboardStats?.inProgress ?? statInProgress;
+              const completedStat = dashboardStats?.completed ?? statCompleted;
+              const pendingStat = dashboardStats?.pendingApproval ?? tasksPendingApproval.length;
+              const backlogStat = dashboardStats?.new ?? backlogCount;
+              const statusCards = [
+                { key: 'all', label: 'Tổng số', count: totalStat, style: { bg: 'bg-slate-100', border: 'border-slate-200', text: 'text-slate-700' } },
+                { key: 'overdue', label: 'Quá hạn', count: overdueStat, style: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700' } },
+                { key: 'in_progress', label: 'Đang TH', count: inProgressStat, style: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' } },
+                { key: 'completed', label: 'Hoàn thành', count: completedStat, style: { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' } },
+                { key: 'pending_approval', label: 'Đợi duyệt', count: pendingStat, style: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' } },
+                { key: 'backlog', label: 'Tồn đọng', count: backlogStat, style: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800' } },
+              ];
+              return (
+                <>
+                  {/* PHẦN TRÊN: Hoàn thành cá nhân */}
+                  <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
+                    <h2 className="text-xl font-bold text-slate-900 mb-4">Hoàn thành cá nhân</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm hiệu suất</p>
+                        <p className="text-2xl font-black text-slate-900">{score100(scoringUser?.totalScore)} <span className="text-slate-500 font-normal text-lg">/ 100</span></p>
+                        <p className="text-xs text-slate-500 mt-1">Chuyên cần 40% + Chất lượng 60%</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng phòng ban</p>
+                        <p className="text-2xl font-black text-slate-900">#{currentRank > 0 ? currentRank : '—'} <span className="text-slate-500 font-normal text-lg">/ {ranking.length || '—'}</span></p>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
+                        <div className="space-y-1">
+                          {ranking.slice(0, 5).map((r, idx) => (
+                            <div key={r.userId ?? idx} className="flex items-center gap-2 text-sm">
+                              <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
+                              <span className="flex-1 truncate">{r.userName ?? r.name ?? '—'}</span>
+                              <span className="font-semibold text-slate-800">{score100(r.totalScore)}đ</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {['month', 'quarter', 'year'].map((type) => (
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                        <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá</h3>
+                      </div>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tiêu chí đánh giá</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tỷ trọng</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm đạt</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Ghi chú</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-slate-100">
+                            <td className="py-2 px-3 text-slate-700">Chuyên cần (báo cáo ngày)</td>
+                            <td className="py-2 px-3">40%</td>
+                            <td className="py-2 px-3">{formatPct(scoringUser?.attendanceScore)}</td>
+                            <td className="py-2 px-3 text-slate-500">{scoringUser?.reportedDays != null ? `Số ngày báo cáo: ${scoringUser.reportedDays}` : '—'}</td>
+                          </tr>
+                          <tr className="border-b border-slate-100">
+                            <td className="py-2 px-3 text-slate-700">Chất lượng công việc (W×Q×T)</td>
+                            <td className="py-2 px-3">60%</td>
+                            <td className="py-2 px-3">{formatPct(scoringUser?.qualityScore)}</td>
+                            <td className="py-2 px-3 text-slate-500">{scoringUser?.completedTasks != null ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ` : '—'}</td>
+                          </tr>
+                          <tr className="bg-slate-50 font-bold">
+                            <td className="py-2 px-3">Tổng cộng</td>
+                            <td className="py-2 px-3">100%</td>
+                            <td className="py-2 px-3">{score100(scoringUser?.totalScore)}</td>
+                            <td className="py-2 px-3" />
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
+
+                  {/* PHẦN DƯỚI: Danh sách nhiệm vụ */}
+                  <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm" id="task-list-section">
+                    <h2 className="text-xl font-bold text-slate-900 mb-4">Danh sách nhiệm vụ</h2>
+                    <div className="flex flex-wrap gap-2 mb-4">
+                      {statusCards.map(({ key, label, count, style }) => (
                         <button
-                          key={type}
+                          key={key}
                           type="button"
-                          onClick={() => setPeriodType(type)}
-                          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                            periodType === type ? 'text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                          }`}
-                          style={periodType === type ? { backgroundColor: VIETTEL_RED } : undefined}
+                          onClick={() => setListFilter(key)}
+                          className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition-colors ${style.bg} ${style.border} ${style.text} ${listFilter === key ? 'ring-2 ring-offset-1 ring-slate-400' : 'hover:opacity-90'}`}
                         >
-                          {type === 'month' ? 'Tháng' : type === 'quarter' ? 'Quý' : 'Năm'}
+                          {label}: {count}
                         </button>
                       ))}
-                      <select
-                        value={periodValue}
-                        onChange={(e) => setPeriodValue(e.target.value)}
-                        className="ml-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-700 focus:ring-2 focus:ring-[#D4384E]/25 outline-none"
-                      >
-                        {(periodOptions[periodType] || []).map((opt) => (
-                          <option key={opt.value} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
                     </div>
-                  </div>
-
-                  {/* Một dòng: Tổng số + Trạng thái (gồm Tồn đọng) */}
-                  <div className="flex flex-wrap items-stretch gap-0 rounded-xl border border-slate-200 overflow-hidden mb-4">
-                    <div className="w-24 shrink-0 bg-slate-50 px-3 py-3 border-r border-slate-200 text-center">
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Tổng số</p>
-                      <p className="text-xl font-bold text-slate-900 mt-0.5">{filteredTasks.length}</p>
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tiêu đề</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Trạng thái</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Hạn chót</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Thao tác</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tasksByFilter.length === 0 ? (
+                            <tr><td colSpan={4} className="py-6 px-3 text-center text-slate-500">Chưa có nhiệm vụ nào.</td></tr>
+                          ) : (
+                            tasksByFilter.map((t) => (
+                              <tr
+                                key={t.id}
+                                className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                onClick={() => setSelectedTaskId(t.id)}
+                              >
+                                <td className="py-2 px-3 font-medium text-slate-800 truncate max-w-[200px]">{t.title}</td>
+                                <td className="py-2 px-3">
+                                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                    t.status === 'completed' ? 'bg-slate-200 text-slate-700' : t.status === 'accepted' ? 'bg-emerald-100 text-emerald-800' : t.status === 'overdue' || (t.deadline && new Date(String(t.deadline).replace(' ', 'T')) < now()) ? 'bg-red-100 text-red-800' : t.status === 'pending_approval' ? 'bg-amber-100 text-amber-800' : t.status === 'paused' ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-600'
+                                  }`}>
+                                    {t.status === 'new' ? 'Mới' : t.status === 'accepted' ? 'Đang TH' : t.status === 'completed' ? 'Hoàn thành' : t.status === 'pending_approval' ? 'Đợi duyệt' : t.status === 'paused' ? 'Tạm dừng' : t.status}
+                                  </span>
+                                </td>
+                                <td className="py-2 px-3 text-slate-600">{t.deadline ? new Date(String(t.deadline).replace(' ', 'T')).toLocaleDateString('vi-VN') : '—'}</td>
+                                <td className="py-2 px-3"><ChevronRight size={16} className="text-slate-400 inline" /></td>
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
                     </div>
-                    <div className="flex-1 min-w-[320px] px-6 py-5 bg-white">
-                      <p className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Trạng thái</p>
-                      <div className="flex flex-wrap gap-x-6 gap-y-2 text-base">
-                        <button type="button" onClick={() => { setListFilter('overdue'); setActiveTab('tasks'); }} className="font-bold text-red-600 hover:underline text-lg">Quá hạn: {statOverdue}</button>
-                        <span className="text-slate-300 text-lg">|</span>
-                        <button type="button" onClick={() => { setListFilter('in_progress'); setActiveTab('tasks'); }} className="font-bold text-emerald-600 hover:underline text-lg">Đang TH: {statInProgress}</button>
-                        <span className="text-slate-300 text-lg">|</span>
-                        <button type="button" onClick={() => { setListFilter('completed'); setActiveTab('tasks'); }} className="font-bold text-slate-600 hover:underline text-lg">Hoàn thành: {statCompleted}</button>
-                        <span className="text-slate-300 text-lg">|</span>
-                        <button type="button" onClick={() => { setListFilter('paused'); setActiveTab('tasks'); }} className="font-bold text-violet-600 hover:underline text-lg">Tạm dừng: {tasksPaused.length}</button>
-                        <span className="text-slate-300 text-lg">|</span>
-                        <span className="font-bold text-amber-700 text-lg">Tồn đọng: {backlogCount}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Biểu đồ tròn: Chuyên cần & Chất lượng (như Phân bố nhiệm vụ) + Phân bố nhiệm vụ + Đường */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-800 mb-4">Chuyên cần & Chất lượng</h3>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                          <Pie
-                            data={[
-                              { name: `Chuyên cần ${attendanceScore}%`, value: Math.max(attendanceScore, 0.1), fill: '#f59e0b' },
-                              { name: `Chất lượng ${completionRatePersonal}%`, value: Math.max(completionRatePersonal, 0.1), fill: '#10b981' },
-                            ]}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={50}
-                            outerRadius={80}
-                          >
-                            {[
-                              { fill: '#f59e0b' },
-                              { fill: '#10b981' },
-                            ].map((entry, i) => (
-                              <Cell key={i} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(v, n, props) => [props.payload.name, '']} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                      <p className="text-center text-xs text-slate-500 mt-1">
-                        <button type="button" onClick={() => { setListFilter('all'); setActiveTab('tasks'); }} className="text-[#D4384E] hover:underline font-medium">Tất cả nhiệm vụ: {filteredTasks.length} →</button>
-                      </p>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-800 mb-4">Phân bố nhiệm vụ</h3>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <PieChart>
-                          <Pie
-                            data={pieData.length ? pieData : [{ name: 'Chưa có', value: 1, fill: '#94a3b8' }]}
-                            dataKey="value"
-                            nameKey="name"
-                            cx="50%"
-                            cy="50%"
-                            innerRadius={50}
-                            outerRadius={80}
-                          >
-                            {(pieData.length ? pieData : [{ fill: '#94a3b8' }]).map((entry, i) => (
-                              <Cell key={i} fill={entry.fill} />
-                            ))}
-                          </Pie>
-                          <Tooltip formatter={(v, n, props) => [`${v}`, props.payload.name]} />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    </div>
-                    <div>
-                      <h3 className="text-sm font-bold text-slate-800 mb-4">Số báo cáo theo ngày (7 ngày gần nhất)</h3>
-                      <ResponsiveContainer width="100%" height={200}>
-                        <AreaChart data={trendData}>
-                          <defs>
-                            <linearGradient id="colorCount" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor={VIETTEL_RED} stopOpacity={0.35} />
-                              <stop offset="95%" stopColor={VIETTEL_RED} stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                          <XAxis dataKey="label" tick={{ fontSize: 10 }} />
-                          <YAxis tick={{ fontSize: 10 }} allowDecimals={false} />
-                          <Tooltip />
-                          <Area type="monotone" dataKey="count" stroke={VIETTEL_RED} fillOpacity={1} fill="url(#colorCount)" name="Báo cáo" strokeWidth={2} />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </div>
-
-                  {/* Tab Cá nhân: tỉ lệ hoàn thành + điểm chuyên cần */}
-                  {dashSubTab === 'personal' && (
-                    <div className="mt-8 pt-6 border-t border-slate-100 grid grid-cols-1 sm:grid-cols-2 gap-6">
-                      <div className="bg-slate-50 rounded-xl p-5">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Hoàn thành cá nhân (kỳ)</p>
-                        <p className="text-3xl font-bold text-emerald-600">{completionRatePersonal}%</p>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-5">
-                        <p className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">Điểm chuyên cần</p>
-                        <p className="text-3xl font-bold text-amber-600">{attendanceScore}%</p>
-                        <p className="text-slate-500 text-xs mt-1">Tỉ lệ báo cáo đúng quy định</p>
-                      </div>
-                    </div>
-                  )}
-
-                </div>
-              </section>
-            )}
+                  </section>
+                </>
+              );
+            })()}
 
             {/* Tab: Nhiệm vụ – danh sách theo bộ lọc (từ Dashboard hoặc Tất cả) */}
             {activeTab === 'tasks' && (
@@ -1548,8 +1556,14 @@ const App = () => {
                 { taskId: selectedTaskId, reportDate: report.reportDate, result: report.result, weight: report.weight, attachmentPath: report.attachmentPath },
                 currentUser.id
               )
-                .then((r) => addReportToHistory(selectedTaskId, { reportDate: r.date, result: r.result, weight: r.weight }))
-                .catch(() => addReportToHistory(selectedTaskId, report));
+                .then((r) => {
+                  addReportToHistory(selectedTaskId, { reportDate: r.date, result: r.result, weight: r.weight });
+                  setReminderRefetchTrigger((t) => t + 1);
+                })
+                .catch(() => {
+                  addReportToHistory(selectedTaskId, report);
+                  setReminderRefetchTrigger((t) => t + 1);
+                });
             }}
             role={role}
             canEdit={role === 'admin' || role === 'leader'}

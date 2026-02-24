@@ -54,6 +54,21 @@ export async function getMyReports(filters = {}) {
 }
 
 /**
+ * Nhắc báo cáo bù: chưa báo cáo ngày hôm qua thì chặn dùng hệ thống.
+ * GET /reports/reminder?userId=...
+ * Response: { missingYesterday, yesterday, message, missingTasks: [{ taskId, taskTitle }] }
+ */
+export async function getReportsReminder(userId) {
+  if (!isApiConfigured() || !userId) return { missingYesterday: false };
+  try {
+    const data = await request(`reports/reminder?userId=${encodeURIComponent(userId)}`);
+    return data || { missingYesterday: false };
+  } catch {
+    return { missingYesterday: false };
+  }
+}
+
+/**
  * Gửi báo cáo: POST /reports?userId=...
  * Body: { taskId, reportDate (YYYY-MM-DD), result, weight (0-1, optional) }
  */
