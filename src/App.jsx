@@ -31,6 +31,7 @@ import { AttendancePanel } from './components/AttendancePanel.jsx';
 import ReportReminderOverlay from './components/ReportReminderOverlay.jsx';
 import ReportReminderBellBlock from './components/ReportReminderBellBlock.jsx';
 import RuleBanner from './components/RuleBanner.jsx';
+import DashboardAttendanceMock from './components/DashboardAttendanceMock.jsx';
 
 // Danh sách user để hiển thị tên (BE có thể trả về hoặc lấy từ API users)
 const USERS_DB = [
@@ -116,6 +117,7 @@ const App = () => {
   const role = currentUser?.role || 'staff';
 
   const [activeTab, setActiveTab] = useState('dash');
+  const [dashView, setDashView] = useState('performance'); // 'performance' | 'tasks' | 'attendance'
   const [userCardOpen, setUserCardOpen] = useState(false);
   const [listFilter, setListFilter] = useState('all');
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -124,7 +126,6 @@ const App = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
-  const [dashSubTab, setDashSubTab] = useState('overview');
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [users, setUsers] = useState([]);
@@ -865,141 +866,226 @@ const App = () => {
         <div ref={mainContentScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 min-w-0">
           <div className="max-w-5xl mx-auto pb-4">
             <RuleBanner />
-            {/* Tab: Bảng điều khiển – Hoàn thành cá nhân + Danh sách nhiệm vụ */}
+            {/* Bảng điều khiển với 3 tab nội bộ: Điểm & Xếp hạng / Theo dõi Nhiệm vụ / Chuyên cần */}
             {activeTab === 'dash' && (() => {
               const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
               const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
               const currentRank = ranking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
-              const totalStat = dashboardStats?.total ?? filteredTasks.length;
-              const overdueStat = dashboardStats?.overdue ?? statOverdue;
-              const inProgressStat = dashboardStats?.inProgress ?? statInProgress;
-              const completedStat = dashboardStats?.completed ?? statCompleted;
-              const pendingStat = dashboardStats?.pendingApproval ?? tasksPendingApproval.length;
-              const backlogStat = dashboardStats?.new ?? backlogCount;
-              const statusCards = [
-                { key: 'all', label: 'Tổng số', count: totalStat, style: { bg: 'bg-slate-100', border: 'border-slate-200', text: 'text-slate-700' } },
-                { key: 'overdue', label: 'Quá hạn', count: overdueStat, style: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700' } },
-                { key: 'in_progress', label: 'Đang TH', count: inProgressStat, style: { bg: 'bg-emerald-50', border: 'border-emerald-200', text: 'text-emerald-700' } },
-                { key: 'completed', label: 'Hoàn thành', count: completedStat, style: { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-700' } },
-                { key: 'pending_approval', label: 'Đợi duyệt', count: pendingStat, style: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-700' } },
-                { key: 'backlog', label: 'Tồn đọng', count: backlogStat, style: { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800' } },
-              ];
+
+              const renderPerformance = () => (
+                <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
+                  <h2 className="text-xl font-bold text-slate-900 mb-4">Hoàn thành cá nhân</h2>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm hiệu suất</p>
+                      <p className="text-2xl font-black text-slate-900">
+                        {score100(scoringUser?.totalScore)} <span className="text-slate-500 font-normal text-lg">/ 100</span>
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng phòng ban</p>
+                      <p className="text-2xl font-black text-slate-900">
+                        #{currentRank > 0 ? currentRank : '—'} <span className="text-slate-500 font-normal text-lg">/ {ranking.length || '—'}</span>
+                      </p>
+                    </div>
+                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
+                      <div className="space-y-1">
+                        {ranking.slice(0, 5).map((r, idx) => (
+                          <div key={r.userId ?? idx} className="flex items-center gap-2 text-sm">
+                            <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
+                            <span className="flex-1 truncate">{r.userName ?? r.name ?? '—'}</span>
+                            <span className="font-semibold text-slate-800">{score100(r.totalScore)}đ</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border border-slate-200 rounded-xl overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                      <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá</h3>
+                    </div>
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200">
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Tiêu chí đánh giá</th>
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Tỷ trọng</th>
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm đạt</th>
+                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Ghi chú</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-b border-slate-100">
+                          <td className="py-2 px-3 text-slate-700">Chuyên cần</td>
+                          <td className="py-2 px-3">40%</td>
+                          <td className="py-2 px-3">{formatPct(scoringUser?.attendanceScore)}</td>
+                          <td className="py-2 px-3 text-slate-500">{scoringUser?.reportedDays != null ? `Số ngày báo cáo: ${scoringUser.reportedDays}` : '—'}</td>
+                        </tr>
+                        <tr className="border-b border-slate-100">
+                          <td className="py-2 px-3 text-slate-700">Chất lượng công việc</td>
+                          <td className="py-2 px-3">60%</td>
+                          <td className="py-2 px-3">{formatPct(scoringUser?.qualityScore)}</td>
+                          <td className="py-2 px-3 text-slate-500">{scoringUser?.completedTasks != null ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ` : '—'}</td>
+                        </tr>
+                        <tr className="bg-slate-50 font-bold">
+                          <td className="py-2 px-3">Tổng cộng</td>
+                          <td className="py-2 px-3">100%</td>
+                          <td className="py-2 px-3">{score100(scoringUser?.totalScore)}</td>
+                          <td className="py-2 px-3" />
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+              );
+
+              const renderTasksInDashboard = () => (
+                <section className="mb-3" id="task-list-section">
+                  {/* Tái sử dụng layout giống tab Nhiệm vụ */}
+                  {role === 'admin' && (
+                    <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                      <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt (theo dõi)</h3>
+                      <p className="text-slate-600 text-sm mb-2">
+                        {tasksPendingApproval.length > 0
+                          ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi Leader (người phân công) duyệt. Bấm nút "Đợi duyệt" bên dưới để xem danh sách. Admin chỉ theo dõi, không duyệt thay.`
+                          : 'Chưa có nhiệm vụ nào đợi duyệt. Khi nhân sự bấm Hoàn thành, nhiệm vụ sẽ hiện ở đây; Leader duyệt hoặc trả về tồn đọng.'}
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setListFilter('pending_approval')}
+                        className="text-sm font-semibold text-amber-600 hover:text-amber-700"
+                      >
+                        Xem danh sách Đợi duyệt →
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                    <div>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
+                      <p className="text-slate-500 font-medium">
+                        {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
+                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
+                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
+                        {listFilter === 'pending_approval' && `Đợi duyệt (${tasksByFilter.length}). Leader (người phân công) duyệt hoặc trả về tồn đọng.`}
+                        {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
+                        {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setListFilter('all')}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'all' ? 'text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        style={listFilter === 'all' ? { backgroundColor: VIETTEL_RED } : undefined}
+                      >
+                        Tất cả
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setListFilter('overdue')}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'overdue' ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Quá hạn
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setListFilter('in_progress')}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'in_progress' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Đang thực hiện
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setListFilter('pending_approval')}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'pending_approval' ? 'bg-amber-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Đợi duyệt {tasksPendingApproval.length > 0 ? `(${tasksPendingApproval.length})` : ''}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setListFilter('completed')}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'completed' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Hoàn thành
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setListFilter('paused')}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'paused' ? 'bg-violet-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Tạm dừng
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-4">
+                    {tasksLoading ? (
+                      <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+                        Đang tải danh sách nhiệm vụ...
+                      </div>
+                    ) : (
+                      <>
+                        {tasksByFilter.map((task) => (
+                          <TaskListCard
+                            key={task.id}
+                            task={task}
+                            users={users}
+                            onClick={() => setSelectedTaskId(task.id)}
+                          />
+                        ))}
+                        {tasksByFilter.length === 0 && (
+                          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+                            Không có công việc nào trong nhóm này.
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </section>
+              );
+
               return (
                 <>
-                  {/* PHẦN TRÊN: Hoàn thành cá nhân */}
-                  <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
-                    <h2 className="text-xl font-bold text-slate-900 mb-4">Hoàn thành cá nhân</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm hiệu suất</p>
-                        <p className="text-2xl font-black text-slate-900">{score100(scoringUser?.totalScore)} <span className="text-slate-500 font-normal text-lg">/ 100</span></p>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng phòng ban</p>
-                        <p className="text-2xl font-black text-slate-900">#{currentRank > 0 ? currentRank : '—'} <span className="text-slate-500 font-normal text-lg">/ {ranking.length || '—'}</span></p>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
-                        <div className="space-y-1">
-                          {ranking.slice(0, 5).map((r, idx) => (
-                            <div key={r.userId ?? idx} className="flex items-center gap-2 text-sm">
-                              <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
-                              <span className="flex-1 truncate">{r.userName ?? r.name ?? '—'}</span>
-                              <span className="font-semibold text-slate-800">{score100(r.totalScore)}đ</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                  {/* Header tabs trong dashboard */}
+                  <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
+                    <div className="flex flex-wrap space-x-1 bg-slate-100 p-1 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setDashView('performance')}
+                        className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'performance' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                      >
+                        Điểm & Xếp hạng
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDashView('tasks')}
+                        className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'tasks' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                      >
+                        Theo dõi Nhiệm vụ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setDashView('attendance')}
+                        className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'attendance' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                      >
+                        Chuyên cần
+                      </button>
                     </div>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá</h3>
-                      </div>
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tiêu chí đánh giá</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tỷ trọng</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm đạt</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Ghi chú</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-slate-100">
-                            <td className="py-2 px-3 text-slate-700">Chuyên cần (báo cáo ngày)</td>
-                            <td className="py-2 px-3">40%</td>
-                            <td className="py-2 px-3">{formatPct(scoringUser?.attendanceScore)}</td>
-                            <td className="py-2 px-3 text-slate-500">{scoringUser?.reportedDays != null ? `Số ngày báo cáo: ${scoringUser.reportedDays}` : '—'}</td>
-                          </tr>
-                          <tr className="border-b border-slate-100">
-                            <td className="py-2 px-3 text-slate-700">Chất lượng công việc (W×Q×T)</td>
-                            <td className="py-2 px-3">60%</td>
-                            <td className="py-2 px-3">{formatPct(scoringUser?.qualityScore)}</td>
-                            <td className="py-2 px-3 text-slate-500">{scoringUser?.completedTasks != null ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ` : '—'}</td>
-                          </tr>
-                          <tr className="bg-slate-50 font-bold">
-                            <td className="py-2 px-3">Tổng cộng</td>
-                            <td className="py-2 px-3">100%</td>
-                            <td className="py-2 px-3">{score100(scoringUser?.totalScore)}</td>
-                            <td className="py-2 px-3" />
-                          </tr>
-                        </tbody>
-                      </table>
+                    <div className="flex items-center gap-2">
+                      <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                        <option>Tháng 2/2026</option>
+                        <option>Tháng 1/2026</option>
+                      </select>
                     </div>
-                  </section>
+                  </div>
 
-                  {/* PHẦN DƯỚI: Danh sách nhiệm vụ */}
-                  <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm" id="task-list-section">
-                    <h2 className="text-xl font-bold text-slate-900 mb-4">Danh sách nhiệm vụ</h2>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {statusCards.map(({ key, label, count, style }) => (
-                        <button
-                          key={key}
-                          type="button"
-                          onClick={() => setListFilter(key)}
-                          className={`px-4 py-2.5 rounded-xl text-sm font-bold border transition-colors ${style.bg} ${style.border} ${style.text} ${listFilter === key ? 'ring-2 ring-offset-1 ring-slate-400' : 'hover:opacity-90'}`}
-                        >
-                          {label}: {count}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tiêu đề</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Trạng thái</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Hạn chót</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Thao tác</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tasksByFilter.length === 0 ? (
-                            <tr><td colSpan={4} className="py-6 px-3 text-center text-slate-500">Chưa có nhiệm vụ nào.</td></tr>
-                          ) : (
-                            tasksByFilter.map((t) => (
-                              <tr
-                                key={t.id}
-                                className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
-                                onClick={() => setSelectedTaskId(t.id)}
-                              >
-                                <td className="py-2 px-3 font-medium text-slate-800 truncate max-w-[200px]">{t.title}</td>
-                                <td className="py-2 px-3">
-                                  <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                                    t.status === 'completed' ? 'bg-slate-200 text-slate-700' : t.status === 'accepted' ? 'bg-emerald-100 text-emerald-800' : t.status === 'overdue' || (t.deadline && new Date(String(t.deadline).replace(' ', 'T')) < now()) ? 'bg-red-100 text-red-800' : t.status === 'pending_approval' ? 'bg-amber-100 text-amber-800' : t.status === 'paused' ? 'bg-violet-100 text-violet-800' : 'bg-slate-100 text-slate-600'
-                                  }`}>
-                                    {t.status === 'new' ? 'Mới' : t.status === 'accepted' ? 'Đang TH' : t.status === 'completed' ? 'Hoàn thành' : t.status === 'pending_approval' ? 'Đợi duyệt' : t.status === 'paused' ? 'Tạm dừng' : t.status}
-                                  </span>
-                                </td>
-                                <td className="py-2 px-3 text-slate-600">{t.deadline ? new Date(String(t.deadline).replace(' ', 'T')).toLocaleDateString('vi-VN') : '—'}</td>
-                                <td className="py-2 px-3"><ChevronRight size={16} className="text-slate-400 inline" /></td>
-                              </tr>
-                            ))
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  </section>
+                  {dashView === 'performance' && renderPerformance()}
+                  {dashView === 'tasks' && renderTasksInDashboard()}
+                  {dashView === 'attendance' && (
+                    <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
+                      <DashboardAttendanceMock />
+                    </section>
+                  )}
                 </>
               );
             })()}
