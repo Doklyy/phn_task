@@ -1,84 +1,205 @@
-import React from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarDays, UserCheck, Clock9, FileWarning } from 'lucide-react';
+import { getAttendanceRecordsForMonth } from '../api/attendance.js';
+import { getMyReports } from '../api/reports.js';
 
-// Mock dữ liệu chuyên cần dạng lịch (tháng 2/2026) giống ví dụ bạn gửi
-const mockAttendance = Array.from({ length: 28 }, (_, i) => {
-  const day = i + 1;
-  const dateStr = `${day.toString().padStart(2, '0')}/02/2026`;
-  const isWeekend = [1, 7, 8, 14, 15, 21, 22, 28].includes(day);
+const pad = (n) => String(n).padStart(2, '0');
 
-  if (day > 24) {
-    return {
+function buildDayInfo({ year, month, records, reports }) {
+  const today = new Date();
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const list = [];
+
+  const recordByDate = {};
+  (records || []).forEach((r) => {
+    const d = String(r.recordDate ?? r.date ?? '').slice(0, 10);
+    if (!d) return;
+    recordByDate[d] = r;
+  });
+
+  const reportsByDate = {};
+  (reports || []).forEach((r) => {
+    const d = String(r.date ?? r.reportDate).slice(0, 10);
+    if (!d) return;
+    if (!reportsByDate[d]) reportsByDate[d] = [];
+    reportsByDate[d].push(r);
+  });
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const iso = `${year}-${pad(month)}-${pad(day)}`;
+    const dateObj = new Date(iso);
+    const dateStr = `${pad(day)}/${pad(month)}/${year}`;
+    const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+    const rec = recordByDate[iso];
+    const dayReports = reportsByDate[iso] || [];
+    const hasReport = dayReports.length > 0;
+
+    if (dateObj > today) {
+      list.push({
+        day,
+        date: dateStr,
+        type: 'future',
+        title: 'Chưa diễn ra',
+        details: ['Chưa có dữ liệu cho ngày này'],
+      });
+      continue;
+    }
+
+    if (isWeekend) {
+      list.push({
+        day,
+        date: dateStr,
+        type: 'weekend',
+        title: 'Ngày nghỉ',
+        details: ['Nghỉ cuối tuần (Thứ 7 / CN)'],
+      });
+      continue;
+    }
+
+    const checkIn = rec?.checkInAt ? new Date(String(rec.checkInAt).replace(' ', 'T')) : null;
+    const checkOut = rec?.checkOutAt ? new Date(String(rec.checkOutAt).replace(' ', 'T')) : null;
+    const code = rec?.attendanceCode || '';
+    const isLeave = code.startsWith('N_');
+    const isLate = rec?.isLate || code === 'M' || code === 'N_LATE';
+
+    const formatTime = (d) =>
+      d && !Number.isNaN(d.getTime())
+        ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
+        : '—';
+
+    if (!rec && !hasReport) {
+      list.push({
+        day,
+        date: dateStr,
+        type: 'danger',
+        title: 'Thiếu chấm công',
+        details: ['Chưa có bản ghi chấm công', 'Chưa có báo cáo tiến độ ngày'],
+      });
+      continue;
+    }
+
+    if (isLeave) {
+      list.push({
+        day,
+        date: dateStr,
+        type: 'danger',
+        title: 'Nghỉ phép',
+        details: [
+          `Mã chấm công: ${code || 'N_FULL'}`,
+          `Check-in: ${formatTime(checkIn)}`,
+          `Check-out: ${formatTime(checkOut)}`,
+          'Trạng thái: Nghỉ phép (đã ghi nhận)',
+        ],
+      });
+      continue;
+    }
+
+    if (rec && !hasReport) {
+      list.push({
+        day,
+        date: dateStr,
+        type: 'warning',
+        title: 'Thiếu báo cáo',
+        details: [
+          `Check-in: ${formatTime(checkIn)}`,
+          `Check-out: ${formatTime(checkOut)}`,
+          'Tiến độ: Chưa nộp báo cáo tiến độ ngày',
+          'Trạng thái: Cần bổ sung báo cáo',
+        ],
+      });
+      continue;
+    }
+
+    if (isLate) {
+      list.push({
+        day,
+        date: dateStr,
+        type: 'warning',
+        title: 'Đi muộn',
+        details: [
+          `Check-in: ${formatTime(checkIn)}`,
+          `Check-out: ${formatTime(checkOut)}`,
+          'Tiến độ: Đã báo cáo đầy đủ công việc',
+          'Trạng thái: Đi muộn nhưng đã hoàn thành báo cáo',
+        ],
+      });
+      continue;
+    }
+
+    list.push({
       day,
       date: dateStr,
-      type: 'future',
-      title: 'Chưa diễn ra',
-      details: ['Chưa có dữ liệu cho ngày này'],
-    };
-  }
-  if (isWeekend) {
-    return {
-      day,
-      date: dateStr,
-      type: 'weekend',
-      title: 'Ngày nghỉ',
-      details: ['Nghỉ cuối tuần (Thứ 7 / CN)'],
-    };
-  }
-  if (day === 4) {
-    return {
-      day,
-      date: dateStr,
-      type: 'warning',
-      title: 'Thiếu báo cáo',
+      type: 'success',
+      title: 'Đầy đủ',
       details: [
-        'Check-in: 08:20',
-        'Check-out: 17:35',
-        'Trạng thái: Chưa nộp báo cáo tiến độ ngày',
+        `Check-in: ${formatTime(checkIn)}`,
+        `Check-out: ${formatTime(checkOut)}`,
+        'Tiến độ: Đã báo cáo đầy đủ công việc',
+        'Trạng thái: Hợp lệ',
       ],
-    };
-  }
-  if (day === 12) {
-    return {
-      day,
-      date: dateStr,
-      type: 'warning',
-      title: 'Đi muộn',
-      details: [
-        'Check-in: 09:15 (Muộn 45p)',
-        'Check-out: 17:40',
-        'Trạng thái: Đã nộp báo cáo',
-      ],
-    };
-  }
-  if (day === 17) {
-    return {
-      day,
-      date: dateStr,
-      type: 'danger',
-      title: 'Nghỉ phép',
-      details: ['Trạng thái: Nghỉ phép ốm (Đã được Quản lý duyệt)'],
-    };
+    });
   }
 
-  return {
-    day,
-    date: dateStr,
-    type: 'success',
-    title: 'Đầy đủ',
-    details: [
-      'Check-in: 08:15',
-      'Check-out: 17:35',
-      'Tiến độ: Đã báo cáo đầy đủ công việc',
-      'Trạng thái: Hợp lệ',
-    ],
-  };
-});
+  return list;
+}
 
-export default function DashboardAttendanceMock() {
+export default function DashboardAttendanceMock({ currentUser }) {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [records, setRecords] = useState([]);
+  const [reports, setReports] = useState([]);
+  const [monthInfo] = useState(() => {
+    const d = new Date();
+    return { year: d.getFullYear(), month: d.getMonth() + 1 };
+  });
+
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const uid = Number(currentUser.id) || currentUser.id;
+    const { year, month } = monthInfo;
+    const from = `${year}-${pad(month)}-01`;
+    const lastDay = new Date(year, month, 0).getDate();
+    const to = `${year}-${pad(month)}-${pad(lastDay)}`;
+
+    setLoading(true);
+    setError('');
+    Promise.all([
+      getAttendanceRecordsForMonth(uid, year, month, uid),
+      getMyReports({ from, to }),
+    ])
+      .then(([recs, reps]) => {
+        setRecords(Array.isArray(recs) ? recs : []);
+        setReports(Array.isArray(reps) ? reps : []);
+      })
+      .catch(() => {
+        setRecords([]);
+        setReports([]);
+        setError('Không tải được dữ liệu chuyên cần.');
+      })
+      .finally(() => setLoading(false));
+  }, [currentUser?.id, monthInfo.year, monthInfo.month]);
+
+  const days = useMemo(
+    () => buildDayInfo({ year: monthInfo.year, month: monthInfo.month, records, reports }),
+    [monthInfo.year, monthInfo.month, records, reports],
+  );
+
+  const stats = useMemo(() => {
+    const workingDays = days.filter((d) => d.type !== 'weekend' && d.type !== 'future').length;
+    const fullDays = days.filter((d) => d.type === 'success').length;
+    const lateOrWarning = days.filter((d) => d.type === 'warning').length;
+    const issues = days.filter((d) => d.type === 'warning' || d.type === 'danger').length;
+    return {
+      workingDays,
+      fullDays,
+      lateOrWarning,
+      issues,
+    };
+  }, [days]);
+
   return (
     <div className="space-y-6">
-      {/* Tổng quan Chuyên cần (giống mock) */}
+      {/* Tổng quan Chuyên cần */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm flex items-center gap-4">
           <div className="bg-blue-100 p-3 rounded-lg text-blue-600">
@@ -87,7 +208,8 @@ export default function DashboardAttendanceMock() {
           <div>
             <div className="text-sm text-slate-500 font-medium">Ngày công chuẩn</div>
             <div className="text-2xl font-bold text-slate-800">
-              20 <span className="text-sm font-normal text-slate-400">ngày</span>
+              {stats.workingDays}{' '}
+              <span className="text-sm font-normal text-slate-400">ngày</span>
             </div>
           </div>
         </div>
@@ -98,7 +220,8 @@ export default function DashboardAttendanceMock() {
           <div>
             <div className="text-sm text-slate-500 font-medium">Đi làm đầy đủ</div>
             <div className="text-2xl font-bold text-slate-800">
-              14 <span className="text-sm font-normal text-slate-400">ngày</span>
+              {stats.fullDays}{' '}
+              <span className="text-sm font-normal text-slate-400">ngày</span>
             </div>
           </div>
         </div>
@@ -109,7 +232,8 @@ export default function DashboardAttendanceMock() {
           <div>
             <div className="text-sm text-slate-500 font-medium">Đi muộn/Về sớm</div>
             <div className="text-2xl font-bold text-slate-800">
-              1 <span className="text-sm font-normal text-slate-400">lần</span>
+              {stats.lateOrWarning}{' '}
+              <span className="text-sm font-normal text-slate-400">lần</span>
             </div>
           </div>
         </div>
@@ -122,16 +246,17 @@ export default function DashboardAttendanceMock() {
               Quên báo cáo/Nghỉ
             </div>
             <div className="text-2xl font-bold text-slate-800">
-              2 <span className="text-sm font-normal text-slate-400">lần</span>
+              {stats.issues}{' '}
+              <span className="text-sm font-normal text-slate-400">lần</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Lịch chuyên cần dạng hover giống mock */}
+      {/* Lịch chuyên cần dạng hover */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible p-6">
         <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
-          Chi tiết ngày công - Tháng 2/2026
+          Chi tiết ngày công - Tháng {pad(monthInfo.month)}/{monthInfo.year}
         </h3>
 
         <div className="grid grid-cols-7 gap-3">
@@ -148,7 +273,7 @@ export default function DashboardAttendanceMock() {
             <div key={`empty-${i}`} className="h-24" />
           ))}
 
-          {mockAttendance.map((item) => {
+          {days.map((item) => {
             let cellClasses = 'border border-gray-100 bg-white';
             let textClasses = 'text-slate-800';
             if (item.type === 'success') {
