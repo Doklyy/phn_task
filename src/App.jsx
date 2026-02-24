@@ -19,6 +19,7 @@ import {
   Pause,
   Calendar,
   Link as LinkIcon,
+  CheckCircle2,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { utils, writeFileXLSX } from 'xlsx';
