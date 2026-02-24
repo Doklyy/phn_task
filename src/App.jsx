@@ -117,6 +117,7 @@ const App = () => {
 
   const [activeTab, setActiveTab] = useState('dash');
   const [dashView, setDashView] = useState('performance'); // 'performance' | 'tasks' | 'attendance'
+  const [showAllRanking, setShowAllRanking] = useState(false);
   const [userCardOpen, setUserCardOpen] = useState(false);
   const [listFilter, setListFilter] = useState('all');
   const [selectedTaskId, setSelectedTaskId] = useState(null);
@@ -851,35 +852,51 @@ const App = () => {
             {activeTab === 'dash' && (() => {
               const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
               const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
-              const currentRank = ranking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
+              const filteredRanking = (ranking || []).filter((r) => {
+                const name = String(r.userName ?? r.name ?? '').toLowerCase();
+                return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
+              });
+              const currentRank = filteredRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
+              const totalRanked = filteredRanking.length;
 
               const renderPerformance = () => (
                 <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
                   <h2 className="text-xl font-bold text-slate-900 mb-4">Hoàn thành cá nhân</h2>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm hiệu suất</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm</p>
                       <p className="text-2xl font-black text-slate-900">
                         {score100(scoringUser?.totalScore)} <span className="text-slate-500 font-normal text-lg">/ 100</span>
                       </p>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng phòng ban</p>
+                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng</p>
                       <p className="text-2xl font-black text-slate-900">
-                        #{currentRank > 0 ? currentRank : '—'} <span className="text-slate-500 font-normal text-lg">/ {ranking.length || '—'}</span>
+                        #{currentRank > 0 ? currentRank : '—'} <span className="text-slate-500 font-normal text-lg">/ {totalRanked || '—'}</span>
                       </p>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
                       <div className="space-y-1 max-h-64 overflow-auto pr-1">
-                        {ranking.map((r, idx) => (
-                          <div key={r.userId ?? idx} className="flex items-center gap-2 text-sm">
+                        {(showAllRanking ? filteredRanking : filteredRanking.slice(0, 3)).map((r, idx) => (
+                          <div key={r.userId ?? `${idx}-${r.userName ?? r.name ?? ''}`} className="flex items-center gap-2 text-sm">
                             <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
-                            <span className="flex-1 truncate">{r.userName ?? r.name ?? '—'}</span>
+                            <span className="flex-1">{r.userName ?? r.name ?? '—'}</span>
                             <span className="font-semibold text-slate-800">{score100(r.totalScore)}đ</span>
                           </div>
                         ))}
                       </div>
+                      {filteredRanking.length > 3 && (
+                        <div className="mt-2 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setShowAllRanking((v) => !v)}
+                            className="text-xs font-medium text-slate-500 hover:text-slate-800 hover:underline"
+                          >
+                            {showAllRanking ? 'Thu gọn' : 'Xem tất cả'}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="border border-slate-200 rounded-xl overflow-hidden">
