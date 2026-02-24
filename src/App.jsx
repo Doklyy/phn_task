@@ -1219,7 +1219,7 @@ const App = () => {
                                 const records = adminAttendanceMap[sid] || [];
                                 const recordByDay = {};
                                 records.forEach((r) => {
-                                  const d = (r.recordDate ?? r.date || '').slice(0, 10);
+                                  const d = (r.recordDate ?? r.date ?? '').slice(0, 10);
                                   if (d) {
                                     const day = parseInt(d.slice(8, 10), 10);
                                     recordByDay[day] = r.attendanceCode || 'L';
