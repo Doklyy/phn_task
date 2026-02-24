@@ -648,12 +648,6 @@ const App = () => {
 
         <nav className="flex-1 py-4 px-3 space-y-0.5 overflow-y-auto">
           <SidebarLink
-            icon={<LayoutDashboard size={20} />}
-            label="Bảng điều khiển"
-            active={activeTab === 'dash'}
-            onClick={() => setActiveTab('dash')}
-          />
-          <SidebarLink
             icon={<ClipboardList size={20} />}
             label="Nhiệm vụ"
             active={activeTab === 'tasks'}
@@ -674,10 +668,14 @@ const App = () => {
       <main className="flex-1 flex flex-col overflow-hidden min-w-0">
         {/* Header: logo trái, search giữa, chuông + nút + avatar phải */}
         <header className="h-16 bg-white border-b border-slate-200 flex items-center gap-6 px-6 shrink-0">
-          <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={() => setActiveTab('dash')}
+            className="flex items-center gap-2 shrink-0 cursor-pointer bg-transparent border-0 p-0"
+          >
             <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-xs" style={{ backgroundColor: VIETTEL_RED }}>P</div>
             <span className="font-semibold text-slate-800 hidden sm:inline">Quản lý công việc</span>
-          </div>
+          </button>
           <div className="flex-1 max-w-xl min-w-0">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0" size={18} />
@@ -888,8 +886,8 @@ const App = () => {
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
-                      <div className="space-y-1">
-                        {ranking.slice(0, 5).map((r, idx) => (
+                      <div className="space-y-1 max-h-64 overflow-auto pr-1">
+                        {ranking.map((r, idx) => (
                           <div key={r.userId ?? idx} className="flex items-center gap-2 text-sm">
                             <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
                             <span className="flex-1 truncate">{r.userName ?? r.name ?? '—'}</span>
@@ -976,21 +974,21 @@ const App = () => {
                         className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'all' ? 'text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                         style={listFilter === 'all' ? { backgroundColor: VIETTEL_RED } : undefined}
                       >
-                        Tất cả
+                        Tất cả {filteredTasks.length ? `(${filteredTasks.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('overdue')}
                         className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'overdue' ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
-                        Quá hạn
+                        Quá hạn {tasksOverdue.length ? `(${tasksOverdue.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('in_progress')}
                         className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'in_progress' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
-                        Đang thực hiện
+                        Đang thực hiện {tasksInProgress.length ? `(${tasksInProgress.length})` : ''}
                       </button>
                       <button
                         type="button"
@@ -1004,14 +1002,14 @@ const App = () => {
                         onClick={() => setListFilter('completed')}
                         className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'completed' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
-                        Hoàn thành
+                        Hoàn thành {tasksCompleted.length ? `(${tasksCompleted.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('paused')}
                         className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'paused' ? 'bg-violet-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
-                        Tạm dừng
+                        Tạm dừng {tasksPaused.length ? `(${tasksPaused.length})` : ''}
                       </button>
                     </div>
                   </div>
