@@ -32,6 +32,7 @@ function normalizeTask(t) {
     completionNote: t.completionNote ?? t.completion_note ?? null,
     completionLink: t.completionLink ?? t.completion_link ?? null,
     completionFilePath: t.completionFilePath ?? t.completion_file_path ?? null,
+    leaderComment: t.leaderComment ?? t.leader_comment ?? null,
   };
 }
 
@@ -134,6 +135,7 @@ export async function updateTaskDetails(taskId, userId, payload) {
   if (payload.weight !== undefined) body.weight = Number(payload.weight);
   if (payload.status !== undefined) body.status = String(payload.status).toUpperCase();
   if (payload.quality !== undefined) body.quality = Number(payload.quality);
+  if (payload.leaderComment !== undefined) body.leaderComment = payload.leaderComment;
   const res = await request(url, {
     method: 'PATCH',
     body: JSON.stringify(body),

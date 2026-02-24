@@ -89,7 +89,7 @@ const DEFAULT_TEAM_OPTIONS = [
   { value: 'new_product', label: 'Sản phẩm mới' },
 ];
 
-/** Thang TRỌNG SỐ W1–W5 (1–8 điểm). */
+/** Thang TRỌNG SỐ W1–W5 (1–8 điểm) – hiển thị chỉ chữ. */
 const WEIGHT_LEVELS = [
   { code: 'W1', value: 1, label: 'Rất thấp' },
   { code: 'W2', value: 2, label: 'Thấp' },
@@ -111,36 +111,17 @@ const weightLabel = (weight) => {
       bestDiff = diff;
     }
   }
-  return `${best.code} – ${best.label}`;
+  // Chỉ hiển thị chữ (không W1–W5)
+  return best.label;
 };
 
-/** Thang ĐÁNH GIÁ CHẤT LƯỢNG Q1–Q5. */
+/** Thang ĐÁNH GIÁ CHẤT LƯỢNG Q1–Q5 – hiển thị chỉ chữ. */
 const QUALITY_LEVELS = [
-  {
-    code: 'Q1',
-    value: 0.0,
-    label: 'Không đạt',
-  },
-  {
-    code: 'Q2',
-    value: 0.6,
-    label: 'Đạt tối thiểu',
-  },
-  {
-    code: 'Q3',
-    value: 1.0,
-    label: 'Đạt chuẩn',
-  },
-  {
-    code: 'Q4',
-    value: 1.1,
-    label: 'Tốt',
-  },
-  {
-    code: 'Q5',
-    value: 1.3,
-    label: 'Xuất sắc',
-  },
+  { code: 'Q1', value: 0.0, label: 'Không đạt' },
+  { code: 'Q2', value: 0.6, label: 'Đạt tối thiểu' },
+  { code: 'Q3', value: 1.0, label: 'Đạt chuẩn' },
+  { code: 'Q4', value: 1.1, label: 'Tốt' },
+  { code: 'Q5', value: 1.3, label: 'Xuất sắc' },
 ];
 
 const qualityLabel = (quality) => {
@@ -156,7 +137,8 @@ const qualityLabel = (quality) => {
       bestDiff = diff;
     }
   }
-  return `${best.code} – ${best.label}`;
+  // Chỉ hiển thị chữ (không Q1–Q5)
+  return best.label;
 };
 
 const getInitials = (name) => {
@@ -2356,7 +2338,7 @@ const TaskDetailModal = ({
                   <h4 className="text-base font-bold text-slate-800 border-b border-slate-200 pb-2">Kết quả đánh giá</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số công việc (W1–W5)</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số công việc</label>
                       <select
                         value={editWeight}
                         onChange={(e) => setEditWeight(e.target.value)}
@@ -2365,7 +2347,7 @@ const TaskDetailModal = ({
                         <option value="">Chưa chọn</option>
                         {WEIGHT_LEVELS.map((lvl) => (
                           <option key={lvl.code} value={lvl.value}>
-                            {lvl.code} – {lvl.label}
+                            {lvl.label}
                           </option>
                         ))}
                       </select>
@@ -2379,7 +2361,7 @@ const TaskDetailModal = ({
                       </select>
                     </div>
                     <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá chất lượng (Q1–Q5)</label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá chất lượng</label>
                       <select
                         value={approveQuality}
                         onChange={(e) => setApproveQuality(e.target.value)}
@@ -2388,7 +2370,7 @@ const TaskDetailModal = ({
                         <option value="">Chưa chọn</option>
                         {QUALITY_LEVELS.map((lvl) => (
                           <option key={lvl.code} value={lvl.value}>
-                            {lvl.code} – {lvl.label}
+                            {lvl.label}
                           </option>
                         ))}
                       </select>
@@ -2409,6 +2391,7 @@ const TaskDetailModal = ({
                           weight: editWeight !== '' ? Number(editWeight) : undefined,
                           status: editStatus,
                           quality: q,
+                          leaderComment: rejectReason.trim() || undefined,
                         };
                         (onSaveEdit ? onSaveEdit(payload) : Promise.resolve())
                           .then(() => {
@@ -2946,18 +2929,19 @@ const TaskListCard = ({ task, users, onClick }) => {
         <span className={`text-[10px] font-black px-2 py-0.5 rounded uppercase ${statusClass}`}>{statusLabel}</span>
       </div>
       <p className="text-slate-500 text-sm line-clamp-2">{task.objective}</p>
-      {(task.weight != null || task.quality != null) && (
-        <p className="text-[11px] text-slate-600 mt-2">
-          <span className="font-semibold text-slate-700">Đánh giá:&nbsp;</span>
-          Trọng số: {weightLabel(task.weight)} · Trạng thái: {statusLabel} · Chất lượng: {qualityText}
-        </p>
-      )}
       <div className="flex flex-wrap items-center gap-4 mt-4 pt-4 border-t border-slate-100">
         <TaskMetric label="Chủ trì" value={displayChuTriName} icon={<Users size={14} />} />
         <TaskMetric label="Hạn chót" value={task.deadline} icon={<Clock size={14} />} />
-        <TaskMetric label="Trọng số" value={weightLabel(task.weight)} icon={<TrendingUp size={14} />} color="blue" />
+        <TaskMetric label="Trọng số CV" value={weightLabel(task.weight)} icon={<TrendingUp size={14} />} color="blue" />
+        <TaskMetric label="Chất lượng CV" value={qualityText} icon={<CheckCircle2 size={14} />} color="orange" />
         <span className="text-slate-400 text-xs ml-auto">Xem chi tiết →</span>
       </div>
+      {task.leaderComment && (
+        <p className="mt-2 text-[11px] text-slate-600 line-clamp-1">
+          <span className="font-semibold">Đánh giá của chỉ huy:&nbsp;</span>
+          {task.leaderComment}
+        </p>
+      )}
     </button>
   );
 };
