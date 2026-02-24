@@ -159,25 +159,6 @@ const App = () => {
   });
   const [adminAttendanceMap, setAdminAttendanceMap] = useState({});
   const [adminAttendanceLoading, setAdminAttendanceLoading] = useState(false);
-  const staffList = useMemo(() => (users || []).filter((u) => String(u.role || '').toLowerCase() !== 'admin'), [users]);
-  useEffect(() => {
-    if (activeTab !== 'dash' || dashView !== 'attendance' || role !== 'admin' || !currentUser?.id || staffList.length === 0) return;
-    const [y, m] = dashMonth.split('-').map(Number);
-    if (!y || !m) return;
-    setAdminAttendanceLoading(true);
-    const uid = Number(currentUser.id) || currentUser.id;
-    Promise.all(staffList.map((s) => getAttendanceRecordsForMonth(uid, y, m, Number(s.id ?? s.userId))))
-      .then((results) => {
-        const next = {};
-        staffList.forEach((s, i) => {
-          const id = String(s.id ?? s.userId);
-          next[id] = Array.isArray(results[i]) ? results[i] : [];
-        });
-        setAdminAttendanceMap(next);
-      })
-      .catch(() => setAdminAttendanceMap({}))
-      .finally(() => setAdminAttendanceLoading(false));
-  }, [activeTab, dashView, role, currentUser?.id, dashMonth, staffList.length]);
   const reportCountByUserId = useMemo(() => {
     const [y, m] = dashMonth.split('-').map(Number);
     if (!y || !m) return {};
@@ -195,6 +176,38 @@ const App = () => {
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [users, setUsers] = useState([]);
+  const staffList = useMemo(
+    () => (users || []).filter((u) => String(u.role || '').toLowerCase() !== 'admin'),
+    [users],
+  );
+  useEffect(() => {
+    if (
+      activeTab !== 'dash'
+      || dashView !== 'attendance'
+      || role !== 'admin'
+      || !currentUser?.id
+      || staffList.length === 0
+    ) {
+      return;
+    }
+    const [y, m] = dashMonth.split('-').map(Number);
+    if (!y || !m) return;
+    setAdminAttendanceLoading(true);
+    const uid = Number(currentUser.id) || currentUser.id;
+    Promise.all(
+      staffList.map((s) => getAttendanceRecordsForMonth(uid, y, m, Number(s.id ?? s.userId))),
+    )
+      .then((results) => {
+        const next = {};
+        staffList.forEach((s, i) => {
+          const id = String(s.id ?? s.userId);
+          next[id] = Array.isArray(results[i]) ? results[i] : [];
+        });
+        setAdminAttendanceMap(next);
+      })
+      .catch(() => setAdminAttendanceMap({}))
+      .finally(() => setAdminAttendanceLoading(false));
+  }, [activeTab, dashView, role, currentUser?.id, dashMonth, staffList.length]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState('');
   const [attendanceUpdateMsg, setAttendanceUpdateMsg] = useState({ id: null, text: '' });
