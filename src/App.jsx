@@ -186,7 +186,6 @@ const App = () => {
 
   const [reportTaskId, setReportTaskId] = useState('');
   const [reportResult, setReportResult] = useState('');
-  const [reportWeight, setReportWeight] = useState('');
   const [reportAttachmentPath, setReportAttachmentPath] = useState('');
   const [reportFileUploading, setReportFileUploading] = useState(false);
   const [reportErrors, setReportErrors] = useState({});
@@ -208,7 +207,6 @@ const App = () => {
           byTask[taskId].push({
             date: r.date ? String(r.date).slice(0, 10) : '',
             result: r.result,
-            weight: r.weight,
           });
         });
         setReportHistoryByTask(byTask);
@@ -223,14 +221,14 @@ const App = () => {
       .then((list) => {
         setReportHistoryByTask((prev) => ({
           ...prev,
-          [selectedTaskId]: (list || []).map((r) => ({ date: r.date?.slice(0, 10) || r.date, result: r.result, weight: r.weight })),
+          [selectedTaskId]: (list || []).map((r) => ({ date: r.date?.slice(0, 10) || r.date, result: r.result })),
         }));
       })
       .catch(() => {});
   }, [selectedTaskId, currentUser?.id]);
 
   const addReportToHistory = useCallback((taskId, report) => {
-    const entry = { date: report.reportDate, result: report.result, weight: report.weight };
+    const entry = { date: report.reportDate, result: report.result };
     setReportHistoryByTask((prev) => ({
       ...prev,
       [taskId]: [...(prev[taskId] || []), entry],
@@ -502,31 +500,29 @@ const App = () => {
     if (!validateReport()) return;
     const reportDate = new Date().toISOString().slice(0, 10);
     const taskId = Number(reportTaskId);
-    const payload = { taskId, reportDate, result: reportResult, weight: reportWeight ? Number(reportWeight) : null, attachmentPath: reportAttachmentPath || null };
+    const payload = { taskId, reportDate, result: reportResult, attachmentPath: reportAttachmentPath || null };
     const userId = currentUser?.id;
     if (!userId) return;
     submitReport(payload, userId)
       .then((r) => {
-        addReportToHistory(taskId, { reportDate: r.date, result: r.result, weight: r.weight });
+        addReportToHistory(taskId, { reportDate: r.date, result: r.result });
         setReportSent(true);
         setReminderRefetchTrigger((t) => t + 1);
         setTimeout(() => {
           setReportTaskId('');
           setReportResult('');
-          setReportWeight('');
           setReportAttachmentPath('');
           setReportErrors({});
           setReportSent(false);
         }, 1500);
       })
       .catch(() => {
-        addReportToHistory(taskId, { reportDate, result: reportResult, weight: reportWeight ? Number(reportWeight) : null });
+        addReportToHistory(taskId, { reportDate, result: reportResult });
         setReportSent(true);
         setReminderRefetchTrigger((t) => t + 1);
         setTimeout(() => {
           setReportTaskId('');
           setReportResult('');
-          setReportWeight('');
           setReportAttachmentPath('');
           setReportErrors({});
           setReportSent(false);
@@ -663,22 +659,6 @@ const App = () => {
             active={activeTab === 'tasks'}
             onClick={() => setActiveTab('tasks')}
           />
-{role !== 'staff' && (
-              <SidebarLink
-                icon={<Users size={20} />}
-                label="Nhân sự"
-                active={activeTab === 'users'}
-                onClick={() => setActiveTab('users')}
-              />
-            )}
-          {role === 'admin' && (
-            <SidebarLink
-              icon={<FileText size={20} />}
-              label="Báo cáo"
-              active={activeTab === 'reports'}
-              onClick={() => setActiveTab('reports')}
-            />
-          )}
           <SidebarLink
             icon={<Star size={20} />}
             label="Xếp hạng"
@@ -847,7 +827,26 @@ const App = () => {
                         </p>
                       </div>
                     </div>
-                    {/* Có thể thêm các mục menu khác tại đây nếu cần */}
+                    {role !== 'staff' && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('users'); setUserCardOpen(false); }}
+                          className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                          <Users size={16} /> Nhân sự
+                        </button>
+                        {role === 'admin' && (
+                          <button
+                            type="button"
+                            onClick={() => { setActiveTab('reports'); setUserCardOpen(false); }}
+                            className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                          >
+                            <FileText size={16} /> Báo cáo
+                          </button>
+                        )}
+                      </>
+                    )}
                     <button
                       type="button"
                       onClick={logout}
@@ -894,7 +893,6 @@ const App = () => {
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm hiệu suất</p>
                         <p className="text-2xl font-black text-slate-900">{score100(scoringUser?.totalScore)} <span className="text-slate-500 font-normal text-lg">/ 100</span></p>
-                        <p className="text-xs text-slate-500 mt-1">Chuyên cần 40% + Chất lượng 60%</p>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng phòng ban</p>
@@ -1553,11 +1551,11 @@ const App = () => {
             onAddReport={(report) => {
               if (!currentUser?.id) return;
               submitReport(
-                { taskId: selectedTaskId, reportDate: report.reportDate, result: report.result, weight: report.weight, attachmentPath: report.attachmentPath },
+                { taskId: selectedTaskId, reportDate: report.reportDate, result: report.result, attachmentPath: report.attachmentPath },
                 currentUser.id
               )
                 .then((r) => {
-                  addReportToHistory(selectedTaskId, { reportDate: r.date, result: r.result, weight: r.weight });
+                  addReportToHistory(selectedTaskId, { reportDate: r.date, result: r.result });
                   setReminderRefetchTrigger((t) => t + 1);
                 })
                 .catch(() => {
@@ -1616,7 +1614,6 @@ const App = () => {
                         <span className="font-semibold text-slate-800">{r.taskTitle || 'Nhiệm vụ'}</span>
                         <span className="text-[11px] text-slate-400">{r.date}</span>
                       </div>
-                      <p className="text-[11px] text-slate-500 mb-1">W: {r.weight ?? '—'}</p>
                       <p className="text-slate-700 text-sm whitespace-pre-wrap">{r.result}</p>
                       {r.attachmentPath && (() => {
                         const paths = String(r.attachmentPath).split('|').filter(Boolean);
@@ -1669,7 +1666,6 @@ const TaskDetailModal = ({
   const [reportChoice, setReportChoice] = useState(null);
   const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
   const [reportResult, setReportResult] = useState('');
-  const [reportWeight, setReportWeight] = useState(task.weight != null ? String(task.weight) : '0.5');
   const [reportAttachmentPaths, setReportAttachmentPaths] = useState([]);
   const [reportFileUploading, setReportFileUploading] = useState(false);
   const [reportSubmitting, setReportSubmitting] = useState(false);
@@ -1690,7 +1686,6 @@ const TaskDetailModal = ({
     setReportChoice(null);
     setReportDate(new Date().toISOString().slice(0, 10));
     setReportResult('');
-    setReportWeight(task?.weight != null ? String(task.weight) : '0.5');
     setReportAttachmentPaths([]);
     setReportError('');
   }, [task?.id, task?.weight]);
@@ -1814,7 +1809,6 @@ const TaskDetailModal = ({
                         const submitPromise = onAddReport({
                           reportDate,
                           result: reportResult.trim(),
-                          weight: reportWeight ? Number(reportWeight) : undefined,
                           attachmentPath: reportAttachmentPaths.length ? reportAttachmentPaths.join('|') : undefined,
                         });
                         const timeoutMs = 30000;
@@ -1841,10 +1835,6 @@ const TaskDetailModal = ({
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kết quả / Tiến độ (tối thiểu 10 ký tự)</label>
                         <textarea value={reportResult} onChange={(e) => { setReportResult(e.target.value); setReportError(''); }} minLength={10} maxLength={4000} rows={3} placeholder="Mô tả tiến độ: đang ở bước nào, đã làm được gì trong ngày..." required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số (0–1, tùy chọn)</label>
-                        <input type="number" min={0} max={1} step={0.1} value={reportWeight} onChange={(e) => setReportWeight(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm w-24" />
                       </div>
                       <div>
                         <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm (tùy chọn, nhiều file)</label>
@@ -1948,7 +1938,6 @@ const TaskDetailModal = ({
                     {reportHistory.map((r, i) => (
                       <li key={i} className="flex justify-between text-sm border-b border-slate-50 pb-2">
                         <span className="text-slate-600">{r.date}</span>
-                        <span className="text-slate-400">W: {r.weight ?? '—'}</span>
                         <span className="text-slate-700 flex-1 ml-3 truncate">{r.result}</span>
                       </li>
                     ))}
@@ -2045,7 +2034,6 @@ const TaskDetailModal = ({
                   {reportHistory.map((r, i) => (
                     <li key={i} className="flex justify-between text-sm border-b border-slate-50 pb-2">
                       <span className="text-slate-600">{r.date}</span>
-                      <span className="text-slate-400">W: {r.weight ?? '—'}</span>
                       <span className="text-slate-700 flex-1 ml-3 truncate">{r.result}</span>
                     </li>
                   ))}
@@ -2065,7 +2053,6 @@ const TaskDetailModal = ({
                   {reportHistory.map((r, i) => (
                     <li key={i} className="flex justify-between text-sm border-b border-slate-50 pb-2">
                       <span className="text-slate-600">{r.date}</span>
-                      <span className="text-slate-400">W: {r.weight ?? '—'}</span>
                       <span className="text-slate-700 flex-1 ml-3 truncate">{r.result}</span>
                     </li>
                   ))}
