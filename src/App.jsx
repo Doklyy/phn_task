@@ -853,7 +853,7 @@ const App = () => {
               const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
               const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
               const filteredRanking = (ranking || []).filter((r) => {
-                const name = String(r.userName ?? r.name ?? '').toLowerCase();
+                const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               });
               const currentRank = filteredRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
@@ -866,7 +866,7 @@ const App = () => {
                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm</p>
                       <p className="text-2xl font-black text-slate-900">
-                        {score100(scoringUser?.totalScore)} <span className="text-slate-500 font-normal text-lg">/ 100</span>
+                        {score100(scoringUser?.totalScore)}
                       </p>
                     </div>
                     <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
@@ -881,7 +881,7 @@ const App = () => {
                         {(showAllRanking ? filteredRanking : filteredRanking.slice(0, 3)).map((r, idx) => (
                           <div key={r.userId ?? `${idx}-${r.userName ?? r.name ?? ''}`} className="flex items-center gap-2 text-sm">
                             <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
-                            <span className="flex-1">{r.userName ?? r.name ?? '—'}</span>
+                            <span className="flex-1">{r.name ?? r.userName ?? '—'}</span>
                             <span className="font-semibold text-slate-800">{score100(r.totalScore)}đ</span>
                           </div>
                         ))}
@@ -1044,36 +1044,39 @@ const App = () => {
 
               return (
                 <>
-                  {/* Header tabs trong dashboard */}
-                  <div className="bg-white rounded-xl shadow-sm p-4 flex flex-col sm:flex-row justify-between items-center gap-4 mb-4">
-                    <div className="flex flex-wrap space-x-1 bg-slate-100 p-1 rounded-lg">
-                      <button
-                        type="button"
-                        onClick={() => setDashView('performance')}
-                        className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'performance' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                      >
-                        Điểm & Xếp hạng
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDashView('tasks')}
-                        className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'tasks' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                      >
-                        Theo dõi Nhiệm vụ
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDashView('attendance')}
-                        className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'attendance' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                      >
-                        Chuyên cần
-                      </button>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <select className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                        <option>Tháng 2/2026</option>
-                        <option>Tháng 1/2026</option>
-                      </select>
+                  {/* Thanh 3 tab trên cùng – bố cục ngang kiểu Facebook: cụm tab giữa, chọn tháng bên phải */}
+                  <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm -mx-4 md:-mx-6 px-4 md:px-6 py-3 mb-4">
+                    <div className="max-w-5xl mx-auto flex items-center gap-4">
+                      <div className="flex-1 min-w-0" />
+                      <div className="flex flex-wrap justify-center gap-1 bg-slate-100 p-1 rounded-lg">
+                        <button
+                          type="button"
+                          onClick={() => setDashView('performance')}
+                          className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'performance' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                          Điểm & Xếp hạng
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDashView('tasks')}
+                          className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'tasks' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                          Theo dõi Nhiệm vụ
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDashView('attendance')}
+                          className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'attendance' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                        >
+                          Chuyên cần
+                        </button>
+                      </div>
+                      <div className="flex-1 flex justify-end min-w-0">
+                        <select className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                          <option>Tháng 2/2026</option>
+                          <option>Tháng 1/2026</option>
+                        </select>
+                      </div>
                     </div>
                   </div>
 
