@@ -1441,7 +1441,7 @@ const App = () => {
                                       } else if (dayData.status === 'leave') {
                                         content = (
                                           <div className="relative group flex items-center justify-center w-full h-full cursor-pointer">
-                                            <span className="text-slate-400 font-bold text-[11px]">L</span>
+                                            <span className="text-slate-400 font-bold text-[11px]">N</span>
                                             {dayData.detail && (
                                               <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col w-48 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-xl z-50 pointer-events-none">
                                                 <div className="font-semibold border-b border-slate-700 pb-1.5 mb-1.5 text-center text-slate-100">
