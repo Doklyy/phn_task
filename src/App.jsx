@@ -1375,7 +1375,7 @@ const App = () => {
                                 <span className="text-slate-700">Thiếu báo cáo</span>
                               </div>
                               <div className="flex items-center gap-1.5 ml-2">
-                                <span className="text-slate-400 font-bold px-1">L</span>
+                                <span className="text-slate-400 font-bold px-1">N</span>
                                 <span className="text-slate-700">Nghỉ phép</span>
                               </div>
                             </div>
