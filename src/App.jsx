@@ -1360,7 +1360,7 @@ const App = () => {
                                   const parts = dashMonth.split('-');
                                   const y = parts[0] || '';
                                   const m = parts[1] ? Number(parts[1]) : null;
-                                  return `Tháng ${m || ''} / ${y} • Chấm công & Báo cáo 2 chiều theo nhân sự`;
+                                  return `Tháng ${m || ''} / ${y} `;
                                 })()}
                               </p>
                             </div>
@@ -1368,7 +1368,7 @@ const App = () => {
                             <div className="flex flex-wrap gap-3 text-xs sm:text-sm bg-slate-50 p-2.5 rounded-lg border border-slate-200">
                               <div className="flex items-center gap-1.5">
                                 <CheckCircle2 size={16} className="text-emerald-500" />
-                                <span className="text-slate-700">Đủ BC (Có BC Tiến độ)</span>
+                                <span className="text-slate-700">Đủ Báo cáo tiến độ</span>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <AlertCircle size={16} className="text-amber-500" />
