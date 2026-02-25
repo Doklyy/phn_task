@@ -57,10 +57,12 @@ function buildDayInfo({ year, month, records, reports }) {
       continue;
     }
 
-    const code = String(rec?.attendanceCode ?? '').trim();
+    const rawCode = String(rec?.attendanceCode ?? rec?.attendance_code ?? '').trim();
+    const code = rawCode.toUpperCase();
     const isLeave = code.startsWith('N_');
-    const isFullDay = code === 'L' || (!!rec && !isLeave && code !== 'M' && code !== 'N_LATE');
-    const isLate = code === 'M' || code === 'N_LATE';
+    const isExplicitLate = code === 'M' || code === 'N_LATE';
+    const isFullDayCode = code === 'L' || code === '';
+    const isLate = isExplicitLate && !isFullDayCode;
 
     if (!rec && !hasReport) {
       const isToday = iso === todayIso;
@@ -82,7 +84,7 @@ function buildDayInfo({ year, month, records, reports }) {
         date: dateStr,
         type: 'danger',
         title: 'Nghỉ phép',
-        details: [`Mã chấm công: ${code || 'N_FULL'}`, 'Trạng thái: Nghỉ phép (đã ghi nhận)'],
+        details: [`Mã chấm công: ${rawCode || 'N_FULL'}`, 'Trạng thái: Nghỉ phép (đã ghi nhận)'],
       });
       continue;
     }

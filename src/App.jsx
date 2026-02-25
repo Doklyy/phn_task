@@ -2312,22 +2312,23 @@ const TaskDetailModal = ({
                 )}
               </div>
 
-              {(task.lastRejectReason || task.lastRejectAt) && (
-                <div className="pt-4 border-t border-slate-100">
-                  <h4 className="text-sm font-bold text-slate-800 mb-2">Lịch sử trả về</h4>
-                  <ul className="space-y-2">
-                    <li className="text-sm border-b border-slate-50 pb-2">
-                      <span className="text-slate-600">
-                        {task.lastRejectAt
-                          ? new Date(String(task.lastRejectAt).replace(' ', 'T')).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                          : '—'}
-                      </span>
-                      <p className="text-slate-700 mt-1 whitespace-pre-wrap">{task.lastRejectReason || '—'}</p>
-                    </li>
-                  </ul>
-                </div>
-              )}
             </>
+          )}
+
+          {(task.lastRejectReason || task.lastRejectAt || task.leaderComment) && (
+            <div className="pt-4 border-t border-slate-100">
+              <h4 className="text-sm font-bold text-slate-800 mb-2">Lịch sử trả về</h4>
+              <ul className="space-y-2">
+                <li className="text-sm border-b border-slate-50 pb-2">
+                  <span className="text-slate-600">
+                    {task.lastRejectAt
+                      ? new Date(String(task.lastRejectAt).replace(' ', 'T')).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                      : '—'}
+                  </span>
+                  <p className="text-slate-700 mt-1 whitespace-pre-wrap">{task.lastRejectReason || task.leaderComment || '—'}</p>
+                </li>
+              </ul>
+            </div>
           )}
 
           {(task.status === 'pending_approval' || (role === 'admin' || role === 'leader')) && (
