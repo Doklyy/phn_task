@@ -57,16 +57,10 @@ function buildDayInfo({ year, month, records, reports }) {
       continue;
     }
 
-    const checkIn = rec?.checkInAt ? new Date(String(rec.checkInAt).replace(' ', 'T')) : null;
-    const checkOut = rec?.checkOutAt ? new Date(String(rec.checkOutAt).replace(' ', 'T')) : null;
     const code = rec?.attendanceCode || '';
     const isLeave = code.startsWith('N_');
-    const isLate = rec?.isLate || code === 'M' || code === 'N_LATE';
-
-    const formatTime = (d) =>
-      d && !Number.isNaN(d.getTime())
-        ? d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false })
-        : '—';
+    const isFullDay = code === 'L';
+    const isLate = !isFullDay && (rec?.isLate || code === 'M' || code === 'N_LATE');
 
     if (!rec && !hasReport) {
       const isToday = iso === todayIso;
@@ -88,12 +82,7 @@ function buildDayInfo({ year, month, records, reports }) {
         date: dateStr,
         type: 'danger',
         title: 'Nghỉ phép',
-        details: [
-          `Mã chấm công: ${code || 'N_FULL'}`,
-          `Check-in: ${formatTime(checkIn)}`,
-          `Check-out: ${formatTime(checkOut)}`,
-          'Trạng thái: Nghỉ phép (đã ghi nhận)',
-        ],
+        details: [`Mã chấm công: ${code || 'N_FULL'}`, 'Trạng thái: Nghỉ phép (đã ghi nhận)'],
       });
       continue;
     }
@@ -105,8 +94,6 @@ function buildDayInfo({ year, month, records, reports }) {
         type: 'warning',
         title: 'Thiếu báo cáo',
         details: [
-          `Check-in: ${formatTime(checkIn)}`,
-          `Check-out: ${formatTime(checkOut)}`,
           'Tiến độ: Chưa nộp báo cáo tiến độ ngày',
           'Trạng thái: Cần bổ sung báo cáo',
         ],
@@ -121,8 +108,6 @@ function buildDayInfo({ year, month, records, reports }) {
         type: 'warning',
         title: 'Đi muộn',
         details: [
-          `Check-in: ${formatTime(checkIn)}`,
-          `Check-out: ${formatTime(checkOut)}`,
           'Tiến độ: Đã báo cáo đầy đủ công việc',
           'Trạng thái: Đi muộn nhưng đã hoàn thành báo cáo',
         ],
@@ -134,10 +119,8 @@ function buildDayInfo({ year, month, records, reports }) {
       day,
       date: dateStr,
       type: 'success',
-      title: 'Đầy đủ',
+      title: 'Đi làm đầy đủ',
       details: [
-        `Check-in: ${formatTime(checkIn)}`,
-        `Check-out: ${formatTime(checkOut)}`,
         'Tiến độ: Đã báo cáo đầy đủ công việc',
         'Trạng thái: Hợp lệ',
       ],

@@ -90,13 +90,13 @@ const DEFAULT_TEAM_OPTIONS = [
   { value: 'new_product', label: 'Sản phẩm mới' },
 ];
 
-/** Thang TRỌNG SỐ W1–W5 (1–8 điểm) – hiển thị chỉ chữ. */
+/** Thang TRỌNG SỐ – API nhận 0–1, hiển thị chỉ chữ. */
 const WEIGHT_LEVELS = [
-  { code: 'W1', value: 1, label: 'Rất thấp' },
-  { code: 'W2', value: 2, label: 'Thấp' },
-  { code: 'W3', value: 3, label: 'Bình thường' },
-  { code: 'W4', value: 5, label: 'Cao' },
-  { code: 'W5', value: 8, label: 'Rất cao' },
+  { code: 'W1', value: 0.2, label: 'Rất thấp' },
+  { code: 'W2', value: 0.4, label: 'Thấp' },
+  { code: 'W3', value: 0.6, label: 'Bình thường' },
+  { code: 'W4', value: 0.8, label: 'Cao' },
+  { code: 'W5', value: 1.0, label: 'Rất cao' },
 ];
 
 const weightLabel = (weight) => {
@@ -853,7 +853,7 @@ const App = () => {
                         <div className="px-4 py-3 border-b border-slate-200 bg-amber-50/80">
                           <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt (theo dõi)</h3>
                           <p className="text-xs text-slate-600 mb-2">
-                            Có {tasksPendingApproval.length} nhiệm vụ đang đợi Leader duyệt. Admin chỉ theo dõi.
+                            Có {tasksPendingApproval.length} nhiệm vụ đang đợi duyệt
                           </p>
                           <button
                             type="button"
@@ -1244,7 +1244,6 @@ const App = () => {
                   {dashView === 'attendance' && (role === 'admin' ? (
                     <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
                       <h3 className="text-lg font-bold text-slate-800 mb-3">Bảng chấm công tháng & Tổng báo cáo tiến độ</h3>
-                      <p className="text-slate-500 text-sm mb-4">Tổng hợp theo tháng (trừ admin). Cột &quot;Tổng báo cáo&quot; = số lần báo cáo tiến độ trong tháng.</p>
                       {adminAttendanceLoading ? (
                         <p className="text-slate-500 text-sm py-6">Đang tải...</p>
                       ) : staffList.length === 0 ? (
@@ -2775,9 +2774,6 @@ const AssignTaskForm = ({ currentUser, role, users, onCreated }) => {
     <section className="bg-white border border-slate-200 rounded-2xl p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-black text-slate-900">Giao việc mới</h2>
-        <p className="text-slate-500 text-sm mt-0.5">
-          {isAdmin ? 'Chọn trưởng nhóm và người thực hiện, điền thông tin nhiệm vụ.' : 'Giao nhiệm vụ cho thành viên trong nhóm của bạn.'}
-        </p>
       </div>
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
         <div>
