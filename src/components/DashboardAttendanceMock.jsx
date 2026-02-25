@@ -42,6 +42,7 @@ function buildDayInfo({ year, month, records, reports }) {
         type: 'future',
         title: 'Chưa diễn ra',
         details: ['Chưa có dữ liệu cho ngày này'],
+        isLate: false,
       });
       continue;
     }
@@ -53,6 +54,7 @@ function buildDayInfo({ year, month, records, reports }) {
         type: 'weekend',
         title: 'Ngày nghỉ',
         details: ['Nghỉ cuối tuần (Thứ 7 / CN)'],
+        isLate: false,
       });
       continue;
     }
@@ -62,7 +64,24 @@ function buildDayInfo({ year, month, records, reports }) {
     const isLeave = code.startsWith('N_');
     const isExplicitLate = code === 'M' || code === 'N_LATE';
     const isFullDayCode = code === 'L' || code === '';
-    const isLate = isExplicitLate && !isFullDayCode;
+
+    // Đi làm đầy đủ: mã L hoặc trống + đã có báo cáo → luôn coi là success, không bao giờ "Đi muộn"
+    if (rec && hasReport && !isLeave && (code === 'L' || code === '')) {
+      list.push({
+        day,
+        date: dateStr,
+        type: 'success',
+        title: 'Đi làm đầy đủ',
+        details: [
+          'Tiến độ: Đã báo cáo đầy đủ công việc',
+          'Trạng thái: Hợp lệ',
+        ],
+        isLate: false,
+      });
+      continue;
+    }
+
+    const isLate = isExplicitLate;
 
     if (!rec && !hasReport) {
       const isToday = iso === todayIso;
@@ -74,6 +93,7 @@ function buildDayInfo({ year, month, records, reports }) {
         details: isToday
           ? ['Chưa có bản ghi chấm công hôm nay', 'Chưa có báo cáo tiến độ ngày', '→ Bấm "Chấm công" trên thanh menu để vào ca; nộp báo cáo trong chi tiết từng nhiệm vụ.']
           : ['Chưa có bản ghi chấm công', 'Chưa có báo cáo tiến độ ngày'],
+        isLate: false,
       });
       continue;
     }
@@ -85,6 +105,7 @@ function buildDayInfo({ year, month, records, reports }) {
         type: 'danger',
         title: 'Nghỉ phép',
         details: [`Mã chấm công: ${rawCode || 'N_FULL'}`, 'Trạng thái: Nghỉ phép (đã ghi nhận)'],
+        isLate: false,
       });
       continue;
     }
@@ -99,6 +120,7 @@ function buildDayInfo({ year, month, records, reports }) {
           'Tiến độ: Chưa nộp báo cáo tiến độ ngày',
           'Trạng thái: Cần bổ sung báo cáo',
         ],
+        isLate: false,
       });
       continue;
     }
@@ -113,6 +135,7 @@ function buildDayInfo({ year, month, records, reports }) {
           'Tiến độ: Đã báo cáo đầy đủ công việc',
           'Trạng thái: Đi muộn nhưng đã hoàn thành báo cáo',
         ],
+        isLate: true,
       });
       continue;
     }
@@ -126,6 +149,7 @@ function buildDayInfo({ year, month, records, reports }) {
         'Tiến độ: Đã báo cáo đầy đủ công việc',
         'Trạng thái: Hợp lệ',
       ],
+      isLate: false,
     });
   }
 
@@ -137,7 +161,7 @@ export default function DashboardAttendanceMock({ currentUser }) {
   const [error, setError] = useState('');
   const [records, setRecords] = useState([]);
   const [reports, setReports] = useState([]);
-  const [monthInfo] = useState(() => {
+  const [monthInfo, setMonthInfo] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() + 1 };
   });
@@ -176,15 +200,28 @@ export default function DashboardAttendanceMock({ currentUser }) {
   const stats = useMemo(() => {
     const workingDays = days.filter((d) => d.type !== 'weekend' && d.type !== 'future').length;
     const fullDays = days.filter((d) => d.type === 'success').length;
-    const lateOrWarning = days.filter((d) => d.type === 'warning').length;
+    const lateCount = days.filter((d) => d.isLate === true).length;
     const issues = days.filter((d) => d.type === 'warning' || d.type === 'danger').length;
     return {
       workingDays,
       fullDays,
-      lateOrWarning,
+      lateCount,
       issues,
     };
   }, [days]);
+
+  const goPrevMonth = () => {
+    setMonthInfo((prev) => {
+      if (prev.month <= 1) return { year: prev.year - 1, month: 12 };
+      return { year: prev.year, month: prev.month - 1 };
+    });
+  };
+  const goNextMonth = () => {
+    setMonthInfo((prev) => {
+      if (prev.month >= 12) return { year: prev.year + 1, month: 1 };
+      return { year: prev.year, month: prev.month + 1 };
+    });
+  };
 
   return (
     <div className="space-y-6">
@@ -221,7 +258,7 @@ export default function DashboardAttendanceMock({ currentUser }) {
           <div>
             <div className="text-sm text-slate-500 font-medium">Đi muộn/Về sớm</div>
             <div className="text-2xl font-bold text-slate-800">
-              {stats.lateOrWarning}{' '}
+              {stats.lateCount}{' '}
               <span className="text-sm font-normal text-slate-400">lần</span>
             </div>
           </div>
@@ -244,9 +281,27 @@ export default function DashboardAttendanceMock({ currentUser }) {
 
       {/* Lịch chuyên cần dạng hover */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-visible p-6">
-        <h3 className="text-lg font-semibold text-slate-800 mb-6 flex items-center gap-2">
-          Chi tiết ngày công - Tháng {pad(monthInfo.month)}/{monthInfo.year}
-        </h3>
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <h3 className="text-lg font-semibold text-slate-800 flex items-center gap-2">
+            Chi tiết ngày công - Tháng {pad(monthInfo.month)}/{monthInfo.year}
+          </h3>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={goPrevMonth}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium"
+            >
+              ← Tháng trước
+            </button>
+            <button
+              type="button"
+              onClick={goNextMonth}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 text-sm font-medium"
+            >
+              Tháng sau →
+            </button>
+          </div>
+        </div>
 
         <div className="grid grid-cols-7 gap-3">
           {['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'].map((day) => (

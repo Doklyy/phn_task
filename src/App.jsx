@@ -783,17 +783,8 @@ const App = () => {
               <div className="w-9 h-9 rounded-lg flex items-center justify-center text-white font-bold text-sm shadow-sm" style={{ backgroundColor: VIETTEL_RED }}>P</div>
               <span className="font-semibold text-slate-800 hidden sm:inline text-[15px]">Quản lý công việc</span>
             </button>
-            {role === 'staff' && (
-              <button
-                type="button"
-                onClick={() => setActiveTab('add-task')}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors shrink-0"
-              >
-                <Plus size={16} /> Thêm việc
-              </button>
-            )}
-            <div className="w-full max-w-xs md:max-w-md min-w-0">
-              <div className="relative">
+            <div className="flex-1 flex justify-center min-w-0 px-2">
+              <div className="relative w-full max-w-xs md:max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0 pointer-events-none" size={18} />
                 <input
                   type="text"
@@ -1319,9 +1310,20 @@ const App = () => {
                   </div>
                 )}
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                  <div>
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
-                    <p className="text-slate-500 font-medium">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
+                      {role === 'staff' && (
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('add-task')}
+                          className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors shrink-0"
+                        >
+                          <Plus size={16} /> Thêm việc
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-slate-500 font-medium mt-1">
                       {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
                       {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
                       {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
@@ -2046,6 +2048,7 @@ const TaskDetailModal = ({
   const [approveQuality, setApproveQuality] = useState(task.quality != null ? String(task.quality) : '');
   const [approveSubmitting, setApproveSubmitting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [rejectReasonError, setRejectReasonError] = useState('');
   const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
@@ -2242,6 +2245,21 @@ const TaskDetailModal = ({
                         {reportSubmitting ? 'Đang gửi...' : 'Gửi báo cáo'}
                       </button>
                     </form>
+                    <div className="pt-4 border-t border-slate-100 mt-4">
+                      <h4 className="text-sm font-bold text-slate-800 mb-2">Lịch sử báo cáo</h4>
+                      {reportHistory.length === 0 ? (
+                        <p className="text-slate-400 text-sm">Chưa có báo cáo nào.</p>
+                      ) : (
+                        <ul className="space-y-2">
+                          {reportHistory.map((r, i) => (
+                            <li key={i} className="flex justify-between text-sm border-b border-slate-50 pb-2">
+                              <span className="text-slate-600">{r.date}</span>
+                              <span className="text-slate-700 flex-1 ml-3 truncate">{r.result}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
                   </>
                 ) : (
                   <>
@@ -2296,26 +2314,12 @@ const TaskDetailModal = ({
                   </>
                 )}
               </div>
-              <div className="pt-4 border-t border-slate-100">
-                <h4 className="text-sm font-bold text-slate-800 mb-2">Lịch sử báo cáo</h4>
-                {reportHistory.length === 0 ? (
-                  <p className="text-slate-400 text-sm">Chưa có báo cáo nào.</p>
-                ) : (
-                  <ul className="space-y-2">
-                    {reportHistory.map((r, i) => (
-                      <li key={i} className="flex justify-between text-sm border-b border-slate-50 pb-2">
-                        <span className="text-slate-600">{r.date}</span>
-                        <span className="text-slate-700 flex-1 ml-3 truncate">{r.result}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
 
             </>
           )}
 
-          {(task.lastRejectReason || task.lastRejectAt || task.leaderComment) && (
+          {/* Lịch sử trả về: hiện khi bấm Báo cáo kết thúc (reportChoice === 'completion') hoặc khi Admin/Leader xem nhiệm vụ */}
+          {(task.lastRejectReason || task.lastRejectAt || task.leaderComment) && (reportChoice === 'completion' || role === 'admin' || role === 'leader') && (
             <div className="pt-4 border-t border-slate-100">
               <h4 className="text-sm font-bold text-slate-800 mb-2">Lịch sử trả về</h4>
               <ul className="space-y-2">
@@ -2393,8 +2397,9 @@ const TaskDetailModal = ({
                       </select>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá của chỉ huy</label>
-                      <textarea value={rejectReason} onChange={(e) => setRejectReason(e.target.value)} placeholder="Nhận xét, góp ý cho người thực hiện..." rows={2} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá của chỉ huy <span className="text-amber-600">(bắt buộc khi trả về)</span></label>
+                      <textarea value={rejectReason} onChange={(e) => { setRejectReason(e.target.value); setRejectReasonError(''); }} placeholder="Nhận xét, góp ý cho người thực hiện..." rows={2} className={`w-full border rounded-lg px-3 py-2 text-sm ${rejectReasonError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} />
+                      {rejectReasonError && <p className="text-red-600 text-xs mt-1">{rejectReasonError}</p>}
                     </div>
                   </div>
                   <div className="flex flex-wrap gap-3 pt-2">
@@ -2402,6 +2407,7 @@ const TaskDetailModal = ({
                       type="button"
                       disabled={approveSubmitting}
                       onClick={() => {
+                        setRejectReasonError('');
                         setApproveSubmitting(true);
                         const q = approveQuality !== '' ? Number(approveQuality) : undefined;
                         const payload = {
@@ -2424,7 +2430,21 @@ const TaskDetailModal = ({
                     >
                       {approveSubmitting ? 'Đang duyệt...' : 'Duyệt hoàn thành'}
                     </button>
-                    <button type="button" disabled={approveSubmitting} onClick={() => { setApproveSubmitting(true); onReject(rejectReason.trim() || null).catch(() => {}).finally(() => setApproveSubmitting(false)); }} className="bg-slate-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-600 disabled:opacity-50">
+                    <button
+                      type="button"
+                      disabled={approveSubmitting}
+                      onClick={() => {
+                        setRejectReasonError('');
+                        const comment = rejectReason.trim();
+                        if (!comment) {
+                          setRejectReasonError('Bắt buộc nhập đánh giá của chỉ huy khi trả về tồn đọng.');
+                          return;
+                        }
+                        setApproveSubmitting(true);
+                        onReject(comment).catch(() => {}).finally(() => setApproveSubmitting(false));
+                      }}
+                      className="bg-slate-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-600 disabled:opacity-50"
+                    >
                       Trả về tồn đọng
                     </button>
                   </div>
