@@ -20,6 +20,8 @@ import {
   Calendar,
   Link as LinkIcon,
   CheckCircle2,
+  AlertCircle,
+  Info,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { utils, writeFileXLSX } from 'xlsx';
@@ -236,6 +238,105 @@ const App = () => {
     () => (users || []).filter((u) => String(u.role || '').toLowerCase() !== 'admin'),
     [users],
   );
+  const adminAttendanceMatrixData = useMemo(() => {
+    const [y, m] = dashMonth.split('-').map(Number);
+    if (!y || !m) return [];
+    const lastDay = new Date(y, m, 0).getDate();
+    const monthPrefix = `${y}-${String(m).padStart(2, '0')}`;
+
+    // Gom báo cáo theo userId + ngày trong tháng
+    const reportsByUserAndDay = {};
+    (allReportsList || []).forEach((r) => {
+      const d = (r.date || r.reportDate || '').slice(0, 10);
+      if (!d.startsWith(monthPrefix)) return;
+      const uid = String(r.userId ?? r.user_id ?? '');
+      if (!uid) return;
+      const day = parseInt(d.slice(8, 10), 10);
+      if (!Number.isFinite(day)) return;
+      if (!reportsByUserAndDay[uid]) reportsByUserAndDay[uid] = {};
+      if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = [];
+      reportsByUserAndDay[uid][day].push(r);
+    });
+
+    return (staffList || []).map((s) => {
+      const sid = String(s.id ?? s.userId);
+      const records = adminAttendanceMap[sid] || [];
+      const recordByDay = {};
+      records.forEach((r) => {
+        const d = (r.recordDate ?? r.date ?? '').slice(0, 10);
+        if (!d.startsWith(monthPrefix)) return;
+        const day = parseInt(d.slice(8, 10), 10);
+        if (!Number.isFinite(day)) return;
+        recordByDay[day] = r;
+      });
+
+      const days = [];
+      let present = 0;
+      let complete = 0;
+      let partial = 0;
+
+      for (let day = 1; day <= lastDay; day += 1) {
+        const dateObj = new Date(y, m - 1, day);
+        const dow = dateObj.getDay();
+        const isWeekend = dow === 0 || dow === 6;
+        const rec = recordByDay[day];
+        const dayReports = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || [];
+        const hasReport = dayReports.length > 0;
+
+        let status = null;
+        let detail = null;
+
+        if (isWeekend) {
+          status = 'weekend';
+        } else if (rec) {
+          const rawCode = String(rec.attendanceCode ?? rec.attendance_code ?? '').trim();
+          const code = rawCode.toUpperCase();
+          const isLeave = code.startsWith('N_');
+
+          if (isLeave) {
+            status = 'leave';
+            let attendanceLabel = 'Nghỉ phép';
+            if (code === 'N_FULL') attendanceLabel = 'Nghỉ phép cả ngày';
+            else if (code === 'N_HALF') attendanceLabel = 'Nghỉ phép nửa ngày';
+            detail = {
+              attendance: attendanceLabel,
+              progressReport: '-',
+              endReport: '-',
+            };
+          } else if (!hasReport) {
+            status = 'partial';
+            detail = {
+              attendance: 'Có mặt',
+              progressReport: 'Chưa nộp',
+              endReport: '-',
+            };
+          } else {
+            status = 'complete';
+            detail = {
+              attendance: 'Có mặt',
+              progressReport: 'Đã nộp',
+              endReport: 'Không có',
+            };
+          }
+        }
+
+        if (status === 'complete' || status === 'partial') {
+          present += 1;
+        }
+        if (status === 'complete') complete += 1;
+        if (status === 'partial') partial += 1;
+
+        days.push({ day, status, detail });
+      }
+
+      return {
+        id: sid,
+        name: s.name || s.fullName || s.username || sid,
+        days,
+        totals: { present, complete, partial },
+      };
+    });
+  }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
   useEffect(() => {
     if (
       activeTab !== 'dash'
@@ -904,6 +1005,15 @@ const App = () => {
                   <Clock size={18} /> Chấm công
                 </button>
               )}
+              {role === 'staff' && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('add-task')}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-slate-200 text-slate-700 bg-white hover:bg-slate-50 hover:border-slate-300 transition-colors"
+                >
+                  <Plus size={16} /> Thêm việc
+                </button>
+              )}
               {role !== 'staff' && (
                 <button
                   type="button"
@@ -1234,49 +1344,172 @@ const App = () => {
                   {dashView === 'tasks' && renderTasksInDashboard()}
                   {dashView === 'attendance' && (role === 'admin' ? (
                     <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-                      <h3 className="text-lg font-bold text-slate-800 mb-3">Bảng chấm công tháng & Tổng báo cáo tiến độ</h3>
                       {adminAttendanceLoading ? (
-                        <p className="text-slate-500 text-sm py-6">Đang tải...</p>
-                      ) : staffList.length === 0 ? (
-                        <p className="text-slate-400 text-sm py-6">Chưa có nhân sự nào.</p>
+                        <p className="text-slate-500 text-sm py-6">Đang tải bảng chuyên cần...</p>
+                      ) : adminAttendanceMatrixData.length === 0 ? (
+                        <p className="text-slate-400 text-sm py-6">Chưa có dữ liệu chuyên cần cho tháng này.</p>
                       ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm border border-slate-200">
-                            <thead>
-                              <tr className="bg-slate-50 border-b border-slate-200">
-                                <th className="text-left py-3 px-2 font-semibold text-slate-700 sticky left-0 bg-slate-50 z-10">Nhân sự</th>
-                                <th className="text-center py-3 px-1 font-semibold text-slate-700">Tổng báo cáo</th>
-                                {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                  <th key={day} className="text-center py-2 px-0.5 font-medium text-slate-600 w-8">{day}</th>
-                                ))}
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {staffList.map((s) => {
-                                const sid = String(s.id ?? s.userId);
-                                const records = adminAttendanceMap[sid] || [];
-                                const recordByDay = {};
-                                records.forEach((r) => {
-                                  const d = (r.recordDate ?? r.date ?? '').slice(0, 10);
-                                  if (d) {
-                                    const day = parseInt(d.slice(8, 10), 10);
-                                    recordByDay[day] = r.attendanceCode || 'L';
-                                  }
-                                });
-                                const reportCount = reportCountByUserId[sid] || 0;
-                                const name = s.name || s.fullName || s.username || sid;
-                                return (
-                                  <tr key={sid} className="border-b border-slate-100 hover:bg-slate-50/50">
-                                    <td className="py-2 px-2 sticky left-0 bg-white z-10 font-medium text-slate-800">{name}</td>
-                                    <td className="py-2 px-2 text-center font-semibold text-blue-600">{reportCount}</td>
-                                    {Array.from({ length: 31 }, (_, i) => i + 1).map((day) => (
-                                      <td key={day} className="py-1 px-0.5 text-center text-xs text-slate-600">{recordByDay[day] || '—'}</td>
-                                    ))}
+                        <div className="max-w-[1400px] mx-auto bg-white rounded-xl overflow-hidden">
+                          {/* Header & Legend */}
+                          <div className="p-4 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white">
+                            <div>
+                              <h3 className="text-lg font-bold text-slate-800">Bảng Theo Dõi Báo Cáo Công Việc</h3>
+                              <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                                {(() => {
+                                  const parts = dashMonth.split('-');
+                                  const y = parts[0] || '';
+                                  const m = parts[1] ? Number(parts[1]) : null;
+                                  return `Tháng ${m || ''} / ${y} • Chấm công & Báo cáo 2 chiều theo nhân sự`;
+                                })()}
+                              </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-3 text-xs sm:text-sm bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                              <div className="flex items-center gap-1.5">
+                                <CheckCircle2 size={16} className="text-emerald-500" />
+                                <span className="text-slate-700">Đủ BC (Có BC Tiến độ)</span>
+                              </div>
+                              <div className="flex items-center gap-1.5">
+                                <AlertCircle size={16} className="text-amber-500" />
+                                <span className="text-slate-700">Thiếu báo cáo</span>
+                              </div>
+                              <div className="flex items-center gap-1.5 ml-2">
+                                <span className="text-slate-400 font-bold px-1">L</span>
+                                <span className="text-slate-700">Nghỉ phép</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Note */}
+                          <div className="bg-blue-50/50 text-blue-700 px-4 py-3 text-xs sm:text-sm flex items-center gap-2 border-b border-blue-100">
+                            <Info size={16} className="text-blue-500 min-w-[16px]" />
+                            <span>
+                              <strong>Lưu ý:</strong>
+                              {' '}
+                              Ngày được đánh dấu Đạt (xanh) khi nhân sự nộp ít nhất 1 báo cáo tiến độ. Báo cáo kết thúc chỉ ghi nhận khi có phát sinh đóng việc.
+                            </span>
+                          </div>
+
+                          {/* Table */}
+                          <div className="overflow-x-auto custom-scrollbar">
+                            <table className="w-full text-xs sm:text-sm text-left border-collapse min-w-max">
+                              <thead>
+                                <tr className="bg-slate-50 text-slate-600">
+                                  <th rowSpan={2} className="px-3 sm:px-4 py-3 font-semibold border-b border-r border-slate-200 sticky left-0 bg-slate-50 z-20 align-middle">
+                                    Nhân sự
+                                  </th>
+                                  <th colSpan={3} className="px-2 py-2 font-semibold text-center border-b border-r border-slate-200 bg-blue-50/30 text-blue-800">
+                                    Tổng kết tháng
+                                  </th>
+                                  <th colSpan={31} className="px-2 py-2 font-semibold text-center border-b border-slate-200 bg-slate-50">
+                                    Chi tiết theo ngày
+                                  </th>
+                                </tr>
+                                <tr className="bg-slate-50 text-slate-600 text-[11px] sm:text-xs">
+                                  <th className="px-2 py-2 font-medium text-center border-b border-r border-slate-200 bg-white" title="Tổng số ngày có mặt (có chấm công)">
+                                    Đi làm
+                                  </th>
+                                  <th className="px-2 py-2 font-medium text-center border-b border-r border-slate-200 bg-emerald-50 text-emerald-700" title="Số ngày nộp đủ Báo cáo tiến độ">
+                                    Đủ BC
+                                  </th>
+                                  <th className="px-2 py-2 font-medium text-center border-b border-r-2 border-slate-300 bg-amber-50 text-amber-700" title="Số ngày đi làm nhưng thiếu báo cáo">
+                                    Thiếu
+                                  </th>
+                                  {Array.from({ length: 31 }).map((_, i) => (
+                                    <th
+                                      key={i}
+                                      className={`px-1 py-2 font-medium text-center border-b border-slate-200 min-w-[28px] sm:min-w-[32px] ${
+                                        (i + 1) % 7 === 0 || (i + 1) % 7 === 6 ? 'bg-slate-100' : ''
+                                      }`}
+                                    >
+                                      {i + 1}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {adminAttendanceMatrixData.map((row) => (
+                                  <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
+                                    <td className="px-3 sm:px-4 py-3 font-medium text-slate-800 border-r border-slate-200 sticky left-0 bg-white z-10 whitespace-nowrap">
+                                      {row.name}
+                                    </td>
+                                    <td className="px-2 py-3 text-center font-semibold text-slate-700 border-r border-slate-200 bg-white">
+                                      {row.totals.present}
+                                    </td>
+                                    <td className="px-2 py-3 text-center font-bold text-emerald-600 border-r border-slate-200 bg-emerald-50/40">
+                                      {row.totals.complete}
+                                    </td>
+                                    <td className="px-2 py-3 text-center font-bold text-amber-500 border-r-2 border-slate-300 bg-amber-50/40">
+                                      {row.totals.partial > 0 ? row.totals.partial : '-'}
+                                    </td>
+                                    {Array.from({ length: 31 }).map((_, i) => {
+                                      const dayData = row.days[i] || { day: i + 1 };
+                                      let content = null;
+                                      if (dayData.status === 'weekend') {
+                                        content = null;
+                                      } else if (dayData.status === 'leave') {
+                                        content = <span className="text-slate-400 font-medium text-[11px]">L</span>;
+                                      } else if (!dayData.status) {
+                                        content = <span className="text-slate-200 text-xs">-</span>;
+                                      } else {
+                                        let IconNode = CheckCircle2;
+                                        let colorClass = 'text-emerald-500';
+                                        if (dayData.status === 'partial') {
+                                          IconNode = AlertCircle;
+                                          colorClass = 'text-amber-500';
+                                        }
+                                        content = (
+                                          <div className="relative group flex items-center justify-center w-full h-full cursor-pointer">
+                                            <IconNode size={14} className={`${colorClass} hover:scale-125 transition-transform duration-200`} />
+                                            {dayData.detail && (
+                                              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col w-48 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-xl z-50 pointer-events-none">
+                                                <div className="font-semibold border-b border-slate-700 pb-1.5 mb-1.5 text-center text-slate-100">
+                                                  Chi tiết ngày {dayData.day}
+                                                </div>
+                                                <div className="flex justify-between items-center py-0.5">
+                                                  <span className="text-slate-400">Chấm công:</span>
+                                                  <span className={dayData.detail.attendance.includes('Có mặt') ? 'text-blue-400 font-medium' : 'text-slate-300'}>
+                                                    {dayData.detail.attendance}
+                                                  </span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-0.5 mt-1">
+                                                  <span className="text-slate-400">BC Tiến độ:</span>
+                                                  <span className={dayData.detail.progressReport === 'Đã nộp' ? 'text-emerald-400' : 'text-amber-400'}>
+                                                    {dayData.detail.progressReport}
+                                                  </span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-0.5 mt-1">
+                                                  <span className="text-slate-400">BC Kết thúc:</span>
+                                                  <span className={dayData.detail.endReport === 'Đã nộp' ? 'text-emerald-400' : 'text-slate-300'}>
+                                                    {dayData.detail.endReport}
+                                                  </span>
+                                                </div>
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-900" />
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
+                                      }
+
+                                      return (
+                                        <td
+                                          // eslint-disable-next-line react/no-array-index-key
+                                          key={i}
+                                          className={`px-0 py-0 text-center border-r border-dashed border-slate-200 relative ${
+                                            dayData.status === 'weekend' ? 'bg-slate-100/60' : ''
+                                          }`}
+                                        >
+                                          <div className="h-9 sm:h-10 flex items-center justify-center">
+                                            {content}
+                                          </div>
+                                        </td>
+                                      );
+                                    })}
                                   </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       )}
                     </section>

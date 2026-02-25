@@ -43,6 +43,7 @@ function buildDayInfo({ year, month, records, reports }) {
         title: 'Chưa diễn ra',
         details: ['Chưa có dữ liệu cho ngày này'],
         isLate: false,
+        isPresent: false,
       });
       continue;
     }
@@ -55,6 +56,7 @@ function buildDayInfo({ year, month, records, reports }) {
         title: 'Ngày nghỉ',
         details: ['Nghỉ cuối tuần (Thứ 7 / CN)'],
         isLate: false,
+        isPresent: false,
       });
       continue;
     }
@@ -77,6 +79,7 @@ function buildDayInfo({ year, month, records, reports }) {
           'Trạng thái: Hợp lệ',
         ],
         isLate: false,
+        isPresent: true,
       });
       continue;
     }
@@ -94,18 +97,29 @@ function buildDayInfo({ year, month, records, reports }) {
           ? ['Chưa có bản ghi chấm công hôm nay', 'Chưa có báo cáo tiến độ ngày', '→ Bấm "Chấm công" trên thanh menu để vào ca; nộp báo cáo trong chi tiết từng nhiệm vụ.']
           : ['Chưa có bản ghi chấm công', 'Chưa có báo cáo tiến độ ngày'],
         isLate: false,
+        isPresent: false,
       });
       continue;
     }
 
     if (isLeave) {
+      let leaveTitle = 'Nghỉ phép';
+      let leaveDetail = 'Trạng thái: Nghỉ phép (đã ghi nhận)';
+      if (code === 'N_FULL') {
+        leaveTitle = 'Nghỉ phép cả ngày';
+        leaveDetail = 'Trạng thái: Nghỉ cả ngày (đã ghi nhận)';
+      } else if (code === 'N_HALF') {
+        leaveTitle = 'Nghỉ phép nửa ngày';
+        leaveDetail = 'Trạng thái: Nghỉ nửa ngày (đã ghi nhận)';
+      }
       list.push({
         day,
         date: dateStr,
         type: 'danger',
-        title: 'Nghỉ phép',
-        details: [`Mã chấm công: ${rawCode || 'N_FULL'}`, 'Trạng thái: Nghỉ phép (đã ghi nhận)'],
+        title: leaveTitle,
+        details: [`Mã chấm công: ${rawCode || 'N_FULL'}`, leaveDetail],
         isLate: false,
+        isPresent: false,
       });
       continue;
     }
@@ -121,6 +135,7 @@ function buildDayInfo({ year, month, records, reports }) {
           'Trạng thái: Cần bổ sung báo cáo',
         ],
         isLate: false,
+        isPresent: true,
       });
       continue;
     }
@@ -136,6 +151,7 @@ function buildDayInfo({ year, month, records, reports }) {
           'Trạng thái: Đi muộn nhưng đã hoàn thành báo cáo',
         ],
         isLate: true,
+        isPresent: true,
       });
       continue;
     }
@@ -150,6 +166,7 @@ function buildDayInfo({ year, month, records, reports }) {
         'Trạng thái: Hợp lệ',
       ],
       isLate: false,
+      isPresent: true,
     });
   }
 
@@ -199,11 +216,13 @@ export default function DashboardAttendanceMock({ currentUser }) {
 
   const stats = useMemo(() => {
     const workingDays = days.filter((d) => d.type !== 'weekend' && d.type !== 'future').length;
+    const presentDays = days.filter((d) => d.isPresent).length;
     const fullDays = days.filter((d) => d.type === 'success').length;
     const lateCount = days.filter((d) => d.isLate === true).length;
     const issues = days.filter((d) => d.type === 'warning' || d.type === 'danger').length;
     return {
       workingDays,
+      presentDays,
       fullDays,
       lateCount,
       issues,
@@ -244,9 +263,9 @@ export default function DashboardAttendanceMock({ currentUser }) {
             <UserCheck className="w-6 h-6" />
           </div>
           <div>
-            <div className="text-sm text-slate-500 font-medium">Đi làm đầy đủ</div>
+            <div className="text-sm text-slate-500 font-medium">Có đi làm</div>
             <div className="text-2xl font-bold text-slate-800">
-              {stats.fullDays}{' '}
+              {stats.presentDays}{' '}
               <span className="text-sm font-normal text-slate-400">ngày</span>
             </div>
           </div>
