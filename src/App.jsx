@@ -1380,16 +1380,6 @@ const App = () => {
                             </div>
                           </div>
 
-                          {/* Note */}
-                          <div className="bg-blue-50/50 text-blue-700 px-4 py-3 text-xs sm:text-sm flex items-center gap-2 border-b border-blue-100">
-                            <Info size={16} className="text-blue-500 min-w-[16px]" />
-                            <span>
-                              <strong>Lưu ý:</strong>
-                              {' '}
-                              Ngày được đánh dấu Đạt (xanh) khi nhân sự nộp ít nhất 1 báo cáo tiến độ. Báo cáo kết thúc chỉ ghi nhận khi có phát sinh đóng việc.
-                            </span>
-                          </div>
-
                           {/* Table */}
                           <div className="overflow-x-auto custom-scrollbar">
                             <table className="w-full text-xs sm:text-sm text-left border-collapse min-w-max">
