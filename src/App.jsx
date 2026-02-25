@@ -1101,8 +1101,8 @@ const App = () => {
                       <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt (theo dõi)</h3>
                       <p className="text-slate-600 text-sm mb-2">
                         {tasksPendingApproval.length > 0
-                          ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi Leader (người phân công) duyệt. Bấm nút "Đợi duyệt" bên dưới để xem danh sách. Admin chỉ theo dõi, không duyệt thay.`
-                          : 'Chưa có nhiệm vụ nào đợi duyệt. Khi nhân sự bấm Hoàn thành, nhiệm vụ sẽ hiện ở đây; Leader duyệt hoặc trả về tồn đọng.'}
+                          ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
+                          : 'Chưa có nhiệm vụ nào đợi duyệt.'}
                       </p>
                       <button
                         type="button"
@@ -1120,7 +1120,7 @@ const App = () => {
                         {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
                         {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
                         {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
-                        {listFilter === 'pending_approval' && `Đợi duyệt (${tasksByFilter.length}). Leader (người phân công) duyệt hoặc trả về tồn đọng.`}
+                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ. Duyệt hoặc trả về tồn đọng.`}
                         {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
                         {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                       </p>
@@ -1325,7 +1325,7 @@ const App = () => {
                       {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
                       {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
                       {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
-                      {listFilter === 'pending_approval' && `Đợi duyệt (${tasksByFilter.length}). Leader (người phân công) duyệt hoặc trả về tồn đọng.`}
+                      {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ. Duyệt hoặc trả về tồn đọng.`}
                       {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
                       {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                     </p>
@@ -2311,6 +2311,22 @@ const TaskDetailModal = ({
                   </ul>
                 )}
               </div>
+
+              {(task.lastRejectReason || task.lastRejectAt) && (
+                <div className="pt-4 border-t border-slate-100">
+                  <h4 className="text-sm font-bold text-slate-800 mb-2">Lịch sử trả về</h4>
+                  <ul className="space-y-2">
+                    <li className="text-sm border-b border-slate-50 pb-2">
+                      <span className="text-slate-600">
+                        {task.lastRejectAt
+                          ? new Date(String(task.lastRejectAt).replace(' ', 'T')).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : '—'}
+                      </span>
+                      <p className="text-slate-700 mt-1 whitespace-pre-wrap">{task.lastRejectReason || '—'}</p>
+                    </li>
+                  </ul>
+                </div>
+              )}
             </>
           )}
 

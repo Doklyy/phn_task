@@ -33,6 +33,8 @@ function normalizeTask(t) {
     completionLink: t.completionLink ?? t.completion_link ?? null,
     completionFilePath: t.completionFilePath ?? t.completion_file_path ?? null,
     leaderComment: t.leaderComment ?? t.leader_comment ?? null,
+    lastRejectReason: t.lastRejectReason ?? t.last_reject_reason ?? null,
+    lastRejectAt: t.lastRejectAt ?? t.last_reject_at ?? null,
   };
 }
 

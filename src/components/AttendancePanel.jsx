@@ -464,11 +464,6 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
               {currentTime.toLocaleTimeString('vi-VN', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })}
             </div>
           </div>
-          <div className="h-10 w-px bg-slate-200 hidden md:block" />
-          <div className="hidden md:block text-right">
-            <div className="text-xs text-slate-500 uppercase font-semibold mb-1">Quy định</div>
-            <div className="font-medium text-slate-800">Vào ca: 08:00</div>
-          </div>
         </div>
       </div>
 

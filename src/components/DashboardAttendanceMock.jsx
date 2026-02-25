@@ -57,10 +57,10 @@ function buildDayInfo({ year, month, records, reports }) {
       continue;
     }
 
-    const code = rec?.attendanceCode || '';
+    const code = String(rec?.attendanceCode ?? '').trim();
     const isLeave = code.startsWith('N_');
-    const isFullDay = code === 'L';
-    const isLate = !isFullDay && (rec?.isLate || code === 'M' || code === 'N_LATE');
+    const isFullDay = code === 'L' || (!!rec && !isLeave && code !== 'M' && code !== 'N_LATE');
+    const isLate = code === 'M' || code === 'N_LATE';
 
     if (!rec && !hasReport) {
       const isToday = iso === todayIso;
