@@ -298,9 +298,10 @@ const App = () => {
             let attendanceLabel = 'Nghỉ phép';
             if (code === 'N_FULL') attendanceLabel = 'Nghỉ phép cả ngày';
             else if (code === 'N_HALF') attendanceLabel = 'Nghỉ phép nửa ngày';
+            const progressReport = hasReport ? 'Đã nộp' : 'Chưa nộp';
             detail = {
               attendance: attendanceLabel,
-              progressReport: '-',
+              progressReport,
               endReport: '-',
             };
           } else if (!hasReport) {
@@ -1438,7 +1439,37 @@ const App = () => {
                                       if (dayData.status === 'weekend') {
                                         content = null;
                                       } else if (dayData.status === 'leave') {
-                                        content = <span className="text-slate-400 font-medium text-[11px]">L</span>;
+                                        content = (
+                                          <div className="relative group flex items-center justify-center w-full h-full cursor-pointer">
+                                            <span className="text-slate-400 font-bold text-[11px]">L</span>
+                                            {dayData.detail && (
+                                              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col w-48 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-xl z-50 pointer-events-none">
+                                                <div className="font-semibold border-b border-slate-700 pb-1.5 mb-1.5 text-center text-slate-100">
+                                                  Chi tiết ngày {dayData.day}
+                                                </div>
+                                                <div className="flex justify-between items-center py-0.5">
+                                                  <span className="text-slate-400">Chấm công:</span>
+                                                  <span className="text-slate-200">
+                                                    {dayData.detail.attendance}
+                                                  </span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-0.5 mt-1">
+                                                  <span className="text-slate-400">BC Tiến độ:</span>
+                                                  <span className={dayData.detail.progressReport === 'Đã nộp' ? 'text-emerald-400' : 'text-amber-400'}>
+                                                    {dayData.detail.progressReport}
+                                                  </span>
+                                                </div>
+                                                <div className="flex justify-between items-center py-0.5 mt-1">
+                                                  <span className="text-slate-400">BC Kết thúc:</span>
+                                                  <span className="text-slate-300">
+                                                    {dayData.detail.endReport}
+                                                  </span>
+                                                </div>
+                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-900" />
+                                              </div>
+                                            )}
+                                          </div>
+                                        );
                                       } else if (!dayData.status) {
                                         content = <span className="text-slate-200 text-xs">-</span>;
                                       } else {
