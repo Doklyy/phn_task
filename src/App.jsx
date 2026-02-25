@@ -2397,7 +2397,7 @@ const TaskDetailModal = ({
                       </select>
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá của chỉ huy <span className="text-amber-600">(bắt buộc khi trả về)</span></label>
+                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá của chỉ huy <span className="text-amber-600"></span></label>
                       <textarea value={rejectReason} onChange={(e) => { setRejectReason(e.target.value); setRejectReasonError(''); }} placeholder="Nhận xét, góp ý cho người thực hiện..." rows={2} className={`w-full border rounded-lg px-3 py-2 text-sm ${rejectReasonError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} />
                       {rejectReasonError && <p className="text-red-600 text-xs mt-1">{rejectReasonError}</p>}
                     </div>
