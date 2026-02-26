@@ -59,7 +59,8 @@ export default function ReportReminderOverlay({ userId, onGoReport, refetchTrigg
             type="button"
             onClick={() => {
               setGoneToReport(true);
-              onGoReport?.();
+              const missingDate = reminder.yesterday ? String(reminder.yesterday).slice(0, 10) : null;
+              onGoReport?.(missingDate);
             }}
             style={styles.primaryBtn}
           >

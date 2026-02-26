@@ -270,10 +270,12 @@ const App = () => {
         recordByDay[day] = r;
       });
 
-      const days = [];
-      let present = 0;
-      let complete = 0;
-      let partial = 0;
+      const days = {};
+      let totalWorkDays = 0;
+      let totalLeaveDays = 0;
+      let totalLateDays = 0;
+      let totalTasks = 0;
+      let reportedTasks = 0;
 
       for (let day = 1; day <= lastDay; day += 1) {
         const dateObj = new Date(y, m - 1, day);
@@ -283,58 +285,71 @@ const App = () => {
         const dayReports = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || [];
         const hasReport = dayReports.length > 0;
 
-        let status = null;
-        let detail = null;
+        let workDay = 0;
+        let isLeave = false;
+        let isLate = false;
+        let dayTotalTasks = 0;
+        let dayReportedTasks = 0;
 
-        if (isWeekend) {
-          status = 'weekend';
-        } else if (rec) {
+        if (rec) {
           const rawCode = String(rec.attendanceCode ?? rec.attendance_code ?? '').trim();
           const code = rawCode.toUpperCase();
-          const isLeave = code.startsWith('N_');
+          isLeave = code.startsWith('N_');
 
-          if (isLeave) {
-            status = 'leave';
-            let attendanceLabel = 'Nghỉ phép';
-            if (code === 'N_FULL') attendanceLabel = 'Nghỉ phép cả ngày';
-            else if (code === 'N_HALF') attendanceLabel = 'Nghỉ phép nửa ngày';
-            const progressReport = hasReport ? 'Đã nộp' : 'Chưa nộp';
-            detail = {
-              attendance: attendanceLabel,
-              progressReport,
-              endReport: '-',
-            };
-          } else if (!hasReport) {
-            status = 'partial';
-            detail = {
-              attendance: 'Có mặt',
-              progressReport: 'Chưa nộp',
-              endReport: '-',
-            };
-          } else {
-            status = 'complete';
-            detail = {
-              attendance: 'Có mặt',
-              progressReport: 'Đã nộp',
-              endReport: 'Không có',
-            };
+          if (code === 'N_HALF') {
+            workDay = 0.5;
+          } else if (!isLeave) {
+            workDay = 1;
           }
+
+          if (code === 'M' || code === 'N_LATE') {
+            isLate = true;
+          }
+
+          if (!isLeave) {
+            dayTotalTasks = 1;
+            dayReportedTasks = hasReport ? 1 : 0;
+          }
+        } else if (!isWeekend && hasReport) {
+          // Có báo cáo nhưng chưa có bản ghi chấm công → coi như 1 công có báo cáo
+          workDay = 1;
+          dayTotalTasks = 1;
+          dayReportedTasks = 1;
         }
 
-        if (status === 'complete' || status === 'partial') {
-          present += 1;
+        if (isWeekend && !rec && !hasReport) {
+          // Để undefined → renderCell sẽ hiển thị "-"
+          continue;
         }
-        if (status === 'complete') complete += 1;
-        if (status === 'partial') partial += 1;
 
-        days.push({ day, status, detail });
+        if (workDay > 0 || isLeave || hasReport) {
+          days[String(day)] = {
+            workDay,
+            totalTasks: dayTotalTasks,
+            reportedTasks: dayReportedTasks,
+            isLate,
+            isLeave,
+          };
+
+          totalWorkDays += workDay;
+          if (isLeave) totalLeaveDays += 1;
+          if (isLate) totalLateDays += 1;
+          totalTasks += dayTotalTasks;
+          reportedTasks += dayReportedTasks;
+        }
       }
 
       return {
         id: sid,
         name: s.name || s.fullName || s.username || sid,
         days,
-        totals: { present, complete, partial },
+        totals: {
+          workDays: totalWorkDays,
+          leaveDays: totalLeaveDays,
+          lateDays: totalLateDays,
+          totalTasks,
+          reportedTasks,
+        },
       };
     });
   }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
@@ -376,6 +391,7 @@ const App = () => {
   const mainContentScrollRef = useRef(null);
   const personnelScrollRestoreRef = useRef(null);
   const [taskSearch, setTaskSearch] = useState('');
+  const [forcedReportDate, setForcedReportDate] = useState('');
 
   // Tích hợp BE: load tasks khi có user
   useEffect(() => {
@@ -868,7 +884,10 @@ const App = () => {
       <ReportReminderOverlay
         userId={currentUser?.id}
         refetchTrigger={reminderRefetchTrigger}
-        onGoReport={() => {
+        onGoReport={(missingDate) => {
+          if (missingDate) {
+            setForcedReportDate(String(missingDate).slice(0, 10));
+          }
           setActiveTab('tasks');
           setTimeout(() => mainContentScrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
         }}
@@ -2168,7 +2187,10 @@ const App = () => {
         return (
           <TaskDetailModal
             task={task}
-            onClose={() => setSelectedTaskId(null)}
+            onClose={() => {
+              setSelectedTaskId(null);
+              setForcedReportDate('');
+            }}
             onAccept={() => handleAcceptTask(selectedTaskId)}
             reportHistory={reportHistoryByTask[selectedTaskId] || []}
             onAddReport={(report) => {
@@ -2191,6 +2213,7 @@ const App = () => {
             assigneeName={assigneeName}
             acceptNewLocked={acceptNewLocked}
             yesterday={yesterday}
+            defaultReportDate={forcedReportDate}
             onComplete={(payload) => submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onReject={(reason) => rejectCompletion(selectedTaskId, currentUser.id, reason).then(refreshTasks).then(() => setSelectedTaskId(null))}
@@ -2285,9 +2308,12 @@ const TaskDetailModal = ({
   onReject,
   currentUserId,
   onSaveEdit,
+  defaultReportDate,
 }) => {
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const initialReportDate = defaultReportDate || todayStr;
   const [reportChoice, setReportChoice] = useState(null);
-  const [reportDate, setReportDate] = useState(new Date().toISOString().slice(0, 10));
+  const [reportDate, setReportDate] = useState(initialReportDate);
   const [reportResult, setReportResult] = useState('');
   const [reportAttachmentPaths, setReportAttachmentPaths] = useState([]);
   const [reportFileUploading, setReportFileUploading] = useState(false);
@@ -2308,11 +2334,12 @@ const TaskDetailModal = ({
   const [editError, setEditError] = useState('');
   useEffect(() => {
     setReportChoice(null);
-    setReportDate(new Date().toISOString().slice(0, 10));
+    const baseDate = defaultReportDate || new Date().toISOString().slice(0, 10);
+    setReportDate(baseDate);
     setReportResult('');
     setReportAttachmentPaths([]);
     setReportError('');
-  }, [task?.id, task?.weight]);
+  }, [task?.id, task?.weight, defaultReportDate]);
   const toDatetimeLocal = (v) => {
     if (!v) return '';
     const d = new Date(String(v).replace(' ', 'T'));
