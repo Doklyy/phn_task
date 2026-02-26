@@ -197,6 +197,8 @@ const App = () => {
   const [reportFilterName, setReportFilterName] = useState('');
   const [reportDateFilter, setReportDateFilter] = useState(''); // Ngày xem báo cáo (YYYY-MM-DD)
   const [reportsSubTab, setReportsSubTab] = useState('today');
+  const [myReportsList, setMyReportsList] = useState([]);
+  const [myReportsLoading, setMyReportsLoading] = useState(false);
   useEffect(() => {
     const shouldLoad = (activeTab === 'reports' && role === 'admin')
       || (activeTab === 'dash' && dashView === 'attendance' && role === 'admin');
@@ -217,6 +219,15 @@ const App = () => {
       .catch(() => setAllReportsList([]))
       .finally(() => setAllReportsLoading(false));
   }, [activeTab, role, currentUser?.id, dashView, reportDateFilter]);
+
+  useEffect(() => {
+    if (activeTab !== 'reports' || !currentUser?.id || role === 'admin') return;
+    setMyReportsLoading(true);
+    getReportsByUser(currentUser.id)
+      .then((list) => setMyReportsList(Array.isArray(list) ? list : []))
+      .catch(() => setMyReportsList([]))
+      .finally(() => setMyReportsLoading(false));
+  }, [activeTab, currentUser?.id, role]);
 
   const reportCountByUserId = useMemo(() => {
     const [y, m] = dashMonth.split('-').map(Number);
@@ -1074,25 +1085,21 @@ const App = () => {
                       </div>
                     </div>
                     {role !== 'staff' && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => { setActiveTab('users'); setUserCardOpen(false); }}
-                          className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <Users size={16} /> Nhân sự
-                        </button>
-                        {role === 'admin' && (
-                          <button
-                            type="button"
-                            onClick={() => { setActiveTab('reports'); setUserCardOpen(false); }}
-                            className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                          >
-                            <FileText size={16} /> Báo cáo
-                          </button>
-                        )}
-                      </>
+                      <button
+                        type="button"
+                        onClick={() => { setActiveTab('users'); setUserCardOpen(false); }}
+                        className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                      >
+                        <Users size={16} /> Nhân sự
+                      </button>
                     )}
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab('reports'); setUserCardOpen(false); }}
+                      className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                    >
+                      <FileText size={16} /> Báo cáo
+                    </button>
                     <button
                       type="button"
                       onClick={logout}
@@ -2024,7 +2031,94 @@ const App = () => {
               </section>
             )}
 
-            {/* Tab: Báo cáo – chỉ Admin, giao diện gộp theo người (avatar, link trong nội dung) */}
+            {/* Tab: Báo cáo – mọi người: Staff/Leader xem báo cáo của mình + kết quả trả về; Admin xem tất cả + Lịch sử kết quả trả về */}
+            {activeTab === 'reports' && (role === 'staff' || role === 'leader') && (() => {
+              const myReportsByDate = {};
+              (myReportsList || []).forEach((r) => {
+                const d = (r.date || r.reportDate || '').slice(0, 10);
+                if (!d) return;
+                if (!myReportsByDate[d]) myReportsByDate[d] = [];
+                myReportsByDate[d].push(r);
+              });
+              const myReportDays = Object.keys(myReportsByDate).sort((a, b) => b.localeCompare(a));
+              const myCompletionFeedbackTasks = (tasks || []).filter(
+                (t) => String(t.assigneeId) === String(currentUser?.id) && (t.leaderComment || t.lastRejectReason),
+              );
+              return (
+                <section className="min-h-screen bg-slate-100 py-6 px-4 sm:px-6 lg:px-8 -mx-4 sm:-mx-6 md:-mx-0">
+                  <div className="max-w-4xl mx-auto space-y-6">
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                      <h1 className="text-xl font-bold text-slate-800 mb-1">Báo cáo của tôi</h1>
+                      <p className="text-sm text-slate-500">Báo cáo hàng ngày và kết quả trả nhiệm vụ hoàn thành</p>
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                      <h2 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <FileText size={20} /> Báo cáo hàng ngày
+                      </h2>
+                      {myReportsLoading ? (
+                        <p className="text-slate-500 text-sm py-4">Đang tải...</p>
+                      ) : myReportDays.length === 0 ? (
+                        <p className="text-slate-400 text-sm py-4">Chưa có báo cáo nào.</p>
+                      ) : (
+                        <div className="space-y-4">
+                          {myReportDays.slice(0, 30).map((d) => (
+                            <div key={d} className="border border-slate-200 rounded-lg p-4">
+                              <p className="text-sm font-semibold text-slate-600 mb-2">
+                                Ngày {d.slice(8, 10)}/{d.slice(5, 7)}/{d.slice(0, 4)}
+                              </p>
+                              <ul className="space-y-2">
+                                {(myReportsByDate[d] || []).map((r) => (
+                                  <li key={r.id} className="text-sm">
+                                    <span className="font-medium text-slate-700">{r.taskTitle || 'Nhiệm vụ'}:</span>
+                                    <p className="text-slate-600 whitespace-pre-line mt-0.5 pl-2 border-l-2 border-slate-200">{r.result || '—'}</p>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                      <h2 className="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                        <CheckCircle2 size={20} /> Kết quả trả nhiệm vụ hoàn thành
+                      </h2>
+                      {myCompletionFeedbackTasks.length === 0 ? (
+                        <p className="text-slate-400 text-sm py-4">Chưa có kết quả trả về từ leader/admin.</p>
+                      ) : (
+                        <ul className="space-y-4">
+                          {myCompletionFeedbackTasks.map((t) => (
+                            <li key={t.id} className="border border-slate-200 rounded-lg p-4 hover:border-slate-300">
+                              <div className="flex items-start justify-between gap-2">
+                                <h3 className="font-semibold text-slate-800">{t.title}</h3>
+                                <button
+                                  type="button"
+                                  onClick={() => setSelectedTaskId(t.id)}
+                                  className="text-xs px-2 py-1 rounded bg-slate-100 text-slate-600 hover:bg-slate-200"
+                                >
+                                  Xem chi tiết
+                                </button>
+                              </div>
+                              {(t.lastRejectAt || t.leaderComment) && (
+                                <div className="mt-2 pt-2 border-t border-slate-100">
+                                  <p className="text-xs text-slate-500">
+                                    {t.lastRejectAt
+                                      ? new Date(String(t.lastRejectAt).replace(' ', 'T')).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                                      : ''}
+                                  </p>
+                                  <p className="text-slate-700 text-sm mt-1 whitespace-pre-wrap">{t.lastRejectReason || t.leaderComment || '—'}</p>
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              );
+            })()}
+
             {activeTab === 'reports' && role === 'admin' && (
               <section className="min-h-screen bg-slate-100 py-6 px-4 sm:px-6 lg:px-8 -mx-4 sm:-mx-6 md:-mx-0">
                 <div className="max-w-4xl mx-auto">
@@ -2134,8 +2228,55 @@ const App = () => {
                             ))}
                           </div>
                         )}
+                        {/* Lịch sử kết quả trả về – Admin thêm/xem kết quả trả về cho mọi người */}
+                        <div className="mt-8 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                          <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
+                            <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                            <div>
+                              <h2 className="text-lg font-bold text-slate-800">Lịch sử kết quả trả về</h2>
+                              <p className="text-sm text-slate-500">Kết quả đánh giá / trả về nhiệm vụ hoàn thành của mọi người. Bấm &quot;Xem &amp; sửa&quot; để mở nhiệm vụ và cập nhật nhận xét.</p>
+                            </div>
+                          </div>
+                          <div className="p-4">
+                            {(() => {
+                              const feedbackTasks = (tasks || []).filter((t) => t.leaderComment || t.lastRejectReason);
+                              const assigneeName = (tid) => {
+                                const t = tasks.find((x) => x.id === tid);
+                                return t?.assigneeName || (users && users.find((u) => String(u.id ?? u.userId) === String(t?.assigneeId))?.name) || '—';
+                              };
+                              if (feedbackTasks.length === 0) {
+                                return <p className="text-slate-400 text-sm py-6 text-center">Chưa có kết quả trả về nào.</p>;
+                              }
+                              return (
+                                <ul className="space-y-3">
+                                  {feedbackTasks.map((t) => (
+                                    <li key={t.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-4 rounded-lg border border-slate-200 hover:border-slate-300 bg-slate-50/50">
+                                      <div className="min-w-0 flex-1">
+                                        <p className="font-semibold text-slate-800 truncate">{t.title}</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">Người thực hiện: {assigneeName(t.id)}</p>
+                                        <p className="text-sm text-slate-600 mt-2 line-clamp-2">{t.lastRejectReason || t.leaderComment || '—'}</p>
+                                        {t.lastRejectAt && (
+                                          <p className="text-xs text-slate-400 mt-1">
+                                            {new Date(String(t.lastRejectAt).replace(' ', 'T')).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                          </p>
+                                        )}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setSelectedTaskId(t.id)}
+                                        className="shrink-0 px-4 py-2 rounded-lg bg-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-300"
+                                      >
+                                        Xem &amp; sửa
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              );
+                            })()}
+                          </div>
+                        </div>
                       </>
-                  );
+                    );
                 })()}
                 </div>
               </section>
