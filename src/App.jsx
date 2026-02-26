@@ -270,12 +270,10 @@ const App = () => {
         recordByDay[day] = r;
       });
 
-      const days = {};
-      let totalWorkDays = 0;
-      let totalLeaveDays = 0;
-      let totalLateDays = 0;
-      let totalTasks = 0;
-      let reportedTasks = 0;
+      const days = [];
+      let present = 0;
+      let complete = 0;
+      let partial = 0;
 
       for (let day = 1; day <= lastDay; day += 1) {
         const dateObj = new Date(y, m - 1, day);
@@ -285,71 +283,58 @@ const App = () => {
         const dayReports = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || [];
         const hasReport = dayReports.length > 0;
 
-        let workDay = 0;
-        let isLeave = false;
-        let isLate = false;
-        let dayTotalTasks = 0;
-        let dayReportedTasks = 0;
+        let status = null;
+        let detail = null;
 
-        if (rec) {
+        if (isWeekend) {
+          status = 'weekend';
+        } else if (rec) {
           const rawCode = String(rec.attendanceCode ?? rec.attendance_code ?? '').trim();
           const code = rawCode.toUpperCase();
-          isLeave = code.startsWith('N_');
+          const isLeave = code.startsWith('N_');
 
-          if (code === 'N_HALF') {
-            workDay = 0.5;
-          } else if (!isLeave) {
-            workDay = 1;
+          if (isLeave) {
+            status = 'leave';
+            let attendanceLabel = 'Nghỉ phép';
+            if (code === 'N_FULL') attendanceLabel = 'Nghỉ phép cả ngày';
+            else if (code === 'N_HALF') attendanceLabel = 'Nghỉ phép nửa ngày';
+            const progressReport = hasReport ? 'Đã nộp' : 'Chưa nộp';
+            detail = {
+              attendance: attendanceLabel,
+              progressReport,
+              endReport: '-',
+            };
+          } else if (!hasReport) {
+            status = 'partial';
+            detail = {
+              attendance: 'Có mặt',
+              progressReport: 'Chưa nộp',
+              endReport: '-',
+            };
+          } else {
+            status = 'complete';
+            detail = {
+              attendance: 'Có mặt',
+              progressReport: 'Đã nộp',
+              endReport: 'Không có',
+            };
           }
-
-          if (code === 'M' || code === 'N_LATE') {
-            isLate = true;
-          }
-
-          if (!isLeave) {
-            dayTotalTasks = 1;
-            dayReportedTasks = hasReport ? 1 : 0;
-          }
-        } else if (!isWeekend && hasReport) {
-          // Có báo cáo nhưng chưa có bản ghi chấm công → coi như 1 công có báo cáo
-          workDay = 1;
-          dayTotalTasks = 1;
-          dayReportedTasks = 1;
         }
 
-        if (isWeekend && !rec && !hasReport) {
-          // Để undefined → renderCell sẽ hiển thị "-"
-          continue;
+        if (status === 'complete' || status === 'partial') {
+          present += 1;
         }
+        if (status === 'complete') complete += 1;
+        if (status === 'partial') partial += 1;
 
-        if (workDay > 0 || isLeave || hasReport) {
-          days[String(day)] = {
-            workDay,
-            totalTasks: dayTotalTasks,
-            reportedTasks: dayReportedTasks,
-            isLate,
-            isLeave,
-          };
-
-          totalWorkDays += workDay;
-          if (isLeave) totalLeaveDays += 1;
-          if (isLate) totalLateDays += 1;
-          totalTasks += dayTotalTasks;
-          reportedTasks += dayReportedTasks;
-        }
+        days.push({ day, status, detail });
       }
 
       return {
         id: sid,
         name: s.name || s.fullName || s.username || sid,
         days,
-        totals: {
-          workDays: totalWorkDays,
-          leaveDays: totalLeaveDays,
-          lateDays: totalLateDays,
-          totalTasks,
-          reportedTasks,
-        },
+        totals: { present, complete, partial },
       };
     });
   }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
@@ -1238,10 +1223,10 @@ const App = () => {
                     <div>
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
                       <p className="text-slate-500 font-medium">
-                        {listFilter === 'all' && 'Tất cả công việc của bạn.'}
-                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). `}
-                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). `}
-                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ.`}
+                        {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
+                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
+                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
+                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ. Duyệt hoặc trả về tồn đọng.`}
                         {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
                         {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                       </p>
