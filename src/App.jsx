@@ -1238,10 +1238,10 @@ const App = () => {
                     <div>
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
                       <p className="text-slate-500 font-medium">
-                        {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
-                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
-                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
-                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ. Duyệt hoặc trả về tồn đọng.`}
+                        {listFilter === 'all' && 'Tất cả công việc của bạn.'}
+                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). `}
+                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). `}
+                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ.`}
                         {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
                         {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                       </p>
