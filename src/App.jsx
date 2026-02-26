@@ -342,7 +342,6 @@ const App = () => {
     if (
       activeTab !== 'dash'
       || dashView !== 'attendance'
-      || role !== 'admin'
       || !currentUser?.id
       || staffList.length === 0
     ) {
@@ -365,7 +364,7 @@ const App = () => {
       })
       .catch(() => setAdminAttendanceMap({}))
       .finally(() => setAdminAttendanceLoading(false));
-  }, [activeTab, dashView, role, currentUser?.id, dashMonth, staffList.length]);
+  }, [activeTab, dashView, currentUser?.id, dashMonth, staffList.length]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState('');
   const [attendanceUpdateMsg, setAttendanceUpdateMsg] = useState({ id: null, text: '' });
@@ -391,9 +390,9 @@ const App = () => {
       .finally(() => setTasksLoading(false));
   }, [currentUser?.id]);
 
-  // Danh sách nhân sự (không bao gồm admin): personnelOnly=true
+  // Danh sách nhân sự (không bao gồm admin): mọi vai trò đều xem được bảng chuyên cần tổng
   useEffect(() => {
-    if (role === 'staff' || !currentUser?.id) {
+    if (!currentUser?.id) {
       setUsers([]);
       return;
     }
@@ -408,7 +407,7 @@ const App = () => {
         setUsersError('Không tải được danh sách nhân sự. Vui lòng thử lại sau.');
       })
       .finally(() => setUsersLoading(false));
-  }, [role, currentUser?.id]);
+  }, [currentUser?.id]);
 
   // Khôi phục scroll sau khi cập nhật danh sách nhân sự (tránh list bị đẩy lên đầu)
   useEffect(() => {
@@ -1223,10 +1222,10 @@ const App = () => {
                     <div>
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
                       <p className="text-slate-500 font-medium">
-                        {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
-                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
-                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
-                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ. Duyệt hoặc trả về tồn đọng.`}
+                        {listFilter === 'all' && 'Tất cả công việc của bạn.'}
+                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}).`}
+                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}).`}
+                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ.`}
                         {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
                         {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                       </p>
@@ -1347,7 +1346,7 @@ const App = () => {
 
                   {dashView === 'performance' && renderPerformance()}
                   {dashView === 'tasks' && renderTasksInDashboard()}
-                  {dashView === 'attendance' && (role === 'admin' ? (
+                  {dashView === 'attendance' && (
                     <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
                       {adminAttendanceLoading ? (
                         <p className="text-slate-500 text-sm py-6">Đang tải bảng chuyên cần...</p>
@@ -1388,7 +1387,7 @@ const App = () => {
                           {/* Table */}
                           <div className="overflow-x-auto custom-scrollbar">
                             <table className="w-full text-xs sm:text-sm text-left border-collapse min-w-max">
-                        <thead>
+                              <thead>
                                 <tr className="bg-slate-50 text-slate-600">
                                   <th rowSpan={2} className="px-3 sm:px-4 py-3 font-semibold border-b border-r border-slate-200 sticky left-0 bg-slate-50 z-20 align-middle">
                                     Nhân sự
@@ -1420,9 +1419,9 @@ const App = () => {
                                       {i + 1}
                                     </th>
                                   ))}
-                          </tr>
-                        </thead>
-                        <tbody>
+                                </tr>
+                              </thead>
+                              <tbody>
                                 {adminAttendanceMatrixData.map((row) => (
                                   <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                     <td className="px-3 sm:px-4 py-3 font-medium text-slate-800 border-r border-slate-200 sticky left-0 bg-white z-10 whitespace-nowrap">
@@ -1455,7 +1454,7 @@ const App = () => {
                                                   <span className="text-slate-400">Chấm công:</span>
                                                   <span className="text-slate-200">
                                                     {dayData.detail.attendance}
-                                  </span>
+                                                  </span>
                                                 </div>
                                                 <div className="flex justify-between items-center py-0.5 mt-1">
                                                   <span className="text-slate-400">BC Tiến độ:</span>
@@ -1527,22 +1526,18 @@ const App = () => {
                                           <div className="h-9 sm:h-10 flex items-center justify-center">
                                             {content}
                                           </div>
-                                </td>
+                                        </td>
                                       );
                                     })}
-                              </tr>
+                                  </tr>
                                 ))}
-                        </tbody>
-                      </table>
-                    </div>
+                              </tbody>
+                            </table>
+                          </div>
                         </div>
                       )}
-                  </section>
-                  ) : (
-                    <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-                      <DashboardAttendanceMock currentUser={currentUser} />
                     </section>
-                  ))}
+                  )}
                 </>
               );
             })()}
