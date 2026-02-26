@@ -944,7 +944,7 @@ const App = () => {
                     <div className="overflow-y-auto flex-1 min-h-0">
                       {role === 'admin' && tasksPendingApproval.length > 0 && (
                         <div className="px-4 py-3 border-b border-slate-200 bg-amber-50/80">
-                          <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt (theo dõi)</h3>
+                          <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt</h3>
                           <p className="text-xs text-slate-600 mb-2">
                             Có {tasksPendingApproval.length} nhiệm vụ đang đợi duyệt
                           </p>
@@ -1200,7 +1200,7 @@ const App = () => {
                   {/* Tái sử dụng layout giống tab Nhiệm vụ */}
                   {role === 'admin' && (
                     <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                      <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt (theo dõi)</h3>
+                      <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt</h3>
                       <p className="text-slate-600 text-sm mb-2">
                         {tasksPendingApproval.length > 0
                           ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
@@ -1548,11 +1548,11 @@ const App = () => {
               <>
                 {role === 'admin' && (
                   <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                    <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt (theo dõi)</h3>
+                    <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt </h3>
                     <p className="text-slate-600 text-sm mb-2">
                       {tasksPendingApproval.length > 0
-                        ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi Leader (người phân công) duyệt. Bấm nút "Đợi duyệt" bên dưới để xem danh sách. Admin chỉ theo dõi, không duyệt thay.`
-                        : 'Chưa có nhiệm vụ nào đợi duyệt. Khi nhân sự bấm Hoàn thành, nhiệm vụ sẽ hiện ở đây; Leader duyệt hoặc trả về tồn đọng.'}
+                        ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt.`
+                        : 'Chưa có nhiệm vụ nào đợi duyệt.'}
                     </p>
                     <button
                       type="button"
