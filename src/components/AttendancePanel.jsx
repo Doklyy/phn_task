@@ -180,7 +180,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
         const id = String(emp.id ?? emp.userId);
         const rec = todayRecordsByUser[id];
         if (rec) {
-          next[id] = {
+        next[id] = {
             checkInAt: rec.checkInAt ? toTimeInput(rec.checkInAt) : '08:00',
             checkOutAt: rec.checkOutAt ? toTimeInput(rec.checkOutAt) : '17:00',
             attendanceCode: rec.attendanceCode || codeDefault,

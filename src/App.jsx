@@ -888,15 +888,15 @@ const App = () => {
             <div className="flex-1 flex justify-center min-w-0 px-2">
               <div className="relative w-full max-w-xs md:max-w-sm">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 shrink-0 pointer-events-none" size={18} />
-                <input
-                  type="text"
-                  placeholder="Tìm kiếm công việc..."
+              <input
+                type="text"
+                placeholder="Tìm kiếm công việc..."
                   className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-sm placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E]/50 focus:bg-white transition-colors"
                   value={taskSearch}
                   onChange={(e) => setTaskSearch(e.target.value)}
-                />
-              </div>
+              />
             </div>
+          </div>
           </div>
           <div className="hidden md:flex flex-shrink-0 items-center text-sm text-slate-500 font-medium px-2 border-l border-slate-200">
             {formatTodayLabel()}
@@ -1118,32 +1118,32 @@ const App = () => {
               const totalRanked = filteredRanking.length;
 
               const renderPerformance = () => (
-                <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
-                  <h2 className="text-xl font-bold text-slate-900 mb-4">Hoàn thành cá nhân</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                  <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
+                    <h2 className="text-xl font-bold text-slate-900 mb-4">Hoàn thành cá nhân</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm</p>
                       <p className="text-2xl font-black text-slate-900">
                         {score100(scoringUser?.totalScore)}
                       </p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng</p>
                       <p className="text-2xl font-black text-slate-900">
                         #{currentRank > 0 ? currentRank : '—'} <span className="text-slate-500 font-normal text-lg">/ {totalRanked || '—'}</span>
                       </p>
-                    </div>
-                    <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
+                      </div>
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
                       <div className="space-y-1 max-h-64 overflow-auto pr-1">
                         {(showAllRanking ? filteredRanking : filteredRanking.slice(0, 3)).map((r, idx) => (
                           <div key={r.userId ?? `${idx}-${r.userName ?? r.name ?? ''}`} className="flex items-center gap-2 text-sm">
-                            <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
+                              <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
                             <span className="flex-1">{r.name ?? r.userName ?? '—'}</span>
-                            <span className="font-semibold text-slate-800">{score100(r.totalScore)}đ</span>
-                          </div>
-                        ))}
-                      </div>
+                              <span className="font-semibold text-slate-800">{score100(r.totalScore)}đ</span>
+                            </div>
+                          ))}
+                        </div>
                       {filteredRanking.length > 3 && (
                         <div className="mt-2 text-right">
                           <button
@@ -1155,44 +1155,44 @@ const App = () => {
                           </button>
                         </div>
                       )}
+                      </div>
                     </div>
-                  </div>
-                  <div className="border border-slate-200 rounded-xl overflow-hidden">
-                    <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                      <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá</h3>
-                    </div>
-                    <table className="w-full text-sm">
-                      <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200">
-                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Tiêu chí đánh giá</th>
-                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Tỷ trọng</th>
-                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm đạt</th>
-                          <th className="text-left py-2 px-3 font-semibold text-slate-700">Ghi chú</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-b border-slate-100">
+                    <div className="border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                        <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá</h3>
+                      </div>
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 border-b border-slate-200">
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tiêu chí đánh giá</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tỷ trọng</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm đạt</th>
+                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Ghi chú</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-b border-slate-100">
                           <td className="py-2 px-3 text-slate-700">Chuyên cần</td>
-                          <td className="py-2 px-3">40%</td>
-                          <td className="py-2 px-3">{formatPct(scoringUser?.attendanceScore)}</td>
-                          <td className="py-2 px-3 text-slate-500">{scoringUser?.reportedDays != null ? `Số ngày báo cáo: ${scoringUser.reportedDays}` : '—'}</td>
-                        </tr>
-                        <tr className="border-b border-slate-100">
+                            <td className="py-2 px-3">40%</td>
+                            <td className="py-2 px-3">{formatPct(scoringUser?.attendanceScore)}</td>
+                            <td className="py-2 px-3 text-slate-500">{scoringUser?.reportedDays != null ? `Số ngày báo cáo: ${scoringUser.reportedDays}` : '—'}</td>
+                          </tr>
+                          <tr className="border-b border-slate-100">
                           <td className="py-2 px-3 text-slate-700">Chất lượng công việc</td>
-                          <td className="py-2 px-3">60%</td>
-                          <td className="py-2 px-3">{formatPct(scoringUser?.qualityScore)}</td>
-                          <td className="py-2 px-3 text-slate-500">{scoringUser?.completedTasks != null ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ` : '—'}</td>
-                        </tr>
-                        <tr className="bg-slate-50 font-bold">
-                          <td className="py-2 px-3">Tổng cộng</td>
-                          <td className="py-2 px-3">100%</td>
-                          <td className="py-2 px-3">{score100(scoringUser?.totalScore)}</td>
-                          <td className="py-2 px-3" />
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </section>
+                            <td className="py-2 px-3">60%</td>
+                            <td className="py-2 px-3">{formatPct(scoringUser?.qualityScore)}</td>
+                            <td className="py-2 px-3 text-slate-500">{scoringUser?.completedTasks != null ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ` : '—'}</td>
+                          </tr>
+                          <tr className="bg-slate-50 font-bold">
+                            <td className="py-2 px-3">Tổng cộng</td>
+                            <td className="py-2 px-3">100%</td>
+                            <td className="py-2 px-3">{score100(scoringUser?.totalScore)}</td>
+                            <td className="py-2 px-3" />
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </section>
               );
 
               const renderTasksInDashboard = () => (
@@ -1206,13 +1206,13 @@ const App = () => {
                           ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
                           : 'Chưa có nhiệm vụ nào đợi duyệt.'}
                       </p>
-                      <button
-                        type="button"
+                        <button
+                          type="button"
                         onClick={() => setListFilter('pending_approval')}
                         className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                      >
+                        >
                         Xem danh sách Đợi duyệt →
-                      </button>
+                        </button>
                     </div>
                   )}
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
@@ -1292,7 +1292,7 @@ const App = () => {
                         {tasksByFilter.length === 0 && (
                           <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
                             Không có công việc nào trong nhóm này.
-                          </div>
+                    </div>
                         )}
                       </>
                     )}
@@ -1384,7 +1384,7 @@ const App = () => {
                           {/* Table */}
                           <div className="overflow-x-auto custom-scrollbar">
                             <table className="w-full text-xs sm:text-sm text-left border-collapse min-w-max">
-                              <thead>
+                        <thead>
                                 <tr className="bg-slate-50 text-slate-600">
                                   <th rowSpan={2} className="px-3 sm:px-4 py-3 font-semibold border-b border-r border-slate-200 sticky left-0 bg-slate-50 z-20 align-middle">
                                     Nhân sự
@@ -1416,9 +1416,9 @@ const App = () => {
                                       {i + 1}
                                     </th>
                                   ))}
-                                </tr>
-                              </thead>
-                              <tbody>
+                          </tr>
+                        </thead>
+                        <tbody>
                                 {adminAttendanceMatrixData.map((row) => (
                                   <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
                                     <td className="px-3 sm:px-4 py-3 font-medium text-slate-800 border-r border-slate-200 sticky left-0 bg-white z-10 whitespace-nowrap">
@@ -1451,7 +1451,7 @@ const App = () => {
                                                   <span className="text-slate-400">Chấm công:</span>
                                                   <span className="text-slate-200">
                                                     {dayData.detail.attendance}
-                                                  </span>
+                                  </span>
                                                 </div>
                                                 <div className="flex justify-between items-center py-0.5 mt-1">
                                                   <span className="text-slate-400">BC Tiến độ:</span>
@@ -1523,17 +1523,17 @@ const App = () => {
                                           <div className="h-9 sm:h-10 flex items-center justify-center">
                                             {content}
                                           </div>
-                                        </td>
+                                </td>
                                       );
                                     })}
-                                  </tr>
+                              </tr>
                                 ))}
-                              </tbody>
-                            </table>
-                          </div>
+                        </tbody>
+                      </table>
+                    </div>
                         </div>
                       )}
-                    </section>
+                  </section>
                   ) : (
                     <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
                       <DashboardAttendanceMock currentUser={currentUser} />
@@ -1566,7 +1566,7 @@ const App = () => {
                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
                       {role === 'staff' && (
                         <button
                           type="button"
@@ -2073,18 +2073,18 @@ const App = () => {
                               onChange={(e) => setReportDateFilter(e.target.value)}
                               className="border border-slate-200 rounded-lg px-3 py-2 text-sm"
                             />
-                            <input
-                              type="text"
+                  <input
+                    type="text"
                               placeholder="Lọc theo tên..."
-                              value={reportFilterName}
-                              onChange={(e) => setReportFilterName(e.target.value)}
+                    value={reportFilterName}
+                    onChange={(e) => setReportFilterName(e.target.value)}
                               className="max-w-[180px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                            />
+                  />
                             <span className="bg-slate-100 px-4 py-1.5 rounded-full text-sm font-semibold text-slate-700 inline-flex items-center gap-2 border border-slate-200">
                               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                               {dayReports.length} báo cáo / {groupedByPerson.length} nhân sự
                             </span>
-                          </div>
+                </div>
                         </div>
                         {groupedByPerson.length === 0 ? (
                           <p className="text-slate-400 text-sm py-8 text-center">Chưa có báo cáo nào cho ngày này.</p>
@@ -2117,16 +2117,16 @@ const App = () => {
                                       </div>
                                       {task.attachmentPath && (() => {
                                         const paths = String(task.attachmentPath).split('|').filter(Boolean);
-                                        return paths.length > 0 ? (
+                            return paths.length > 0 ? (
                                           <div className="flex flex-wrap gap-2 mt-2 pl-6">
-                                            {paths.map((path, idx) => (
+                                {paths.map((path, idx) => (
                                               <button key={idx} type="button" onClick={() => downloadAttachment(path).catch((e) => alert(e?.message || 'Tải file thất bại'))} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#D4384E]/10 text-[#D4384E] text-xs font-semibold hover:bg-[#D4384E]/20">
                                                 <Download size={14} /> {paths.length > 1 ? `Tải file ${idx + 1}` : 'Tải file đính kèm'}
-                                              </button>
-                                            ))}
-                                          </div>
-                                        ) : null;
-                                      })()}
+                                  </button>
+                                ))}
+                              </div>
+                            ) : null;
+                          })()}
                                     </div>
                                   ))}
                                 </div>
@@ -2135,8 +2135,8 @@ const App = () => {
                           </div>
                         )}
                       </>
-                    );
-                  })()}
+                  );
+                })()}
                 </div>
               </section>
             )}
@@ -2472,12 +2472,12 @@ const TaskDetailModal = ({
                             const results = await Promise.all(uploads);
                             const newPaths = results.filter(Boolean);
                             if (newPaths.length !== files.length) setReportError('Một hoặc nhiều file tải lên thất bại.');
-                            setReportAttachmentPaths((prev) => [...prev, ...newPaths]);
+                          setReportAttachmentPaths((prev) => [...prev, ...newPaths]);
                           } catch {
                             setReportError('Tải lên thất bại. Kiểm tra kết nối và thử lại.');
                           } finally {
-                            setReportFileUploading(false);
-                            e.target.value = '';
+                          setReportFileUploading(false);
+                          e.target.value = '';
                           }
                         }} />
                         <label htmlFor="report-day-file" className={`flex items-center justify-center w-full py-2 border border-slate-200 border-dashed rounded-lg text-sm font-medium cursor-pointer ${reportFileUploading ? 'opacity-60 pointer-events-none bg-slate-50' : 'hover:border-[#D4384E]/50 hover:bg-slate-50 text-slate-500'}`}>
@@ -2574,9 +2574,9 @@ const TaskDetailModal = ({
 
           {/* Lịch sử trả về: hiện khi bấm Báo cáo kết thúc (reportChoice === 'completion') hoặc khi Admin/Leader xem nhiệm vụ */}
           {(task.lastRejectReason || task.lastRejectAt || task.leaderComment) && (reportChoice === 'completion' || role === 'admin' || role === 'leader') && (
-            <div className="pt-4 border-t border-slate-100">
+              <div className="pt-4 border-t border-slate-100">
               <h4 className="text-sm font-bold text-slate-800 mb-2">Lịch sử trả về</h4>
-              <ul className="space-y-2">
+                  <ul className="space-y-2">
                 <li className="text-sm border-b border-slate-50 pb-2">
                   <span className="text-slate-600">
                     {task.lastRejectAt
@@ -2584,18 +2584,18 @@ const TaskDetailModal = ({
                       : '—'}
                   </span>
                   <p className="text-slate-700 mt-1 whitespace-pre-wrap">{task.lastRejectReason || task.leaderComment || '—'}</p>
-                </li>
-              </ul>
-            </div>
+                      </li>
+                  </ul>
+              </div>
           )}
 
           {(task.status === 'pending_approval' || (role === 'admin' || role === 'leader')) && (
             <div className="pt-4 border-t border-slate-100 space-y-4">
               {task.status === 'pending_approval' && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                  <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
                   <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Leader/Admin điền kết quả đánh giá bên dưới rồi Duyệt hoặc Trả về.</p>
-                </div>
+              </div>
               )}
               {task.status === 'pending_approval' && (task.completionNote || task.completionLink) && (
                 <div>
