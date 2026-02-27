@@ -20,7 +20,7 @@ export function ReportsTrelloBoard({ reports = [], onReportClick }) {
 
   return (
     <div>
-      <p className="text-sm text-slate-500 mb-3">Báo cáo tiến độ theo ngày (dạng Trello). Mỗi cột là một ngày, thẻ là báo cáo của từng người.</p>
+      <p className="text-sm text-slate-500 mb-3">Báo cáo tiến độ theo ngày.</p>
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[360px]">
       {sortedDates.map((date) => {
         const dayReports = byDate[date] || [];

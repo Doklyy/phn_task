@@ -354,22 +354,13 @@ const App = () => {
   }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
 
   const taskActiveOnDay = useCallback((task, y, m, day) => {
-    // Nhiệm vụ được xem là cần báo cáo tiến độ trong ngày nếu:
-    // - ĐÃ được giao (ngày giao <= ngày đang xét)
-    // - Và CHƯA hoàn thành / đợi duyệt trước ngày đó.
+    // Nhiệm vụ được xem là cần báo cáo trong ngày nếu:
+    // - Chưa hoàn thành, hoặc
+    // - Đã hoàn thành nhưng sau ngày đó.
     const dStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const completedAt = task.completedAt ? String(task.completedAt).slice(0, 10) : '';
     const status = (task.status || '').toLowerCase();
-    const createdStr = task.createdAt ? String(task.createdAt).slice(0, 10) : '';
-    const completedStr = task.completedAt ? String(task.completedAt).slice(0, 10) : '';
-
-    // Chưa giao thì không tính
-    if (createdStr && dStr < createdStr) return false;
-
-    // Đã hoàn thành hoặc đang đợi duyệt thì chỉ tính tới ngày hoàn thành/gửi duyệt
-    if ((status === 'completed' || status === 'pending_approval') && completedStr && completedStr < dStr) {
-      return false;
-    }
-
+    if (status === 'completed' && completedAt && completedAt < dStr) return false;
     return true;
   }, []);
 
@@ -474,7 +465,6 @@ const App = () => {
   const mainContentScrollRef = useRef(null);
   const personnelScrollRestoreRef = useRef(null);
   const [taskSearch, setTaskSearch] = useState('');
-  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all'); // Lọc nhiệm vụ theo nhân sự
   const [forcedReportDate, setForcedReportDate] = useState('');
   const [tasksViewMode, setTasksViewMode] = useState('trello'); // 'list' | 'trello' — mặc định Trello để dễ nhìn
   const [reportsViewMode, setReportsViewMode] = useState('trello'); // 'list' | 'trello'
@@ -713,10 +703,6 @@ const App = () => {
     else if (role === 'leader') base = tasks.filter((t) => t.leaderId === currentUser.id || t.assigneeId === currentUser.id);
     else base = tasks.filter((t) => t.assigneeId === currentUser.id);
 
-    if (taskAssigneeFilter && taskAssigneeFilter !== 'all') {
-      base = base.filter((t) => String(t.assigneeId) === taskAssigneeFilter);
-    }
-
     const q = taskSearch.trim().toLowerCase();
     if (!q) return base;
     return base.filter((t) => {
@@ -725,7 +711,7 @@ const App = () => {
       const objective = (t.objective || '').toLowerCase();
       return title.includes(q) || content.includes(q) || objective.includes(q);
     });
-  }, [tasks, role, currentUser?.id, taskSearch, taskAssigneeFilter]);
+  }, [tasks, role, currentUser?.id, taskSearch]);
 
   // Phân nhóm theo trạng thái: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng (chuẩn hóa nhãn)
   // Quá hạn: chưa xong, quá hạn (loại đợi duyệt để tránh báo đỏ khi đã gửi hoàn thành)
@@ -807,8 +793,24 @@ const App = () => {
       });
   }, [currentUser?.id]);
 
-  // Không khóa tiếp nhận công việc mới trên FE nữa (logic chuyên cần xử lý ở backend)
-  const acceptNewLocked = false;
+  // Cơ chế khóa: Muốn tiếp nhận công việc mới hôm nay thì phải đã báo cáo tiến độ cho việc tồn đọng của ngày hôm trước
+  const yesterday = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const myAcceptedTaskIds = useMemo(
+    () => filteredTasks.filter((t) => t.assigneeId === currentUser?.id && t.status === 'accepted').map((t) => t.id),
+    [filteredTasks, currentUser?.id]
+  );
+  const hasReportedYesterdayForAll = useMemo(() => {
+    if (myAcceptedTaskIds.length === 0) return true;
+    return myAcceptedTaskIds.every((taskId) => {
+      const history = reportHistoryByTask[taskId] || [];
+      return history.some((r) => r.date === yesterday);
+    });
+  }, [myAcceptedTaskIds, reportHistoryByTask, yesterday]);
+  const acceptNewLocked = !hasReportedYesterdayForAll;
 
   // Validation form báo cáo
   const validateReport = () => {
@@ -1286,6 +1288,7 @@ const App = () => {
 
               const renderTasksInDashboard = () => (
                 <section className="mb-3" id="task-list-section">
+                  {/* Tái sử dụng layout giống tab Nhiệm vụ */}
                   {role === 'admin' && (
                     <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                       <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt</h3>
@@ -1294,88 +1297,95 @@ const App = () => {
                           ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
                           : 'Chưa có nhiệm vụ nào đợi duyệt.'}
                       </p>
-                      <button
-                        type="button"
+                        <button
+                          type="button"
                         onClick={() => setListFilter('pending_approval')}
                         className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                      >
+                        >
                         Xem danh sách Đợi duyệt →
-                      </button>
+                        </button>
                     </div>
                   )}
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
                     <div>
-                      <h2 className="text-2xl font-black text-slate-900 tracking-tight">Theo dõi Nhiệm vụ (Trello)</h2>
-                      <p className="text-slate-500 text-sm mt-1">Bấm vào thẻ để xem chi tiết.</p>
+                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
+                      <p className="text-slate-500 font-medium">
+                        {listFilter === 'all' && 'Tất cả công việc của bạn.'}
+                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}).`}
+                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}).`}
+                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ.`}
+                        {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
+                        {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
+                      </p>
                     </div>
-                    <div className="flex flex-wrap gap-2 items-center">
-                      <button
-                        type="button"
+                    <div className="flex flex-wrap gap-2">
+                        <button
+                          type="button"
                         onClick={() => setListFilter('all')}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'all' ? 'text-white bg-slate-800' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'all' ? 'text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        style={listFilter === 'all' ? { backgroundColor: VIETTEL_RED } : undefined}
                       >
                         Tất cả {filteredTasks.length ? `(${filteredTasks.length})` : ''}
-                      </button>
+                        </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('overdue')}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'overdue' ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'overdue' ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Quá hạn {tasksOverdue.length ? `(${tasksOverdue.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('in_progress')}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'in_progress' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'in_progress' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Đang thực hiện {tasksInProgress.length ? `(${tasksInProgress.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('pending_approval')}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'pending_approval' ? 'bg-amber-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'pending_approval' ? 'bg-amber-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Đợi duyệt {tasksPendingApproval.length > 0 ? `(${tasksPendingApproval.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('completed')}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'completed' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'completed' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Hoàn thành {tasksCompleted.length ? `(${tasksCompleted.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('paused')}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'paused' ? 'bg-violet-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'paused' ? 'bg-violet-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Tạm dừng {tasksPaused.length ? `(${tasksPaused.length})` : ''}
                       </button>
-                      <select
-                        value={taskAssigneeFilter}
-                        onChange={(e) => setTaskAssigneeFilter(e.target.value)}
-                        className="px-3 py-2 rounded-xl text-xs border border-slate-200 bg-white text-slate-700"
-                      >
-                        <option value="all">Tất cả nhân sự</option>
-                        {(users || [])
-                          .filter((u) => u.id ?? u.userId)
-                          .map((u) => {
-                            const id = String(u.id ?? u.userId);
-                            const name = u.name || u.fullName || u.username || id;
-                            return (
-                              <option key={id} value={id}>
-                                {name}
-                              </option>
-                            );
-                          })}
-                      </select>
                     </div>
                   </div>
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4">
+
+                  <div className="grid grid-cols-1 gap-4">
                     {tasksLoading ? (
-                      <div className="py-10 text-center text-slate-500">Đang tải danh sách nhiệm vụ...</div>
+                      <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+                        Đang tải danh sách nhiệm vụ...
+                      </div>
                     ) : (
-                      <TasksTrelloBoard tasks={tasksByFilter} onTaskClick={(id) => setSelectedTaskId(id)} />
+                      <>
+                        {tasksByFilter.map((task) => (
+                          <TaskListCard
+                            key={task.id}
+                            task={task}
+                            users={users}
+                            onClick={() => setSelectedTaskId(task.id)}
+                          />
+                        ))}
+                        {tasksByFilter.length === 0 && (
+                          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+                            Không có công việc nào trong nhóm này.
+                    </div>
+                        )}
+                      </>
                     )}
                   </div>
                 </section>
@@ -1489,7 +1499,7 @@ const App = () => {
                       {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2 items-center">
+                  <div className="flex flex-wrap gap-2">
                     <button
                       type="button"
                       onClick={() => setListFilter('all')}
@@ -1546,24 +1556,6 @@ const App = () => {
                     >
                       <Filter size={18} /> Lọc tháng
                     </button>
-                    <select
-                      value={taskAssigneeFilter}
-                      onChange={(e) => setTaskAssigneeFilter(e.target.value)}
-                      className="px-3 py-2 rounded-xl text-xs border border-slate-200 bg-white text-slate-700"
-                    >
-                      <option value="all">Tất cả nhân sự</option>
-                      {(users || [])
-                        .filter((u) => u.id ?? u.userId)
-                        .map((u) => {
-                          const id = String(u.id ?? u.userId);
-                          const name = u.name || u.fullName || u.username || id;
-                          return (
-                            <option key={id} value={id}>
-                              {name}
-                            </option>
-                          );
-                        })}
-                    </select>
                     <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-white">
                       <button
                         type="button"
@@ -1585,7 +1577,7 @@ const App = () => {
 
                 {tasksViewMode === 'trello' ? (
                   <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                    <h3 className="text-sm font-bold text-slate-700 mb-3">Nhiệm vụ theo trạng thái (Trello)</h3>
+                    <h3 className="text-sm font-bold text-slate-700 mb-3">Nhiệm vụ theo trạng thái</h3>
                     {tasksLoading ? (
                       <div className="py-10 text-center text-slate-500">Đang tải...</div>
                     ) : (
@@ -2139,7 +2131,7 @@ const App = () => {
                         </div>
                         {reportsViewMode === 'trello' ? (
                           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
-                            <h3 className="text-sm font-bold text-slate-700 mb-3">Báo cáo theo ngày (Trello)</h3>
+                            <h3 className="text-sm font-bold text-slate-700 mb-3">Báo cáo theo ngày</h3>
                             <ReportsTrelloBoard
                               reports={allReportsList}
                               onReportClick={(r) => {
@@ -2303,6 +2295,7 @@ const App = () => {
             canEdit={role === 'admin' || role === 'leader'}
             assigneeName={assigneeName}
             acceptNewLocked={acceptNewLocked}
+            yesterday={yesterday}
             defaultReportDate={forcedReportDate}
             onComplete={(payload) => submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
@@ -2392,6 +2385,7 @@ const TaskDetailModal = ({
   canEdit,
   assigneeName,
   acceptNewLocked,
+  yesterday,
   onComplete,
   onApprove,
   onReject,
@@ -2467,7 +2461,7 @@ const TaskDetailModal = ({
           <div>
             <h2 className="text-xl font-black text-slate-900 mb-1">{task.title}</h2>
             <p className="text-slate-500 text-sm">
-              Ngày giao: {formatDeadline(task.createdAt)} · Hạn chót: {formatDeadline(task.deadline)} · Trọng số: {weightLabel(task.weight)} · Người thực hiện: {assigneeName || '—'}
+              Hạn chót: {formatDeadline(task.deadline)} · Trọng số: {weightLabel(task.weight)} · Người thực hiện: {assigneeName || '—'}
             </p>
           </div>
           <div>
@@ -2573,11 +2567,11 @@ const TaskDetailModal = ({
                         <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kết quả / Tiến độ (tối thiểu 10 ký tự)</label>
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kết quả / Tiến độ </label>
                         <textarea value={reportResult} onChange={(e) => { setReportResult(e.target.value); setReportError(''); }} minLength={10} maxLength={4000} rows={3} placeholder="Mô tả tiến độ: đang ở bước nào, đã làm được gì trong ngày..." required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
                       </div>
                       <div>
-                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm (tùy chọn, nhiều file)</label>
+                        <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-1">File đính kèm </label>
                         <input type="file" id="report-day-file" className="hidden" multiple accept="*/*" onChange={async (e) => {
                           const files = e.target.files;
                           if (!files?.length) return;
@@ -2710,13 +2704,13 @@ const TaskDetailModal = ({
               {task.status === 'pending_approval' && (
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
                 <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
-                  <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Leader/Admin điền kết quả đánh giá bên dưới rồi Duyệt hoặc Trả về.</p>
+                  <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi</p>
               </div>
               )}
-                  {task.status === 'pending_approval' && (task.completionNote || task.completionLink) && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
-                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nội dung báo cáo hoàn thành</h4>
-                  {task.completionNote && <p className="text-slate-800 text-base leading-relaxed whitespace-pre-wrap mb-3">{task.completionNote}</p>}
+              {task.status === 'pending_approval' && (task.completionNote || task.completionLink) && (
+                <div>
+                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Nội dung báo cáo hoàn thành</h4>
+                  {task.completionNote && <p className="text-slate-700 text-sm whitespace-pre-wrap mb-2">{task.completionNote}</p>}
                   {task.completionLink && (
                     <p className="text-sm">
                       <a href={task.completionLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{task.completionLink}</a>

@@ -83,8 +83,8 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
     <div className="max-w-[1400px] mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Bảng Theo Dõi Báo Cáo Công Việc (Cải tiến)</h1>
-          <p className="text-sm text-gray-500 mt-1">{monthLabel} • Đã bật tính năng cố định cột (Freeze Panes)</p>
+          <h1 className="text-xl font-bold text-gray-800">Bảng Theo Dõi Báo Cáo Công Việc</h1>
+          <p className="text-sm text-gray-500 mt-1">{monthLabel} </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {onMonthChange && (
@@ -191,14 +191,6 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
 
       <div className="p-4 bg-blue-50/50 border-t border-gray-200 flex items-start gap-2 text-sm text-blue-700">
         <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="font-semibold mb-1">Hướng dẫn</p>
-          <ul className="list-disc list-inside space-y-0.5 text-xs">
-            <li>Bảng đã bật <strong>Cố định cột (Freeze Panes)</strong>. Kéo thanh cuộn ngang sang phải để xem các ngày, 5 cột trái (Nhân sự, C.Tổng, Nghỉ, Muộn, Tiến độ) luôn cố định.</li>
-            <li>Ô hiển thị <strong>[Đã báo cáo tiến độ] / [Tổng nhiệm vụ]</strong> trong ngày. Xanh = đủ, vàng = thiếu, đỏ = chưa báo cáo tiến độ. <strong>Báo cáo kết thúc công việc</strong> (khi hoàn thành nhiệm vụ) thực hiện trong chi tiết nhiệm vụ, không tính vào ô này.</li>
-            <li>Huy hiệu <strong>0.5</strong> = nửa công, chấm <strong>cam</strong> = đi muộn, <strong>N</strong> = nghỉ phép. Dữ liệu lấy từ chấm công từng ngày — cần chấm công đúng để bảng chính xác.</li>
-          </ul>
-        </div>
       </div>
     </div>
   );
