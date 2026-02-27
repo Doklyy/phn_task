@@ -22,7 +22,9 @@ export function TasksTrelloBoard({ tasks = [], onTaskClick }) {
   };
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 min-h-[400px]">
+    <div>
+      <p className="text-sm text-slate-500 mb-3">Xem nhiệm vụ theo trạng thái (dạng Trello). Bấm vào thẻ để xem chi tiết.</p>
+      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[400px]">
       {STATUS_COLUMNS.map((col) => {
         const columnTasks = getTasksByStatus(col.status);
         return (
@@ -63,6 +65,7 @@ export function TasksTrelloBoard({ tasks = [], onTaskClick }) {
           </div>
         );
       })}
+      </div>
     </div>
   );
 }

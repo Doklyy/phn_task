@@ -19,7 +19,9 @@ export function ReportsTrelloBoard({ reports = [], onReportClick }) {
   const sortedDates = Object.keys(byDate).sort((a, b) => b.localeCompare(a)).slice(0, 14);
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4 min-h-[360px]">
+    <div>
+      <p className="text-sm text-slate-500 mb-3">Báo cáo tiến độ theo ngày (dạng Trello). Mỗi cột là một ngày, thẻ là báo cáo của từng người.</p>
+      <div className="flex gap-4 overflow-x-auto pb-4 min-h-[360px]">
       {sortedDates.map((date) => {
         const dayReports = byDate[date] || [];
         return (
@@ -58,6 +60,7 @@ export function ReportsTrelloBoard({ reports = [], onReportClick }) {
       {sortedDates.length === 0 && (
         <div className="flex-1 flex items-center justify-center text-slate-400 py-12">Chưa có báo cáo nào</div>
       )}
+      </div>
     </div>
   );
 }

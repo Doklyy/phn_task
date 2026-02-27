@@ -460,8 +460,8 @@ const App = () => {
   const personnelScrollRestoreRef = useRef(null);
   const [taskSearch, setTaskSearch] = useState('');
   const [forcedReportDate, setForcedReportDate] = useState('');
-  const [tasksViewMode, setTasksViewMode] = useState('list'); // 'list' | 'trello'
-  const [reportsViewMode, setReportsViewMode] = useState('list'); // 'list' | 'trello'
+  const [tasksViewMode, setTasksViewMode] = useState('trello'); // 'list' | 'trello' — mặc định Trello để dễ nhìn
+  const [reportsViewMode, setReportsViewMode] = useState('trello'); // 'list' | 'trello'
 
   // Tích hợp BE: load tasks khi có user
   useEffect(() => {
