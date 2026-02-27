@@ -354,12 +354,13 @@ const App = () => {
   }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
 
   const taskActiveOnDay = useCallback((task, y, m, day) => {
+    // Nhiệm vụ được xem là cần báo cáo trong ngày nếu:
+    // - Chưa hoàn thành, hoặc
+    // - Đã hoàn thành nhưng sau ngày đó.
     const dStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const deadline = task.deadline ? String(task.deadline).slice(0, 10) : '';
     const completedAt = task.completedAt ? String(task.completedAt).slice(0, 10) : '';
     const status = (task.status || '').toLowerCase();
     if (status === 'completed' && completedAt && completedAt < dStr) return false;
-    if (deadline && deadline < dStr) return false;
     return true;
   }, []);
 
@@ -377,7 +378,10 @@ const App = () => {
       const day = parseInt(d.slice(8, 10), 10);
       if (!Number.isFinite(day)) return;
       if (!reportsByUserAndDay[uid]) reportsByUserAndDay[uid] = {};
-      reportsByUserAndDay[uid][day] = (reportsByUserAndDay[uid][day] || 0) + 1;
+      const taskId = String(r.taskId ?? r.task_id ?? '');
+      if (!taskId) return;
+      if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = new Set();
+      reportsByUserAndDay[uid][day].add(taskId);
     });
     return (staffList || []).map((s) => {
       const sid = String(s.id ?? s.userId);
@@ -405,12 +409,14 @@ const App = () => {
           else if (!isWeekend) workDay = 1;
         }
         const totalTasks = isWeekend ? 0 : tasksForUser.filter((t) => taskActiveOnDay(t, y, m, day)).length;
-        const reportedTasks = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || 0;
+        const reportedSet = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || null;
+        const reportedTasks = reportedSet ? reportedSet.size : 0;
         days[String(day)] = {
           workDay,
           totalTasks,
           reportedTasks,
-          isLate: !!(rec && rec.isLate),
+          // Đi muộn: dựa theo mã chấm công thay vì cờ isLate để tránh lệch dữ liệu
+          isLate: rawCode === 'M' || rawCode === 'N_LATE',
           isLeave: !!isLeave,
         };
       }

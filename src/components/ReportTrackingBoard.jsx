@@ -107,7 +107,10 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
           const [y, m, day] = d.split('-').map(Number);
           if (y === year && m === month) {
             const key = day;
-            reportsByDate[key] = (reportsByDate[key] || 0) + 1;
+            const taskId = String(r.taskId ?? r.task_id ?? '');
+            if (!taskId) return;
+            if (!reportsByDate[key]) reportsByDate[key] = new Set();
+            reportsByDate[key].add(taskId);
           }
         });
 
@@ -124,9 +127,10 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
 
         for (let day = 1; day <= dayCount; day++) {
           const rec = attByDate[day];
-          const isLeave = rec && (rec.attendanceCode === 'N_FULL' || rec.attendanceCode === 'CN' || (rec.attendanceCode || '').startsWith('N'));
-          const isHalf = rec && (rec.attendanceCode === 'N_HALF' || (rec.attendanceCode || '').includes('HALF'));
-          const isLate = rec && !!rec.isLate;
+          const code = rec ? String(rec.attendanceCode || rec.attendance_code || '').trim().toUpperCase() : '';
+          const isLeave = code.startsWith('N_') || code === 'CN';
+          const isHalf = code === 'N_HALF' || code.includes('HALF');
+          const isLate = code === 'M' || code === 'N_LATE';
 
           let workDay = 0;
           if (!isLeave) {
@@ -137,7 +141,8 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
           const totalTasks = isWeekend(year, month, day)
             ? 0
             : tasksForUser.filter((t) => taskActiveOnDay(t, year, month, day)).length;
-          const reportedTasks = reportsByDate[day] || 0;
+          const reportedSet = reportsByDate[day] || null;
+          const reportedTasks = reportedSet ? reportedSet.size : 0;
 
           days[String(day)] = {
             workDay,
