@@ -17,14 +17,23 @@ function isWeekend(year, month, day) {
   return d.getDay() === 0 || d.getDay() === 6;
 }
 
-/** Nhiệm vụ có "active" tại ngày D không (cần báo cáo ngày đó) */
+/** Nhiệm vụ có \"active\" tại ngày D không (cần báo cáo ngày đó) */
 function taskActiveOnDay(task, year, month, day) {
   const dStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-  const deadline = task.deadline ? String(task.deadline).slice(0, 10) : '';
-  const completedAt = task.completedAt ? String(task.completedAt).slice(0, 10) : '';
   const status = (task.status || '').toLowerCase();
-  if (status === 'completed' && completedAt && completedAt < dStr) return false;
-  if (deadline && deadline < dStr) return false;
+  const createdAt = task.createdAt || task.created_at || task.assignedAt || task.assigned_at || null;
+  const createdStr = createdAt ? String(createdAt).slice(0, 10) : '';
+  const completedAt = task.completedAt || task.completed_at || null;
+  const completedStr = completedAt ? String(completedAt).slice(0, 10) : '';
+
+  // Chưa giao thì chưa phải báo cáo
+  if (createdStr && dStr < createdStr) return false;
+
+  // Đã hoàn thành hoặc đang đợi duyệt thì chỉ yêu cầu tới ngày hoàn thành/gửi duyệt
+  if ((status === 'completed' || status === 'pending_approval') && completedStr && completedStr < dStr) {
+    return false;
+  }
+
   return true;
 }
 
