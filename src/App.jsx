@@ -1165,21 +1165,21 @@ const App = () => {
                       </div>
                     </div>
                     {role !== 'staff' && (
-                      <button
-                        type="button"
-                        onClick={() => { setActiveTab('users'); setUserCardOpen(false); }}
-                        className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                      >
-                        <Users size={16} /> Nhân sự
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => { setActiveTab('users'); setUserCardOpen(false); }}
+                          className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                        >
+                          <Users size={16} /> Nhân sự
+                        </button>
                     )}
-                    <button
-                      type="button"
-                      onClick={() => { setActiveTab('reports'); setUserCardOpen(false); }}
-                      className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                    >
-                      <FileText size={16} /> Báo cáo
-                    </button>
+                          <button
+                            type="button"
+                            onClick={() => { setActiveTab('reports'); setUserCardOpen(false); }}
+                            className="px-4 py-3 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                          >
+                            <FileText size={16} /> Báo cáo
+                          </button>
                     <button
                       type="button"
                       onClick={logout}
@@ -1237,14 +1237,14 @@ const App = () => {
                         </div>
                       {filteredRanking.length > 3 && (
                         <div className="mt-2 text-right">
-                          <button
-                            type="button"
+                    <button
+                      type="button"
                             onClick={() => setShowAllRanking((v) => !v)}
                             className="text-xs font-medium text-slate-500 hover:text-slate-800 hover:underline"
                           >
                             {showAllRanking ? 'Thu gọn' : 'Xem tất cả'}
-                          </button>
-                        </div>
+                    </button>
+                </div>
                       )}
                       </div>
                     </div>
@@ -1288,7 +1288,6 @@ const App = () => {
 
               const renderTasksInDashboard = () => (
                 <section className="mb-3" id="task-list-section">
-                  {/* Tái sử dụng layout giống tab Nhiệm vụ */}
                   {role === 'admin' && (
                     <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                       <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt</h3>
@@ -1297,95 +1296,72 @@ const App = () => {
                           ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
                           : 'Chưa có nhiệm vụ nào đợi duyệt.'}
                       </p>
-                        <button
-                          type="button"
+                      <button
+                        type="button"
                         onClick={() => setListFilter('pending_approval')}
                         className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                        >
+                      >
                         Xem danh sách Đợi duyệt →
-                        </button>
+                      </button>
                     </div>
                   )}
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
+                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
                     <div>
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
-                      <p className="text-slate-500 font-medium">
-                        {listFilter === 'all' && 'Tất cả công việc của bạn.'}
-                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}).`}
-                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}).`}
-                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ.`}
-                        {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
-                        {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
+                      <h2 className="text-2xl font-black text-slate-900 tracking-tight">Theo dõi Nhiệm vụ (Trello)</h2>
+                      <p className="text-slate-500 text-sm mt-1">
+                        Kéo ngang để xem thêm cột. Bấm vào thẻ để xem chi tiết và báo cáo tiến độ / hoàn thành.
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       <button
                         type="button"
                         onClick={() => setListFilter('all')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'all' ? 'text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                        style={listFilter === 'all' ? { backgroundColor: VIETTEL_RED } : undefined}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'all' ? 'text-white bg-slate-800' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Tất cả {filteredTasks.length ? `(${filteredTasks.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('overdue')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'overdue' ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'overdue' ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Quá hạn {tasksOverdue.length ? `(${tasksOverdue.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('in_progress')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'in_progress' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'in_progress' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Đang thực hiện {tasksInProgress.length ? `(${tasksInProgress.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('pending_approval')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'pending_approval' ? 'bg-amber-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'pending_approval' ? 'bg-amber-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Đợi duyệt {tasksPendingApproval.length > 0 ? `(${tasksPendingApproval.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('completed')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'completed' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'completed' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Hoàn thành {tasksCompleted.length ? `(${tasksCompleted.length})` : ''}
                       </button>
                       <button
                         type="button"
                         onClick={() => setListFilter('paused')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'paused' ? 'bg-violet-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                        className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${listFilter === 'paused' ? 'bg-violet-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
                       >
                         Tạm dừng {tasksPaused.length ? `(${tasksPaused.length})` : ''}
                       </button>
                     </div>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4">
                     {tasksLoading ? (
-                      <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                        Đang tải danh sách nhiệm vụ...
-                      </div>
+                      <div className="py-10 text-center text-slate-500">Đang tải danh sách nhiệm vụ...</div>
                     ) : (
-                      <>
-                        {tasksByFilter.map((task) => (
-                          <TaskListCard
-                            key={task.id}
-                            task={task}
-                            users={users}
-                            onClick={() => setSelectedTaskId(task.id)}
-                          />
-                        ))}
-                        {tasksByFilter.length === 0 && (
-                          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                            Không có công việc nào trong nhóm này.
-                    </div>
-                        )}
-                      </>
+                      <TasksTrelloBoard tasks={tasksByFilter} onTaskClick={(id) => setSelectedTaskId(id)} />
                     )}
                   </div>
                 </section>
@@ -1419,7 +1395,7 @@ const App = () => {
                         >
                           Chuyên cần
                         </button>
-                      </div>
+                    </div>
                       <div className="flex-1 flex justify-end min-w-0">
                         <select value={dashMonth} onChange={(e) => setDashMonth(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                           {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => {
@@ -1439,7 +1415,7 @@ const App = () => {
                     const lastDay = y && m ? new Date(y, m, 0).getDate() : 31;
                     const displayDays = Array.from({ length: lastDay }, (_, i) => i + 1);
                     const monthLabel = `Tháng ${m || ''} / ${y || ''}`;
-                    return (
+                                      return (
                       <section className="bg-slate-50 rounded-2xl p-4">
                         <ChuyenCanBoard
                           monthLabel={monthLabel}
@@ -1449,7 +1425,7 @@ const App = () => {
                           displayDays={displayDays}
                           loading={adminAttendanceLoading}
                         />
-                      </section>
+              </section>
                     );
                   })()}
                 </>
@@ -1570,7 +1546,7 @@ const App = () => {
                         className={`px-4 py-2 text-sm font-semibold ${tasksViewMode === 'trello' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
                       >
                         Bảng Trello
-                      </button>
+                    </button>
                     </div>
                   </div>
                 </div>
@@ -1585,29 +1561,29 @@ const App = () => {
                     )}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-4">
-                    {tasksLoading ? (
-                      <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                        Đang tải danh sách nhiệm vụ...
-                      </div>
-                    ) : (
-                      <>
-                        {tasksByFilter.map((task) => (
-                          <TaskListCard
-                            key={task.id}
-                            task={task}
-                            users={users}
-                            onClick={() => setSelectedTaskId(task.id)}
-                          />
-                        ))}
-                        {tasksByFilter.length === 0 && (
-                          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                            Không có công việc nào trong nhóm này.
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </div>
+                <div className="grid grid-cols-1 gap-4">
+                  {tasksLoading ? (
+                    <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+                      Đang tải danh sách nhiệm vụ...
+                    </div>
+                  ) : (
+                    <>
+                      {tasksByFilter.map((task) => (
+                        <TaskListCard
+                          key={task.id}
+                          task={task}
+                          users={users}
+                          onClick={() => setSelectedTaskId(task.id)}
+                        />
+                      ))}
+                      {tasksByFilter.length === 0 && (
+                        <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+                          Không có công việc nào trong nhóm này.
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
                 )}
               </>
             )}
@@ -2126,8 +2102,8 @@ const App = () => {
                               >
                                 Bảng Trello
                               </button>
-                            </div>
                 </div>
+                        </div>
                         </div>
                         {reportsViewMode === 'trello' ? (
                           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
@@ -2237,7 +2213,7 @@ const App = () => {
                           </div>
                         </div>
                       </>
-                    );
+                  );
                 })()}
                 </div>
               </section>
@@ -2707,10 +2683,10 @@ const TaskDetailModal = ({
                   <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi. Leader/Admin điền kết quả đánh giá bên dưới rồi Duyệt hoặc Trả về.</p>
               </div>
               )}
-              {task.status === 'pending_approval' && (task.completionNote || task.completionLink) && (
-                <div>
-                  <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Nội dung báo cáo hoàn thành</h4>
-                  {task.completionNote && <p className="text-slate-700 text-sm whitespace-pre-wrap mb-2">{task.completionNote}</p>}
+                  {task.status === 'pending_approval' && (task.completionNote || task.completionLink) && (
+                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                  <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Nội dung báo cáo hoàn thành</h4>
+                  {task.completionNote && <p className="text-slate-800 text-base leading-relaxed whitespace-pre-wrap mb-3">{task.completionNote}</p>}
                   {task.completionLink && (
                     <p className="text-sm">
                       <a href={task.completionLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{task.completionLink}</a>
