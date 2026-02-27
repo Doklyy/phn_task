@@ -798,12 +798,7 @@ const App = () => {
       });
   }, [currentUser?.id]);
 
-  // Cơ chế khóa: Muốn tiếp nhận công việc mới hôm nay thì phải đã báo cáo tiến độ cho việc tồn đọng của ngày hôm trước
-  const yesterday = useMemo(() => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
-  }, []);
+  // Cơ chế khóa: Muốn tiếp nhận công việc mới thì phải đã có ít nhất 1 báo cáo tiến độ cho các việc đang làm
   const myAcceptedTaskIds = useMemo(
     () => filteredTasks.filter((t) => t.assigneeId === currentUser?.id && t.status === 'accepted').map((t) => t.id),
     [filteredTasks, currentUser?.id]
@@ -812,9 +807,11 @@ const App = () => {
     if (myAcceptedTaskIds.length === 0) return true;
     return myAcceptedTaskIds.every((taskId) => {
       const history = reportHistoryByTask[taskId] || [];
-      return history.some((r) => r.date === yesterday);
+      // Chỉ cần đã có ít nhất 1 báo cáo tiến độ cho nhiệm vụ đó (báo cáo bù cũng được),
+      // điểm chuyên cần theo ngày sẽ do backend xử lý riêng.
+      return history.length > 0;
     });
-  }, [myAcceptedTaskIds, reportHistoryByTask, yesterday]);
+  }, [myAcceptedTaskIds, reportHistoryByTask]);
   const acceptNewLocked = !hasReportedYesterdayForAll;
 
   // Validation form báo cáo
@@ -2310,7 +2307,6 @@ const App = () => {
             canEdit={role === 'admin' || role === 'leader'}
             assigneeName={assigneeName}
             acceptNewLocked={acceptNewLocked}
-            yesterday={yesterday}
             defaultReportDate={forcedReportDate}
             onComplete={(payload) => submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
@@ -2400,7 +2396,6 @@ const TaskDetailModal = ({
   canEdit,
   assigneeName,
   acceptNewLocked,
-  yesterday,
   onComplete,
   onApprove,
   onReject,
