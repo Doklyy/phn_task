@@ -23,16 +23,12 @@ function taskActiveOnDay(task, year, month, day) {
   const status = (task.status || '').toLowerCase();
   const createdAt = task.createdAt || task.created_at || task.assignedAt || task.assigned_at || null;
   const createdStr = createdAt ? String(createdAt).slice(0, 10) : '';
-  const completedAt = task.completedAt || task.completed_at || null;
-  const completedStr = completedAt ? String(completedAt).slice(0, 10) : '';
 
   // Chưa giao thì chưa phải báo cáo
   if (createdStr && dStr < createdStr) return false;
 
-  // Đã hoàn thành hoặc đang đợi duyệt thì chỉ yêu cầu tới ngày hoàn thành/gửi duyệt
-  if ((status === 'completed' || status === 'pending_approval') && completedStr && completedStr < dStr) {
-    return false;
-  }
+  // Nhiệm vụ đã hoàn thành hoặc đang đợi duyệt không cần báo cáo tiến độ theo ngày
+  if (status === 'completed' || status === 'pending_approval') return false;
 
   return true;
 }

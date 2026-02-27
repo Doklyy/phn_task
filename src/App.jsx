@@ -354,13 +354,16 @@ const App = () => {
   }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
 
   const taskActiveOnDay = useCallback((task, y, m, day) => {
-    // Nhiệm vụ được xem là cần báo cáo trong ngày nếu:
-    // - Chưa hoàn thành, hoặc
-    // - Đã hoàn thành nhưng sau ngày đó.
     const dStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const completedAt = task.completedAt ? String(task.completedAt).slice(0, 10) : '';
     const status = (task.status || '').toLowerCase();
-    if (status === 'completed' && completedAt && completedAt < dStr) return false;
+    const createdStr = task.createdAt ? String(task.createdAt).slice(0, 10) : '';
+
+    // Chưa giao thì không cần báo cáo
+    if (createdStr && dStr < createdStr) return false;
+
+    // Task đã hoàn thành hoặc đang đợi duyệt: không tính vào báo cáo tiến độ theo ngày
+    if (status === 'completed' || status === 'pending_approval') return false;
+
     return true;
   }, []);
 
