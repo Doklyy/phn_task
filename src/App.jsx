@@ -33,7 +33,9 @@ import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance,
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
 import { uploadFile, getUploadedFileUrl, downloadAttachment } from './api/client.js';
 import { AttendancePanel } from './components/AttendancePanel.jsx';
-import { ReportTrackingBoard } from './components/ReportTrackingBoard.jsx';
+import { ChuyenCanBoard } from './components/ChuyenCanBoard.jsx';
+import { TasksTrelloBoard } from './components/TasksTrelloBoard.jsx';
+import { ReportsTrelloBoard } from './components/ReportsTrelloBoard.jsx';
 import { getAttendanceRecordsForMonth } from './api/attendance.js';
 import ReportReminderOverlay from './components/ReportReminderOverlay.jsx';
 import ReportReminderBellBlock from './components/ReportReminderBellBlock.jsx';
@@ -350,6 +352,76 @@ const App = () => {
       };
     });
   }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
+
+  const taskActiveOnDay = useCallback((task, y, m, day) => {
+    const dStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const deadline = task.deadline ? String(task.deadline).slice(0, 10) : '';
+    const completedAt = task.completedAt ? String(task.completedAt).slice(0, 10) : '';
+    const status = (task.status || '').toLowerCase();
+    if (status === 'completed' && completedAt && completedAt < dStr) return false;
+    if (deadline && deadline < dStr) return false;
+    return true;
+  }, []);
+
+  const chuyenCanBoardData = useMemo(() => {
+    const [y, m] = dashMonth.split('-').map(Number);
+    if (!y || !m || !staffList?.length) return [];
+    const lastDay = new Date(y, m, 0).getDate();
+    const monthPrefix = `${y}-${String(m).padStart(2, '0')}`;
+    const reportsByUserAndDay = {};
+    (allReportsList || []).forEach((r) => {
+      const d = (r.date || r.reportDate || '').slice(0, 10);
+      if (!d.startsWith(monthPrefix)) return;
+      const uid = String(r.userId ?? r.user_id ?? '');
+      if (!uid) return;
+      const day = parseInt(d.slice(8, 10), 10);
+      if (!Number.isFinite(day)) return;
+      if (!reportsByUserAndDay[uid]) reportsByUserAndDay[uid] = {};
+      reportsByUserAndDay[uid][day] = (reportsByUserAndDay[uid][day] || 0) + 1;
+    });
+    return (staffList || []).map((s) => {
+      const sid = String(s.id ?? s.userId);
+      const records = adminAttendanceMap[sid] || [];
+      const recordByDay = {};
+      records.forEach((r) => {
+        const d = (r.recordDate ?? r.date ?? '').slice(0, 10);
+        if (!d.startsWith(monthPrefix)) return;
+        const day = parseInt(d.slice(8, 10), 10);
+        if (!Number.isFinite(day)) return;
+        recordByDay[day] = r;
+      });
+      const tasksForUser = (tasks || []).filter((t) => String(t.assigneeId) === sid);
+      const days = {};
+      for (let day = 1; day <= lastDay; day += 1) {
+        const dateObj = new Date(y, m - 1, day);
+        const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+        const rec = recordByDay[day];
+        const rawCode = rec ? String(rec.attendanceCode ?? rec.attendance_code ?? '').trim().toUpperCase() : '';
+        const isLeave = rawCode.startsWith('N_') || rawCode === 'CN';
+        const isHalf = rawCode === 'N_HALF' || (rawCode || '').includes('HALF');
+        let workDay = 0;
+        if (!isLeave) {
+          if (isHalf) workDay = 0.5;
+          else if (!isWeekend) workDay = 1;
+        }
+        const totalTasks = isWeekend ? 0 : tasksForUser.filter((t) => taskActiveOnDay(t, y, m, day)).length;
+        const reportedTasks = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || 0;
+        days[String(day)] = {
+          workDay,
+          totalTasks,
+          reportedTasks,
+          isLate: !!(rec && rec.isLate),
+          isLeave: !!isLeave,
+        };
+      }
+      return {
+        id: sid,
+        name: s.name || s.fullName || s.username || sid,
+        days,
+      };
+    });
+  }, [adminAttendanceMap, allReportsList, dashMonth, staffList, tasks, taskActiveOnDay]);
+
   useEffect(() => {
     if (
       activeTab !== 'dash'
@@ -388,6 +460,8 @@ const App = () => {
   const personnelScrollRestoreRef = useRef(null);
   const [taskSearch, setTaskSearch] = useState('');
   const [forcedReportDate, setForcedReportDate] = useState('');
+  const [tasksViewMode, setTasksViewMode] = useState('list'); // 'list' | 'trello'
+  const [reportsViewMode, setReportsViewMode] = useState('list'); // 'list' | 'trello'
 
   // Tích hợp BE: load tasks khi có user
   useEffect(() => {
@@ -1354,198 +1428,24 @@ const App = () => {
 
                   {dashView === 'performance' && renderPerformance()}
                   {dashView === 'tasks' && renderTasksInDashboard()}
-                  {dashView === 'attendance' && (
-                    <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm">
-                      {adminAttendanceLoading ? (
-                        <p className="text-slate-500 text-sm py-6">Đang tải bảng chuyên cần...</p>
-                      ) : adminAttendanceMatrixData.length === 0 ? (
-                        <p className="text-slate-400 text-sm py-6">Chưa có dữ liệu chuyên cần cho tháng này.</p>
-                      ) : (
-                        <div className="max-w-[1400px] mx-auto bg-white rounded-xl overflow-hidden">
-                          {/* Header & Legend */}
-                          <div className="p-4 border-b border-slate-200 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white">
-                            <div>
-                              <h3 className="text-lg font-bold text-slate-800">Bảng Theo Dõi Báo Cáo Công Việc</h3>
-                              <p className="text-xs sm:text-sm text-slate-500 mt-1">
-                                {(() => {
-                                  const parts = dashMonth.split('-');
-                                  const y = parts[0] || '';
-                                  const m = parts[1] ? Number(parts[1]) : null;
-                                  return `Tháng ${m || ''} / ${y} `;
-                                })()}
-                              </p>
-                            </div>
-
-                            <div className="flex flex-wrap gap-3 text-xs sm:text-sm bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                              <div className="flex items-center gap-1.5">
-                                <CheckCircle2 size={16} className="text-emerald-500" />
-                                <span className="text-slate-700">Đủ Báo cáo tiến độ</span>
-                              </div>
-                              <div className="flex items-center gap-1.5">
-                                <AlertCircle size={16} className="text-amber-500" />
-                                <span className="text-slate-700">Thiếu báo cáo</span>
-                              </div>
-                              <div className="flex items-center gap-1.5 ml-2">
-                                <span className="text-slate-400 font-bold px-1">N</span>
-                                <span className="text-slate-700">Nghỉ phép</span>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Table */}
-                          <div className="overflow-x-auto custom-scrollbar">
-                            <table className="w-full text-xs sm:text-sm text-left border-collapse min-w-max">
-                        <thead>
-                                <tr className="bg-slate-50 text-slate-600">
-                                  <th rowSpan={2} className="px-3 sm:px-4 py-3 font-semibold border-b border-r border-slate-200 sticky left-0 bg-slate-50 z-20 align-middle">
-                                    Nhân sự
-                                  </th>
-                                  <th colSpan={3} className="px-2 py-2 font-semibold text-center border-b border-r border-slate-200 bg-blue-50/30 text-blue-800">
-                                    Tổng kết tháng
-                                  </th>
-                                  <th colSpan={31} className="px-2 py-2 font-semibold text-center border-b border-slate-200 bg-slate-50">
-                                    Chi tiết theo ngày
-                                  </th>
-                                </tr>
-                                <tr className="bg-slate-50 text-slate-600 text-[11px] sm:text-xs">
-                                  <th className="px-2 py-2 font-medium text-center border-b border-r border-slate-200 bg-white" title="Tổng số ngày có mặt (có chấm công)">
-                                    Đi làm
-                                  </th>
-                                  <th className="px-2 py-2 font-medium text-center border-b border-r border-slate-200 bg-emerald-50 text-emerald-700" title="Số ngày nộp đủ Báo cáo tiến độ">
-                                    Đủ BC
-                                  </th>
-                                  <th className="px-2 py-2 font-medium text-center border-b border-r-2 border-slate-300 bg-amber-50 text-amber-700" title="Số ngày đi làm nhưng thiếu báo cáo">
-                                    Thiếu
-                                  </th>
-                                  {Array.from({ length: 31 }).map((_, i) => (
-                                    <th
-                                      key={i}
-                                      className={`px-1 py-2 font-medium text-center border-b border-slate-200 min-w-[28px] sm:min-w-[32px] ${
-                                        (i + 1) % 7 === 0 || (i + 1) % 7 === 6 ? 'bg-slate-100' : ''
-                                      }`}
-                                    >
-                                      {i + 1}
-                                    </th>
-                                  ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                                {adminAttendanceMatrixData.map((row) => (
-                                  <tr key={row.id} className="border-b border-slate-100 hover:bg-slate-50 transition-colors">
-                                    <td className="px-3 sm:px-4 py-3 font-medium text-slate-800 border-r border-slate-200 sticky left-0 bg-white z-10 whitespace-nowrap">
-                                      {row.name}
-                                    </td>
-                                    <td className="px-2 py-3 text-center font-semibold text-slate-700 border-r border-slate-200 bg-white">
-                                      {row.totals.present}
-                                    </td>
-                                    <td className="px-2 py-3 text-center font-bold text-emerald-600 border-r border-slate-200 bg-emerald-50/40">
-                                      {row.totals.complete}
-                                    </td>
-                                    <td className="px-2 py-3 text-center font-bold text-amber-500 border-r-2 border-slate-300 bg-amber-50/40">
-                                      {row.totals.partial > 0 ? row.totals.partial : '-'}
-                                    </td>
-                                    {Array.from({ length: 31 }).map((_, i) => {
-                                      const dayData = row.days[i] || { day: i + 1 };
-                                      let content = null;
-                                      if (dayData.status === 'weekend') {
-                                        content = null;
-                                      } else if (dayData.status === 'leave') {
-                                        content = (
-                                          <div className="relative group flex items-center justify-center w-full h-full cursor-pointer">
-                                            <span className="text-slate-400 font-bold text-[11px]">N</span>
-                                            {dayData.detail && (
-                                              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col w-48 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-xl z-50 pointer-events-none">
-                                                <div className="font-semibold border-b border-slate-700 pb-1.5 mb-1.5 text-center text-slate-100">
-                                                  Chi tiết ngày {dayData.day}
-                                                </div>
-                                                <div className="flex justify-between items-center py-0.5">
-                                                  <span className="text-slate-400">Chấm công:</span>
-                                                  <span className="text-slate-200">
-                                                    {dayData.detail.attendance}
-                                  </span>
-                                                </div>
-                                                <div className="flex justify-between items-center py-0.5 mt-1">
-                                                  <span className="text-slate-400">BC Tiến độ:</span>
-                                                  <span className={dayData.detail.progressReport === 'Đã nộp' ? 'text-emerald-400' : 'text-amber-400'}>
-                                                    {dayData.detail.progressReport}
-                                                  </span>
-                                                </div>
-                                                <div className="flex justify-between items-center py-0.5 mt-1">
-                                                  <span className="text-slate-400">BC Kết thúc:</span>
-                                                  <span className="text-slate-300">
-                                                    {dayData.detail.endReport}
-                                                  </span>
-                                                </div>
-                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-900" />
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      } else if (!dayData.status) {
-                                        content = <span className="text-slate-200 text-xs">-</span>;
-                                      } else {
-                                        let IconNode = CheckCircle2;
-                                        let colorClass = 'text-emerald-500';
-                                        if (dayData.status === 'partial') {
-                                          IconNode = AlertCircle;
-                                          colorClass = 'text-amber-500';
-                                        }
-                                        content = (
-                                          <div className="relative group flex items-center justify-center w-full h-full cursor-pointer">
-                                            <IconNode size={14} className={`${colorClass} hover:scale-125 transition-transform duration-200`} />
-                                            {dayData.detail && (
-                                              <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 hidden group-hover:flex flex-col w-48 p-2.5 bg-slate-900 text-white text-xs rounded-md shadow-xl z-50 pointer-events-none">
-                                                <div className="font-semibold border-b border-slate-700 pb-1.5 mb-1.5 text-center text-slate-100">
-                                                  Chi tiết ngày {dayData.day}
-                                                </div>
-                                                <div className="flex justify-between items-center py-0.5">
-                                                  <span className="text-slate-400">Chấm công:</span>
-                                                  <span className={dayData.detail.attendance.includes('Có mặt') ? 'text-blue-400 font-medium' : 'text-slate-300'}>
-                                                    {dayData.detail.attendance}
-                                                  </span>
-                                                </div>
-                                                <div className="flex justify-between items-center py-0.5 mt-1">
-                                                  <span className="text-slate-400">BC Tiến độ:</span>
-                                                  <span className={dayData.detail.progressReport === 'Đã nộp' ? 'text-emerald-400' : 'text-amber-400'}>
-                                                    {dayData.detail.progressReport}
-                                                  </span>
-                                                </div>
-                                                <div className="flex justify-between items-center py-0.5 mt-1">
-                                                  <span className="text-slate-400">BC Kết thúc:</span>
-                                                  <span className={dayData.detail.endReport === 'Đã nộp' ? 'text-emerald-400' : 'text-slate-300'}>
-                                                    {dayData.detail.endReport}
-                                                  </span>
-                                                </div>
-                                                <div className="absolute top-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-t-slate-900" />
-                                              </div>
-                                            )}
-                                          </div>
-                                        );
-                                      }
-
-                                      return (
-                                        <td
-                                          // eslint-disable-next-line react/no-array-index-key
-                                          key={i}
-                                          className={`px-0 py-0 text-center border-r border-dashed border-slate-200 relative ${
-                                            dayData.status === 'weekend' ? 'bg-slate-100/60' : ''
-                                          }`}
-                                        >
-                                          <div className="h-9 sm:h-10 flex items-center justify-center">
-                                            {content}
-                                          </div>
-                                </td>
-                                      );
-                                    })}
-                              </tr>
-                                ))}
-                        </tbody>
-                      </table>
-                    </div>
-                        </div>
-                      )}
-                  </section>
-                  )}
+                  {dashView === 'attendance' && (() => {
+                    const [y, m] = dashMonth.split('-').map(Number);
+                    const lastDay = y && m ? new Date(y, m, 0).getDate() : 31;
+                    const displayDays = Array.from({ length: lastDay }, (_, i) => i + 1);
+                    const monthLabel = `Tháng ${m || ''} / ${y || ''}`;
+                    return (
+                      <section className="bg-slate-50 rounded-2xl p-4">
+                        <ChuyenCanBoard
+                          monthLabel={monthLabel}
+                          monthValue={dashMonth}
+                          onMonthChange={setDashMonth}
+                          data={chuyenCanBoardData}
+                          displayDays={displayDays}
+                          loading={adminAttendanceLoading}
+                        />
+                      </section>
+                    );
+                  })()}
                 </>
               );
             })()}
@@ -1650,32 +1550,59 @@ const App = () => {
                     >
                       <Filter size={18} /> Lọc tháng
                     </button>
+                    <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-white">
+                      <button
+                        type="button"
+                        onClick={() => setTasksViewMode('list')}
+                        className={`px-4 py-2 text-sm font-semibold ${tasksViewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Danh sách
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTasksViewMode('trello')}
+                        className={`px-4 py-2 text-sm font-semibold ${tasksViewMode === 'trello' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        Bảng Trello
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 gap-4">
-                  {tasksLoading ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                      Đang tải danh sách nhiệm vụ...
-                    </div>
-                  ) : (
-                    <>
-                      {tasksByFilter.map((task) => (
-                        <TaskListCard
-                          key={task.id}
-                          task={task}
-                          users={users}
-                          onClick={() => setSelectedTaskId(task.id)}
-                        />
-                      ))}
-                      {tasksByFilter.length === 0 && (
-                        <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                          Không có công việc nào trong nhóm này.
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
+                {tasksViewMode === 'trello' ? (
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                    <h3 className="text-sm font-bold text-slate-700 mb-3">Nhiệm vụ theo trạng thái (Trello)</h3>
+                    {tasksLoading ? (
+                      <div className="py-10 text-center text-slate-500">Đang tải...</div>
+                    ) : (
+                      <TasksTrelloBoard tasks={tasks} onTaskClick={(id) => setSelectedTaskId(id)} />
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4">
+                    {tasksLoading ? (
+                      <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+                        Đang tải danh sách nhiệm vụ...
+                      </div>
+                    ) : (
+                      <>
+                        {tasksByFilter.map((task) => (
+                          <TaskListCard
+                            key={task.id}
+                            task={task}
+                            users={users}
+                            onClick={() => setSelectedTaskId(task.id)}
+                          />
+                        ))}
+                        {tasksByFilter.length === 0 && (
+                          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
+                            Không có công việc nào trong nhóm này.
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
               </>
             )}
 
@@ -2178,9 +2105,30 @@ const App = () => {
                               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                               {dayReports.length} báo cáo / {groupedByPerson.length} nhân sự
                             </span>
+                            <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-white">
+                              <button
+                                type="button"
+                                onClick={() => setReportsViewMode('list')}
+                                className={`px-4 py-2 text-sm font-semibold ${reportsViewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                              >
+                                Danh sách
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setReportsViewMode('trello')}
+                                className={`px-4 py-2 text-sm font-semibold ${reportsViewMode === 'trello' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                              >
+                                Bảng Trello
+                              </button>
+                            </div>
                 </div>
                         </div>
-                        {groupedByPerson.length === 0 ? (
+                        {reportsViewMode === 'trello' ? (
+                          <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
+                            <h3 className="text-sm font-bold text-slate-700 mb-3">Báo cáo theo ngày (Trello)</h3>
+                            <ReportsTrelloBoard reports={allReportsList} />
+                          </div>
+                        ) : groupedByPerson.length === 0 ? (
                           <p className="text-slate-400 text-sm py-8 text-center">Chưa có báo cáo nào cho ngày này.</p>
                         ) : (
                           <div className="flex flex-col gap-6">
@@ -2282,12 +2230,9 @@ const App = () => {
               </section>
             )}
 
-            {/* Tab: Chấm công */}
+            {/* Tab: Chấm công – chỉ nội dung chấm công (vào ca / tan ca / bảng chấm công tháng). Bảng theo dõi báo cáo nằm ở Chuyên cần (Dashboard) */}
             {activeTab === 'attendance' && (
-              <div className="space-y-6">
-                <AttendancePanel currentUser={currentUser} role={role} canManageAttendance={currentUser?.canManageAttendance} />
-                <ReportTrackingBoard currentUser={currentUser} role={role} canManageAttendance={currentUser?.canManageAttendance} />
-              </div>
+              <AttendancePanel currentUser={currentUser} role={role} canManageAttendance={currentUser?.canManageAttendance} />
             )}
 
             {/* Tab: Xếp hạng */}
