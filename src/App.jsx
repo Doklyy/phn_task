@@ -465,6 +465,7 @@ const App = () => {
   const mainContentScrollRef = useRef(null);
   const personnelScrollRestoreRef = useRef(null);
   const [taskSearch, setTaskSearch] = useState('');
+  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all'); // Lọc nhiệm vụ theo nhân sự
   const [forcedReportDate, setForcedReportDate] = useState('');
   const [tasksViewMode, setTasksViewMode] = useState('trello'); // 'list' | 'trello' — mặc định Trello để dễ nhìn
   const [reportsViewMode, setReportsViewMode] = useState('trello'); // 'list' | 'trello'
@@ -703,6 +704,10 @@ const App = () => {
     else if (role === 'leader') base = tasks.filter((t) => t.leaderId === currentUser.id || t.assigneeId === currentUser.id);
     else base = tasks.filter((t) => t.assigneeId === currentUser.id);
 
+    if (taskAssigneeFilter && taskAssigneeFilter !== 'all') {
+      base = base.filter((t) => String(t.assigneeId) === taskAssigneeFilter);
+    }
+
     const q = taskSearch.trim().toLowerCase();
     if (!q) return base;
     return base.filter((t) => {
@@ -711,7 +716,7 @@ const App = () => {
       const objective = (t.objective || '').toLowerCase();
       return title.includes(q) || content.includes(q) || objective.includes(q);
     });
-  }, [tasks, role, currentUser?.id, taskSearch]);
+  }, [tasks, role, currentUser?.id, taskSearch, taskAssigneeFilter]);
 
   // Phân nhóm theo trạng thái: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng (chuẩn hóa nhãn)
   // Quá hạn: chưa xong, quá hạn (loại đợi duyệt để tránh báo đỏ khi đã gửi hoàn thành)
@@ -1308,11 +1313,9 @@ const App = () => {
                   <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-4">
                     <div>
                       <h2 className="text-2xl font-black text-slate-900 tracking-tight">Theo dõi Nhiệm vụ (Trello)</h2>
-                      <p className="text-slate-500 text-sm mt-1">
-                        Kéo ngang để xem thêm cột. Bấm vào thẻ để xem chi tiết và báo cáo tiến độ / hoàn thành.
-                      </p>
+                      <p className="text-slate-500 text-sm mt-1">Bấm vào thẻ để xem chi tiết.</p>
                     </div>
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap gap-2 items-center">
                       <button
                         type="button"
                         onClick={() => setListFilter('all')}
@@ -1355,6 +1358,24 @@ const App = () => {
                       >
                         Tạm dừng {tasksPaused.length ? `(${tasksPaused.length})` : ''}
                       </button>
+                      <select
+                        value={taskAssigneeFilter}
+                        onChange={(e) => setTaskAssigneeFilter(e.target.value)}
+                        className="px-3 py-2 rounded-xl text-xs border border-slate-200 bg-white text-slate-700"
+                      >
+                        <option value="all">Tất cả nhân sự</option>
+                        {(users || [])
+                          .filter((u) => u.id ?? u.userId)
+                          .map((u) => {
+                            const id = String(u.id ?? u.userId);
+                            const name = u.name || u.fullName || u.username || id;
+                            return (
+                              <option key={id} value={id}>
+                                {name}
+                              </option>
+                            );
+                          })}
+                      </select>
                     </div>
                   </div>
                   <div className="bg-white border border-slate-200 rounded-2xl p-4">
@@ -1475,7 +1496,7 @@ const App = () => {
                       {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 items-center">
                     <button
                       type="button"
                       onClick={() => setListFilter('all')}
@@ -1532,6 +1553,24 @@ const App = () => {
                     >
                       <Filter size={18} /> Lọc tháng
                     </button>
+                    <select
+                      value={taskAssigneeFilter}
+                      onChange={(e) => setTaskAssigneeFilter(e.target.value)}
+                      className="px-3 py-2 rounded-xl text-xs border border-slate-200 bg-white text-slate-700"
+                    >
+                      <option value="all">Tất cả nhân sự</option>
+                      {(users || [])
+                        .filter((u) => u.id ?? u.userId)
+                        .map((u) => {
+                          const id = String(u.id ?? u.userId);
+                          const name = u.name || u.fullName || u.username || id;
+                          return (
+                            <option key={id} value={id}>
+                              {name}
+                            </option>
+                          );
+                        })}
+                    </select>
                     <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-white">
                       <button
                         type="button"
