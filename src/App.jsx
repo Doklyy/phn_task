@@ -2126,7 +2126,14 @@ const App = () => {
                         {reportsViewMode === 'trello' ? (
                           <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 mb-6">
                             <h3 className="text-sm font-bold text-slate-700 mb-3">Báo cáo theo ngày (Trello)</h3>
-                            <ReportsTrelloBoard reports={allReportsList} />
+                            <ReportsTrelloBoard
+                              reports={allReportsList}
+                              onReportClick={(r) => {
+                                const d = (r?.date || r?.reportDate || '').slice(0, 10);
+                                if (d) setReportDateFilter(d);
+                                setReportsViewMode('list');
+                              }}
+                            />
                           </div>
                         ) : groupedByPerson.length === 0 ? (
                           <p className="text-slate-400 text-sm py-8 text-center">Chưa có báo cáo nào cho ngày này.</p>
