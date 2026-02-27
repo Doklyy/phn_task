@@ -798,21 +798,8 @@ const App = () => {
       });
   }, [currentUser?.id]);
 
-  // Cơ chế khóa: Muốn tiếp nhận công việc mới thì phải đã có ít nhất 1 báo cáo tiến độ cho các việc đang làm
-  const myAcceptedTaskIds = useMemo(
-    () => filteredTasks.filter((t) => t.assigneeId === currentUser?.id && t.status === 'accepted').map((t) => t.id),
-    [filteredTasks, currentUser?.id]
-  );
-  const hasReportedYesterdayForAll = useMemo(() => {
-    if (myAcceptedTaskIds.length === 0) return true;
-    return myAcceptedTaskIds.every((taskId) => {
-      const history = reportHistoryByTask[taskId] || [];
-      // Chỉ cần đã có ít nhất 1 báo cáo tiến độ cho nhiệm vụ đó (báo cáo bù cũng được),
-      // điểm chuyên cần theo ngày sẽ do backend xử lý riêng.
-      return history.length > 0;
-    });
-  }, [myAcceptedTaskIds, reportHistoryByTask]);
-  const acceptNewLocked = !hasReportedYesterdayForAll;
+  // Không khóa tiếp nhận công việc mới trên FE nữa (logic chuyên cần xử lý ở backend)
+  const acceptNewLocked = false;
 
   // Validation form báo cáo
   const validateReport = () => {
