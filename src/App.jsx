@@ -1502,7 +1502,7 @@ const App = () => {
                       {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
                     </p>
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="flex flex-wrap gap-2 items-center">
                     <button
                       type="button"
                       onClick={() => setListFilter('all')}
@@ -1559,59 +1559,17 @@ const App = () => {
                     >
                       <Filter size={18} /> Lọc tháng
                     </button>
-                    <div className="flex rounded-lg border border-slate-200 overflow-hidden bg-white">
-                      <button
-                        type="button"
-                        onClick={() => setTasksViewMode('list')}
-                        className={`px-4 py-2 text-sm font-semibold ${tasksViewMode === 'list' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Danh sách
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTasksViewMode('trello')}
-                        className={`px-4 py-2 text-sm font-semibold ${tasksViewMode === 'trello' ? 'bg-slate-800 text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Bảng Trello
-                    </button>
-                    </div>
                   </div>
                 </div>
 
-                {tasksViewMode === 'trello' ? (
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                    <h3 className="text-sm font-bold text-slate-700 mb-3">Nhiệm vụ theo trạng thái</h3>
-                    {tasksLoading ? (
-                      <div className="py-10 text-center text-slate-500">Đang tải...</div>
-                    ) : (
-                      <TasksTrelloBoard tasks={tasks} onTaskClick={(id) => setSelectedTaskId(id)} />
-                    )}
-                  </div>
-                ) : (
-                <div className="grid grid-cols-1 gap-4">
+                <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                  <h3 className="text-sm font-bold text-slate-700 mb-3">Nhiệm vụ theo trạng thái (Trello)</h3>
                   {tasksLoading ? (
-                    <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                      Đang tải danh sách nhiệm vụ...
-                    </div>
+                    <div className="py-10 text-center text-slate-500">Đang tải...</div>
                   ) : (
-                    <>
-                      {tasksByFilter.map((task) => (
-                        <TaskListCard
-                          key={task.id}
-                          task={task}
-                          users={users}
-                          onClick={() => setSelectedTaskId(task.id)}
-                        />
-                      ))}
-                      {tasksByFilter.length === 0 && (
-                        <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                          Không có công việc nào trong nhóm này.
-                        </div>
-                      )}
-                    </>
+                    <TasksTrelloBoard tasks={tasksByFilter} onTaskClick={(id) => setSelectedTaskId(id)} />
                   )}
                 </div>
-                )}
               </>
             )}
 
