@@ -354,13 +354,22 @@ const App = () => {
   }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
 
   const taskActiveOnDay = useCallback((task, y, m, day) => {
-    // Nhiệm vụ được xem là cần báo cáo trong ngày nếu:
-    // - Chưa hoàn thành, hoặc
-    // - Đã hoàn thành nhưng sau ngày đó.
+    // Nhiệm vụ được xem là cần báo cáo tiến độ trong ngày nếu:
+    // - ĐÃ được giao (ngày giao <= ngày đang xét)
+    // - Và CHƯA hoàn thành / đợi duyệt trước ngày đó.
     const dStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const completedAt = task.completedAt ? String(task.completedAt).slice(0, 10) : '';
     const status = (task.status || '').toLowerCase();
-    if (status === 'completed' && completedAt && completedAt < dStr) return false;
+    const createdStr = task.createdAt ? String(task.createdAt).slice(0, 10) : '';
+    const completedStr = task.completedAt ? String(task.completedAt).slice(0, 10) : '';
+
+    // Chưa giao thì không tính
+    if (createdStr && dStr < createdStr) return false;
+
+    // Đã hoàn thành hoặc đang đợi duyệt thì chỉ tính tới ngày hoàn thành/gửi duyệt
+    if ((status === 'completed' || status === 'pending_approval') && completedStr && completedStr < dStr) {
+      return false;
+    }
+
     return true;
   }, []);
 
@@ -2458,7 +2467,7 @@ const TaskDetailModal = ({
           <div>
             <h2 className="text-xl font-black text-slate-900 mb-1">{task.title}</h2>
             <p className="text-slate-500 text-sm">
-              Hạn chót: {formatDeadline(task.deadline)} · Trọng số: {weightLabel(task.weight)} · Người thực hiện: {assigneeName || '—'}
+              Ngày giao: {formatDeadline(task.createdAt)} · Hạn chót: {formatDeadline(task.deadline)} · Trọng số: {weightLabel(task.weight)} · Người thực hiện: {assigneeName || '—'}
             </p>
           </div>
           <div>

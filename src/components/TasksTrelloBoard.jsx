@@ -46,14 +46,18 @@ export function TasksTrelloBoard({ tasks = [], onTaskClick }) {
                   className="w-full text-left bg-white rounded-lg border border-slate-200 p-3 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
                 >
                   <p className="font-medium text-slate-800 text-sm line-clamp-2">{task.title || 'Nhiệm vụ'}</p>
-                  <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                  <div className="mt-2 flex flex-col gap-1 text-[11px] text-slate-500">
                     <span className="flex items-center gap-1">
                       <User size={12} />
                       {task.assigneeName || '—'}
                     </span>
                     <span className="flex items-center gap-1">
                       <Calendar size={12} />
-                      {formatDate(task.deadline)}
+                      Ngày giao: {formatDate(task.createdAt)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Calendar size={12} />
+                      Hạn chót: {formatDate(task.deadline)}
                     </span>
                   </div>
                 </button>
