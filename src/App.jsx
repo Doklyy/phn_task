@@ -1263,17 +1263,22 @@ const App = () => {
                       </p>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 md:col-span-1">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh — toàn bộ phòng</p>
-                      <div className="space-y-1 max-h-80 overflow-auto pr-1">
-                        {displayRanking.map((r, idx) => (
-                          <div key={r.userId ?? `${idx}-${r.userName ?? r.name ?? ''}`} className="flex items-center gap-2 text-sm">
-                              <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : idx === 2 ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
-                            <span className="flex-1 min-w-0 truncate">{r.name ?? r.userName ?? '—'}</span>
-                              <span className="font-semibold text-slate-800 shrink-0">{score100(r.totalScore)}đ</span>
-                            </div>
-                          ))}
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
+                        <p className="text-[10px] text-slate-500 mb-2">Top 3 điểm cao nhất — kéo xuống xem toàn bộ phòng</p>
+                        <div className="relative">
+                          <div className="space-y-1 max-h-[8.5rem] overflow-y-auto overflow-x-hidden pr-2 scroll-smooth scrollbar-thin" style={{ scrollbarWidth: 'thin' }}>
+                            {displayRanking.map((r, idx) => (
+                              <div key={r.userId ?? `${idx}-${r.userName ?? r.name ?? ''}`} className="flex items-center gap-2 text-sm py-0.5">
+                                <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : idx === 2 ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
+                                <span className="flex-1 min-w-0 truncate">{r.name ?? r.userName ?? '—'}</span>
+                                <span className="font-semibold text-slate-800 shrink-0">{score100(r.totalScore)}đ</span>
+                              </div>
+                            ))}
+                          </div>
+                          {displayRanking.length > 3 && (
+                            <div className="absolute bottom-0 left-0 right-3 h-6 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none rounded-b" aria-hidden />
+                          )}
                         </div>
-                      <p className="text-[10px] text-slate-400 mt-1">Mọi người xem thứ hạng mình trong phòng.</p>
                       </div>
                     </div>
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
@@ -2009,11 +2014,11 @@ const App = () => {
                               <p className="text-sm font-semibold text-slate-600 mb-2">
                                 Ngày {d.slice(8, 10)}/{d.slice(5, 7)}/{d.slice(0, 4)}
                               </p>
-                              <ul className="space-y-2">
+                              <ul className="space-y-3">
                                 {(myReportsByDate[d] || []).map((r) => (
-                                  <li key={r.id} className="text-sm">
-                                    <span className="font-medium text-slate-700">{r.taskTitle || 'Nhiệm vụ'}:</span>
-                                    <p className="text-slate-600 whitespace-pre-line mt-0.5 pl-2 border-l-2 border-slate-200">{r.result || '—'}</p>
+                                  <li key={r.id}>
+                                    <p className="text-base font-bold text-slate-800 mb-1">{r.taskTitle || 'Nhiệm vụ'}</p>
+                                    <p className="text-slate-600 text-sm whitespace-pre-line pl-2 border-l-2 border-slate-200">{r.result || '—'}</p>
                                   </li>
                                 ))}
                               </ul>
@@ -2174,10 +2179,10 @@ const App = () => {
                                   {person.tasks.map((task, taskIndex) => (
                                     <div key={task.id} className={`p-5 ${taskIndex !== person.tasks.length - 1 ? 'border-b border-slate-100' : ''}`}>
                                       <div className="flex items-start gap-2 mb-2">
-                                        <FileText className="w-4 h-4 text-slate-400 mt-0.5 flex-shrink-0" />
-                                        <h4 className="font-semibold text-slate-700 text-[15px]">{task.taskTitle || 'Nhiệm vụ'}</h4>
+                                        <FileText className="w-5 h-5 text-slate-400 mt-0.5 flex-shrink-0" />
+                                        <h4 className="font-bold text-slate-800 text-lg">{task.taskTitle || 'Nhiệm vụ'}</h4>
                                       </div>
-                                      <div className="text-slate-600 text-[14px] leading-relaxed whitespace-pre-line pl-6">
+                                      <div className="text-slate-600 text-sm leading-relaxed whitespace-pre-line pl-7">
                                         {renderContentWithLinks(task.result)}
                                       </div>
                                       {task.attachmentPath && (() => {
