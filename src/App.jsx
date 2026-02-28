@@ -223,7 +223,7 @@ const App = () => {
   }, [activeTab, role, currentUser?.id, dashView, reportDateFilter]);
 
   useEffect(() => {
-    if (activeTab !== 'reports' || !currentUser?.id || role === 'admin') return;
+    if ((activeTab !== 'reports' && activeTab !== 'tasks') || !currentUser?.id || role === 'admin') return;
     setMyReportsLoading(true);
     getReportsByUser(currentUser.id)
       .then((list) => setMyReportsList(Array.isArray(list) ? list : []))
@@ -468,6 +468,7 @@ const App = () => {
   const mainContentScrollRef = useRef(null);
   const personnelScrollRestoreRef = useRef(null);
   const [taskSearch, setTaskSearch] = useState('');
+  const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all');
   const [forcedReportDate, setForcedReportDate] = useState('');
   const [tasksViewMode, setTasksViewMode] = useState('trello'); // 'list' | 'trello' — mặc định Trello để dễ nhìn
   const [reportsViewMode, setReportsViewMode] = useState('trello'); // 'list' | 'trello'
@@ -706,6 +707,10 @@ const App = () => {
     else if (role === 'leader') base = tasks.filter((t) => t.leaderId === currentUser.id || t.assigneeId === currentUser.id);
     else base = tasks.filter((t) => t.assigneeId === currentUser.id);
 
+    if ((role === 'admin' || role === 'leader') && taskAssigneeFilter && taskAssigneeFilter !== 'all') {
+      base = base.filter((t) => String(t.assigneeId || '') === String(taskAssigneeFilter));
+    }
+
     const q = taskSearch.trim().toLowerCase();
     if (!q) return base;
     return base.filter((t) => {
@@ -714,7 +719,18 @@ const App = () => {
       const objective = (t.objective || '').toLowerCase();
       return title.includes(q) || content.includes(q) || objective.includes(q);
     });
-  }, [tasks, role, currentUser?.id, taskSearch]);
+  }, [tasks, role, currentUser?.id, taskSearch, taskAssigneeFilter]);
+
+  // Nhiệm vụ đã có ít nhất một báo cáo tiến độ (để hiển thị tích trên thẻ Trello)
+  const taskIdsWithProgressReport = useMemo(() => {
+    const set = new Set();
+    const list = role === 'admin' ? allReportsList : myReportsList;
+    (list || []).forEach((r) => {
+      const id = r.taskId ?? r.task_id;
+      if (id != null && id !== '') set.add(String(id));
+    });
+    return set;
+  }, [role, allReportsList, myReportsList]);
 
   // Phân nhóm theo trạng thái: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng (chuẩn hóa nhãn)
   // Quá hạn: chưa xong, quá hạn (loại đợi duyệt để tránh báo đỏ khi đã gửi hoàn thành)
@@ -1204,10 +1220,12 @@ const App = () => {
             {activeTab === 'dash' && (() => {
               const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
               const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
-              const filteredRanking = (ranking || []).filter((r) => {
-                const name = String(r.name ?? r.userName ?? '').toLowerCase();
-                return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
-              });
+              const filteredRanking = (ranking || [])
+                .filter((r) => {
+                  const name = String(r.name ?? r.userName ?? '').toLowerCase();
+                  return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
+                })
+                .sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
               const currentRank = filteredRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
               const totalRanked = filteredRanking.length;
 
@@ -1559,6 +1577,26 @@ const App = () => {
                     >
                       <Filter size={18} /> Lọc tháng
                     </button>
+                    {(role === 'admin' || role === 'leader') && (
+                      <select
+                        value={taskAssigneeFilter}
+                        onChange={(e) => setTaskAssigneeFilter(e.target.value)}
+                        className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 font-medium min-w-[140px]"
+                      >
+                        <option value="all">Tất cả nhân sự</option>
+                        {(users || [])
+                          .filter((u) => (u.id ?? u.userId) != null)
+                          .map((u) => {
+                            const id = String(u.id ?? u.userId);
+                            const name = u.name || u.fullName || u.username || id;
+                            return (
+                              <option key={id} value={id}>
+                                {name}
+                              </option>
+                            );
+                          })}
+                      </select>
+                    )}
                   </div>
                 </div>
 
@@ -1567,7 +1605,11 @@ const App = () => {
                   {tasksLoading ? (
                     <div className="py-10 text-center text-slate-500">Đang tải...</div>
                   ) : (
-                    <TasksTrelloBoard tasks={tasksByFilter} onTaskClick={(id) => setSelectedTaskId(id)} />
+                    <TasksTrelloBoard
+                      tasks={tasksByFilter}
+                      onTaskClick={(id) => setSelectedTaskId(id)}
+                      taskIdsWithProgressReport={taskIdsWithProgressReport}
+                    />
                   )}
                 </div>
               </>
@@ -2222,7 +2264,7 @@ const App = () => {
 
       {/* Modal chi tiết task: đọc nội dung → Tiếp nhận / Cập nhật tiến độ / Lịch sử báo cáo */}
       {selectedTaskId && (() => {
-        const task = tasks.find((t) => t.id === selectedTaskId);
+        const task = tasks.find((t) => String(t.id) === String(selectedTaskId));
         if (!task) return null;
         const assigneeName = task.assigneeName
           || (users && users.find((u) => String(u.id ?? u.userId) === String(task.assigneeId))?.name)
@@ -2424,6 +2466,18 @@ const TaskDetailModal = ({
             <p className="text-slate-500 text-sm">
               Hạn chót: {formatDeadline(task.deadline)} · Trọng số: {weightLabel(task.weight)} · Người thực hiện: {assigneeName || '—'}
             </p>
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-500 text-sm">
+              <span>Ngày giao: {formatDeadline(task.createdAt)}</span>
+              {(task.acceptedAt || task.accepted_at) && (
+                <span>Thời gian nhận nhiệm vụ: {formatDeadline(task.acceptedAt || task.accepted_at)}</span>
+              )}
+              {(task.status === 'pending_approval' || task.status === 'completed') && (task.submittedAt || task.submitted_at || task.completedAt) && (
+                <span>
+                  {task.status === 'pending_approval' ? 'Thời gian gửi báo cáo đợi duyệt: ' : 'Thời gian hoàn thành: '}
+                  {formatDeadline(task.submittedAt || task.submitted_at || task.completedAt)}
+                </span>
+              )}
+            </div>
           </div>
           <div>
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Mục tiêu</h4>

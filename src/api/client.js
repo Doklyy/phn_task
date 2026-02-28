@@ -74,31 +74,52 @@ export function isApiConfigured() {
 }
 
 /**
- * Upload file (multipart/form-data). Trả về { path } để gửi kèm báo cáo.
+ * Upload file (multipart/form-data). Trả về path để gửi kèm báo cáo.
+ * Không gửi Content-Type để trình duyệt tự set multipart/form-data; boundary.
  */
 export async function uploadFile(file) {
-  const url = BASE ? `${BASE.replace(/\/$/, '')}/upload` : '';
-  if (!url) throw new Error('VITE_API_URL chưa cấu hình');
+  const baseUrl = BASE ? BASE.replace(/\/$/, '') : '';
+  if (!baseUrl) throw new Error('VITE_API_URL chưa cấu hình');
   const formData = new FormData();
   formData.append('file', file);
   const token = getToken();
-  const headers = {};
-  if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: formData,
-  });
-  if (res.status === 401) {
-    setToken(null);
-    throw new Error('Phiên đăng nhập hết hạn');
+  const headers = { Authorization: token ? `Bearer ${token}` : '' };
+  if (headers.Authorization === '') delete headers.Authorization;
+
+  const urlsToTry = [`${baseUrl}/upload`, `${baseUrl}/upload/file`];
+  let lastError = null;
+  for (const url of urlsToTry) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+      if (res.status === 401) {
+        setToken(null);
+        throw new Error('Phiên đăng nhập hết hạn');
+      }
+      if (!res.ok) {
+        const text = await res.text();
+        lastError = new Error(text || `Lỗi ${res.status}`);
+        continue;
+      }
+      const contentType = res.headers.get('content-type') || '';
+      if (contentType.includes('application/json')) {
+        const data = await res.json();
+        return data.path || data.filePath || data.url || (typeof data === 'string' ? data : '') || '';
+      }
+      const text = await res.text();
+      const trimmed = (text || '').trim();
+      if (trimmed) return trimmed;
+      lastError = new Error('Máy chủ không trả về đường dẫn file.');
+      break;
+    } catch (e) {
+      if (e.message === 'Phiên đăng nhập hết hạn') throw e;
+      lastError = e;
+    }
   }
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || `Lỗi ${res.status}`);
-  }
-  const data = await res.json();
-  return data.path || data.filePath || '';
+  throw lastError || new Error('Tải file lên thất bại.');
 }
 
 /**
