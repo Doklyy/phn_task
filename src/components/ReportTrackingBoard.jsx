@@ -133,19 +133,20 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
         for (let day = 1; day <= dayCount; day++) {
           const rec = attByDate[day];
           const code = rec ? String(rec.attendanceCode || rec.attendance_code || '').trim().toUpperCase() : '';
-          const isLeave = code.startsWith('N_') || code === 'CN';
           const isHalf = code === 'N_HALF' || code.includes('HALF');
+          const isFullLeave = (code.startsWith('N_') && !isHalf) || code === 'CN';
           const isLate = code === 'M' || code === 'N_LATE';
+          const weekend = isWeekend(year, month, day);
 
           let workDay = 0;
-          if (!isLeave) {
+          if (!isFullLeave) {
             if (isHalf) workDay = 0.5;
-            else if (!isWeekend(year, month, day)) workDay = 1;
+            else if (!weekend) workDay = 1;
+            else if (rec) workDay = 0.5; // Thứ 7 đi làm (trực) = 0.5 công
           }
 
-          const totalTasks = isWeekend(year, month, day)
-            ? 0
-            : tasksForUser.filter((t) => taskActiveOnDay(t, year, month, day)).length;
+          const hadWork = workDay > 0;
+          const totalTasks = hadWork ? tasksForUser.filter((t) => taskActiveOnDay(t, year, month, day)).length : 0;
           const reportedSet = reportsByDate[day] || null;
           const reportedTasks = reportedSet ? reportedSet.size : 0;
 
@@ -154,7 +155,7 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
             totalTasks,
             reportedTasks,
             isLate,
-            isLeave: !!isLeave,
+            isLeave: !!isFullLeave,
           };
         }
 
