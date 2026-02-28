@@ -42,12 +42,12 @@ export function ReportsTrelloBoard({ reports = [], onReportClick }) {
                   onClick={() => onReportClick && onReportClick(r)}
                   className="w-full text-left bg-white rounded-lg border border-slate-200 p-3 shadow-sm hover:shadow-md hover:border-slate-300 transition-all"
                 >
-                  <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600 mb-1">
+                  <p className="flex items-center gap-1.5 text-xs font-medium text-slate-600 mb-1.5">
                     <User size={12} />
                     {r.userName || r.user_name || '—'}
                   </p>
-                  <p className="font-medium text-slate-800 text-sm line-clamp-1">{r.taskTitle || r.task_title || 'Nhiệm vụ'}</p>
-                  <p className="text-xs text-slate-500 mt-1 line-clamp-2">{r.result || '—'}</p>
+                  <p className="font-bold text-slate-800 text-base line-clamp-2">{r.taskTitle || r.task_title || 'Nhiệm vụ'}</p>
+                  <p className="text-xs text-slate-500 mt-1.5 line-clamp-2">{r.result || '—'}</p>
                 </button>
               ))}
               {dayReports.length === 0 && (
