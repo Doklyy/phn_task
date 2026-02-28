@@ -362,8 +362,8 @@ const App = () => {
     // Chưa giao thì không cần báo cáo
     if (createdStr && dStr < createdStr) return false;
 
-    // Task đã hoàn thành hoặc đang đợi duyệt: không tính vào báo cáo tiến độ theo ngày
-    if (status === 'completed' || status === 'pending_approval') return false;
+    // Task đã hoàn thành, đợi duyệt hoặc tạm dừng: không tính vào báo cáo tiến độ theo ngày
+    if (status === 'completed' || status === 'pending_approval' || status === 'paused') return false;
 
     return true;
   }, []);
@@ -412,7 +412,7 @@ const App = () => {
           workDay = 0.5;
         } else if (!isFullLeave) {
           if (!isWeekend) workDay = 1;
-          else if (rec) workDay = 1;
+          else if (rec) workDay = 0.5;
         }
         const hadWork = workDay > 0;
         const totalTasks = hadWork ? tasksForUser.filter((t) => taskActiveOnDay(t, y, m, day)).length : 0;
@@ -1232,27 +1232,28 @@ const App = () => {
           <div className="max-w-5xl mx-auto pb-4">
             {/* Bảng điều khiển với 3 tab nội bộ: Điểm & Xếp hạng / Theo dõi Nhiệm vụ / Chuyên cần */}
             {activeTab === 'dash' && (() => {
+              const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
               const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
-              // Công thức theo CSV: Tổng điểm = sum(Điểm W × Điểm Q × Điểm T) theo từng người
-              const filteredRanking = (computedRanking || [])
-                .filter((r) => {
-                  const name = String(r.name ?? r.userName ?? '').toLowerCase();
-                  return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
-                })
-                .sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
-              const currentRank = filteredRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
-              const totalRanked = filteredRanking.length;
-              const scoreDisplay = (v) => (v != null && v !== '' ? String(Number(v)) : '—');
+              const filterName = (r) => {
+                const name = String(r.name ?? r.userName ?? '').toLowerCase();
+                return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
+              };
+              const apiRanking = (ranking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
+              const computedSorted = (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
+              const hasApiScores = apiRanking.some((r) => (Number(r.totalScore) ?? 0) > 0);
+              const displayRanking = hasApiScores ? apiRanking : computedSorted;
+              const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
+              const totalRanked = displayRanking.length;
+              const scoreDisplay = (v) => (v != null && v !== '' ? (Number(v) < 1 && Number(v) > 0 ? (Number(v) * 100).toFixed(1) : String(Number(v))) : '—');
 
               const renderPerformance = () => (
                   <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
                     <h2 className="text-xl font-bold text-slate-900 mb-4">Hoàn thành cá nhân</h2>
-                    <p className="text-xs text-slate-500 mb-3">Công thức theo file Theo dõi Nhiệm vụ: Điểm W (trọng số) × Điểm Q (chất lượng đạt) × Điểm T (hoàn thành đúng hạn).</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm</p>
                       <p className="text-2xl font-black text-slate-900">
-                        {scoreDisplay(myComputedScore)}
+                        {score100(scoringUser?.totalScore)}
                       </p>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
@@ -1261,33 +1262,23 @@ const App = () => {
                         #{currentRank > 0 ? currentRank : '—'} <span className="text-slate-500 font-normal text-lg">/ {totalRanked || '—'}</span>
                       </p>
                       </div>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
-                      <div className="space-y-1 max-h-64 overflow-auto pr-1">
-                        {(showAllRanking ? filteredRanking : filteredRanking.slice(0, 3)).map((r, idx) => (
+                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 md:col-span-1">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh — toàn bộ phòng</p>
+                      <div className="space-y-1 max-h-80 overflow-auto pr-1">
+                        {displayRanking.map((r, idx) => (
                           <div key={r.userId ?? `${idx}-${r.userName ?? r.name ?? ''}`} className="flex items-center gap-2 text-sm">
-                              <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
-                            <span className="flex-1">{r.name ?? r.userName ?? '—'}</span>
-                              <span className="font-semibold text-slate-800">{scoreDisplay(r.totalScore)}đ</span>
+                              <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : idx === 2 ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
+                            <span className="flex-1 min-w-0 truncate">{r.name ?? r.userName ?? '—'}</span>
+                              <span className="font-semibold text-slate-800 shrink-0">{score100(r.totalScore)}đ</span>
                             </div>
                           ))}
                         </div>
-                      {filteredRanking.length > 3 && (
-                        <div className="mt-2 text-right">
-                    <button
-                      type="button"
-                            onClick={() => setShowAllRanking((v) => !v)}
-                            className="text-xs font-medium text-slate-500 hover:text-slate-800 hover:underline"
-                          >
-                            {showAllRanking ? 'Thu gọn' : 'Xem tất cả'}
-                    </button>
-                </div>
-                      )}
+                      <p className="text-[10px] text-slate-400 mt-1">Mọi người xem thứ hạng mình trong phòng.</p>
                       </div>
                     </div>
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                       <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá (theo CSV)</h3>
+                        <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá</h3>
                       </div>
                       <table className="w-full text-sm">
                         <thead>
@@ -1306,15 +1297,15 @@ const App = () => {
                             <td className="py-2 px-3 text-slate-500">{scoringUser?.reportedDays != null ? `Số ngày báo cáo: ${scoringUser.reportedDays}` : '—'}</td>
                           </tr>
                           <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-700">Chất lượng công việc (W×Q×T)</td>
+                          <td className="py-2 px-3 text-slate-700">Chất lượng công việc</td>
                             <td className="py-2 px-3">60%</td>
-                            <td className="py-2 px-3">{scoreDisplay(myComputedScore)}</td>
-                            <td className="py-2 px-3 text-slate-500">{tasks.filter((t) => String(t.assigneeId) === String(currentUser?.id) && (t.status || '').toLowerCase() === 'completed').length} nhiệm vụ hoàn thành</td>
+                            <td className="py-2 px-3">{formatPct(scoringUser?.qualityScore)}</td>
+                            <td className="py-2 px-3 text-slate-500">{scoringUser?.completedTasks != null ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ` : '—'}</td>
                           </tr>
                           <tr className="bg-slate-50 font-bold">
                             <td className="py-2 px-3">Tổng cộng</td>
                             <td className="py-2 px-3">100%</td>
-                            <td className="py-2 px-3">{scoreDisplay(myComputedScore)}</td>
+                            <td className="py-2 px-3">{score100(scoringUser?.totalScore)}</td>
                             <td className="py-2 px-3" />
                           </tr>
                         </tbody>

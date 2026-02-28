@@ -27,8 +27,8 @@ function taskActiveOnDay(task, year, month, day) {
   // Chưa giao thì chưa phải báo cáo
   if (createdStr && dStr < createdStr) return false;
 
-  // Nhiệm vụ đã hoàn thành hoặc đang đợi duyệt không cần báo cáo tiến độ theo ngày
-  if (status === 'completed' || status === 'pending_approval') return false;
+  // Nhiệm vụ đã hoàn thành, đợi duyệt hoặc tạm dừng: không tính vào báo cáo tiến độ theo ngày
+  if (status === 'completed' || status === 'pending_approval' || status === 'paused') return false;
 
   return true;
 }
