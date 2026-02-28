@@ -65,6 +65,7 @@ export async function getMyReports(filters = {}) {
  * Nhắc báo cáo bù: chưa báo cáo ngày hôm qua thì chặn dùng hệ thống.
  * GET /reports/reminder?userId=...
  * Response: { missingYesterday, yesterday, message, missingTasks: [{ taskId, taskTitle }] }
+ * Backend cần: nghỉ nửa ngày (N_HALF) và làm thứ 7 (xoay vòng) vẫn coi là ngày làm việc → vẫn phải báo cáo tiến độ.
  */
 export async function getReportsReminder(userId) {
   if (!isApiConfigured() || !userId) return { missingYesterday: false };
