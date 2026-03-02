@@ -41,6 +41,7 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [nameFilter, setNameFilter] = useState('');
   const [personnel, setPersonnel] = useState([]);
   const [loading, setLoading] = useState(true);
   const [boardData, setBoardData] = useState([]);
@@ -131,7 +132,7 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
         const days = {};
 
         const empName = emp.name || emp.fullName || emp.username || '';
-        const isNghiT7ByName = (name) => ['phụ nam', 'minh trang', 'thủy dương'].some((part) => (name || '').toLowerCase().includes(part));
+        const isNghiT7ByName = (name) => ['phụ nam', 'minh trang', 'thủy dương', 'thùy dương'].some((part) => (name || '').toLowerCase().includes(part));
         for (let day = 1; day <= dayCount; day++) {
           const rec = attByDate[day];
           const weekend = isWeekend(year, month, day);
@@ -179,15 +180,30 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
     return () => { cancelled = true; };
   }, [uid, canManage, personnel, year, month, dayCount, allTasks, currentUser?.name, currentUser?.username]);
 
+  const q = (nameFilter || '').trim().toLowerCase();
+  const filteredBoardData = q
+    ? boardData.filter((p) => (p.name || '').toLowerCase().includes(q))
+    : boardData;
+
   if (!uid) return null;
 
   return (
     <section className="bg-gray-50 p-4 rounded-2xl">
+      <div className="flex flex-wrap items-center gap-3 mb-4">
+        <label className="text-sm font-semibold text-slate-700">Lọc theo tên nhân viên:</label>
+        <input
+          type="text"
+          placeholder="Gõ tên để lọc bảng..."
+          value={nameFilter}
+          onChange={(e) => setNameFilter(e.target.value)}
+          className="border border-slate-300 rounded-lg px-3 py-2 text-sm w-48 max-w-full focus:outline-none focus:ring-2 focus:ring-emerald-500 bg-white"
+        />
+      </div>
       <ChuyenCanBoard
         monthLabel={monthLabel}
         monthValue={monthValue}
         onMonthChange={setMonthValue}
-        data={boardData}
+        data={filteredBoardData}
         displayDays={displayDays}
         loading={loading}
       />

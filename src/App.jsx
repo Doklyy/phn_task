@@ -389,7 +389,7 @@ const App = () => {
       reportsByUserAndDay[uid][day].add(taskId);
     });
     const staffNameLower = (name) => (name || '').toLowerCase();
-    const isNghiT7ByName = (name) => ['phụ nam', 'minh trang', 'thủy dương'].some((part) => staffNameLower(name).includes(part));
+    const isNghiT7ByName = (name) => ['phụ nam', 'minh trang', 'thủy dương', 'thùy dương'].some((part) => staffNameLower(name).includes(part));
     return (staffList || []).map((s) => {
       const sid = String(s.id ?? s.userId);
       const records = adminAttendanceMap[sid] || [];
@@ -1452,7 +1452,7 @@ const App = () => {
                     const lastDay = y && m ? new Date(y, m, 0).getDate() : 31;
                     const displayDays = Array.from({ length: lastDay }, (_, i) => i + 1);
                     const monthLabel = `Tháng ${m || ''} / ${y || ''}`;
-                                      return (
+                    return (
                       <section className="bg-slate-50 rounded-2xl p-4">
                         <ChuyenCanBoard
                           monthLabel={monthLabel}
@@ -1462,7 +1462,7 @@ const App = () => {
                           displayDays={displayDays}
                           loading={adminAttendanceLoading}
                         />
-              </section>
+                      </section>
                     );
                   })()}
                 </>
@@ -1519,41 +1519,38 @@ const App = () => {
                     >
                       <Filter size={18} /> Lọc tháng
                     </button>
-                    {(
-                      <div className="flex flex-col gap-1">
-                        <span className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên</span>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <input
-                            type="text"
-                            placeholder="Gõ tên nhân viên..."
-                            value={taskAssigneeNameFilter}
-                            onChange={(e) => setTaskAssigneeNameFilter(e.target.value)}
-                            className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 min-w-[180px] max-w-[220px]"
-                            title="Lọc nhiệm vụ theo tên người thực hiện"
-                          />
-                          <select
-                            value={taskAssigneeFilter}
-                            onChange={(e) => setTaskAssigneeFilter(e.target.value)}
-                            className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 font-medium min-w-[160px]"
-                            title="Chọn 1 nhân viên"
-                          >
-                            <option value="all">Tất cả nhân sự</option>
-                            {(users || [])
-                              .filter((u) => (u.id ?? u.userId) != null)
-                              .map((u) => {
-                                const id = String(u.id ?? u.userId);
-                                const name = u.name || u.fullName || u.username || id;
-                                return (
-                                  <option key={id} value={id}>
-                                    {name}
-                                  </option>
-                                );
-                              })}
-                            </select>
-                          </div>
-                        </div>
-                    )}
                   </div>
+                </div>
+                {/* Bộ lọc theo tên nhân viên – chỉ ở tab Nhiệm vụ */}
+                <div className="mb-4 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <span className="text-sm font-semibold text-slate-700 mr-3">Lọc theo tên nhân viên:</span>
+                  <input
+                    type="text"
+                    placeholder="Gõ tên nhân viên..."
+                    value={taskAssigneeNameFilter}
+                    onChange={(e) => setTaskAssigneeNameFilter(e.target.value)}
+                    className="px-3 py-2 rounded-lg text-sm border border-slate-200 bg-white text-slate-700 min-w-[180px] max-w-[220px] mr-2"
+                    title="Lọc nhiệm vụ theo tên người thực hiện"
+                  />
+                  <select
+                    value={taskAssigneeFilter}
+                    onChange={(e) => setTaskAssigneeFilter(e.target.value)}
+                    className="px-3 py-2 rounded-lg text-sm border border-slate-200 bg-white text-slate-700 font-medium min-w-[160px]"
+                    title="Chọn 1 nhân viên"
+                  >
+                    <option value="all">Tất cả nhân sự</option>
+                    {(users || [])
+                      .filter((u) => (u.id ?? u.userId) != null)
+                      .map((u) => {
+                        const id = String(u.id ?? u.userId);
+                        const name = u.name || u.fullName || u.username || id;
+                        return (
+                          <option key={id} value={id}>
+                            {name}
+                          </option>
+                        );
+                      })}
+                  </select>
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-2xl p-4">
