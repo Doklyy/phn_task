@@ -131,17 +131,14 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
         const tasksForUser = allTasks.filter((t) => String(t.assigneeId || t.assignee_id) === empIdStr);
         const days = {};
 
-        const empName = emp.name || emp.fullName || emp.username || '';
-        const isNghiT7ByName = (name) => ['phụ nam', 'minh trang', 'thủy dương', 'thùy dương'].some((part) => (name || '').toLowerCase().includes(part));
         for (let day = 1; day <= dayCount; day++) {
           const rec = attByDate[day];
           const weekend = isWeekend(year, month, day);
-          const isSaturday = (new Date(year, month - 1, day)).getDay() === 6;
           const code = rec ? String(rec.attendanceCode || rec.attendance_code || '').trim().toUpperCase() : '';
           const isHalf = code === 'N_HALF' || code.includes('HALF');
-          const isSaturdayOffByCode = weekend && (code.includes('T7') || code.includes('SAT')) && (code.includes('NGHI') || code.includes('OFF') || code.startsWith('N_'));
-          const isSaturdayOffByName = isSaturday && isNghiT7ByName(empName);
-          const isSaturdayOff = isSaturdayOffByCode || isSaturdayOffByName;
+          const isSaturdayOff = weekend
+            && (code.includes('T7') || code.includes('SAT'))
+            && (code.includes('NGHI') || code.includes('OFF') || code.startsWith('N_'));
           const isFullLeave = (code.startsWith('N_') && !isHalf) || code === 'CN' || !!isSaturdayOff;
           const isLate = code === 'M' || code === 'N_LATE';
 

@@ -388,8 +388,6 @@ const App = () => {
       if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = new Set();
       reportsByUserAndDay[uid][day].add(taskId);
     });
-    const staffNameLower = (name) => (name || '').toLowerCase();
-    const isNghiT7ByName = (name) => ['phụ nam', 'minh trang', 'thủy dương', 'thùy dương'].some((part) => staffNameLower(name).includes(part));
     return (staffList || []).map((s) => {
       const sid = String(s.id ?? s.userId);
       const records = adminAttendanceMap[sid] || [];
@@ -402,19 +400,17 @@ const App = () => {
         recordByDay[day] = r;
       });
       const tasksForUser = (tasks || []).filter((t) => String(t.assigneeId) === sid);
-      const staffDisplayName = s.name || s.fullName || s.username || '';
       const days = {};
       for (let day = 1; day <= lastDay; day += 1) {
         const dateObj = new Date(y, m - 1, day);
         const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
-        const isSaturday = dateObj.getDay() === 6;
         const rec = recordByDay[day];
         const rawCode = rec ? String(rec.attendanceCode ?? rec.attendance_code ?? '').trim().toUpperCase() : '';
         const isHalf = rawCode === 'N_HALF' || (rawCode || '').includes('HALF');
         // Nghỉ T7 (N_T7, NGHI_T7, SAT_OFF): không cần báo cáo, không tính công — hiển thị N
-        const isSaturdayOffByCode = isWeekend && (rawCode.includes('T7') || rawCode.includes('SAT')) && (rawCode.includes('NGHI') || rawCode.includes('OFF') || rawCode.startsWith('N_'));
-        const isSaturdayOffByName = isSaturday && isNghiT7ByName(staffDisplayName);
-        const isSaturdayOff = isSaturdayOffByCode || isSaturdayOffByName;
+        const isSaturdayOff = isWeekend
+          && (rawCode.includes('T7') || rawCode.includes('SAT'))
+          && (rawCode.includes('NGHI') || rawCode.includes('OFF') || rawCode.startsWith('N_'));
         const isFullLeave = (rawCode.startsWith('N_') && !isHalf) || rawCode === 'CN' || !!isSaturdayOff;
         let workDay = 0;
         if (isHalf) {
@@ -1283,13 +1279,10 @@ const App = () => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               };
-              const apiRanking = (ranking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
               const computedSorted = (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
-              // Backend trả điểm theo tháng (month=...) → dùng API cho tháng đó (vd. Tháng 2 có điểm). Tháng mới (vd. Tháng 3) API trả rỗng → dùng computed (0 điểm).
-              const hasApiScoresForMonth = apiRanking.some((r) => (Number(r.totalScore) ?? 0) > 0);
-              const useApiForDisplay = hasApiScoresForMonth;
-              const displayRanking = useApiForDisplay ? apiRanking : computedSorted;
-              const myScoreForDisplay = useApiForDisplay ? (scoringUser?.totalScore ?? 0) : (myComputedScore ?? 0);
+              // Dùng điểm tính theo tháng từ tasks (computedSorted) để bảng xếp hạng mỗi tháng độc lập.
+              const displayRanking = computedSorted;
+              const myScoreForDisplay = myComputedScore ?? 0;
               const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
               const totalRanked = displayRanking.length;
               const scoreDisplay = (v) => (v != null && v !== '' ? (Number(v) < 1 && Number(v) > 0 ? (Number(v) * 100).toFixed(1) : String(Number(v))) : '—');
@@ -1320,9 +1313,9 @@ const App = () => {
                                 <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : idx === 2 ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
                                 <span className="flex-1 min-w-0 truncate">{r.name ?? r.userName ?? '—'}</span>
                                 <span className="font-semibold text-slate-800 shrink-0">{score100(r.totalScore)}đ</span>
-                            </div>
-                          ))}
-                        </div>
+                              </div>
+                            ))}
+                          </div>
                           {displayRanking.length > 3 && (
                             <div className="absolute bottom-0 left-0 right-3 h-6 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none rounded-b" aria-hidden />
                           )}
@@ -1377,19 +1370,19 @@ const App = () => {
                           ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
                           : 'Chưa có nhiệm vụ nào đợi duyệt.'}
                       </p>
-                        <button
-                          type="button"
+                      <button
+                        type="button"
                         onClick={() => setActiveTab('tasks')}
                         className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                        >
+                      >
                         Xem bảng Trello (cột Đợi duyệt) →
-                        </button>
+                      </button>
                     </div>
                   )}
                   <div className="mb-4">
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
-                    <p className="text-slate-500 font-medium mt-1"></p>
-                    </div>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
+                    <p className="text-slate-500 font-medium mt-1">Bảng Trello: Quá hạn, Nhiệm vụ mới, Đang thực hiện, Đợi duyệt, Hoàn thành, Tạm dừng.</p>
+                  </div>
                   <div className="bg-white border border-slate-200 rounded-2xl p-4">
                     {tasksLoading ? (
                       <div className="py-10 text-center text-slate-500">Đang tải...</div>
@@ -1452,7 +1445,7 @@ const App = () => {
                     const lastDay = y && m ? new Date(y, m, 0).getDate() : 31;
                     const displayDays = Array.from({ length: lastDay }, (_, i) => i + 1);
                     const monthLabel = `Tháng ${m || ''} / ${y || ''}`;
-                                      return (
+                    return (
                       <section className="bg-slate-50 rounded-2xl p-4">
                         <ChuyenCanBoard
                           monthLabel={monthLabel}
@@ -1462,7 +1455,7 @@ const App = () => {
                           displayDays={displayDays}
                           loading={adminAttendanceLoading}
                         />
-              </section>
+                      </section>
                     );
                   })()}
                 </>
@@ -1503,7 +1496,7 @@ const App = () => {
                         </button>
                       )}
                     </div>
-                    <p className="text-slate-500 font-medium mt-1">Bấm thẻ để xem chi tiết.</p>
+                    <p className="text-slate-500 font-medium mt-1">Bảng Trello: Quá hạn, Nhiệm vụ mới, Đang thực hiện, Đợi duyệt, Hoàn thành, Tạm dừng. Bấm thẻ để xem chi tiết.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     <button
@@ -2073,10 +2066,10 @@ const App = () => {
                             <div className="flex flex-col gap-1">
                               <label className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên</label>
                               <div className="flex flex-wrap items-center gap-2">
-                  <input
-                    type="text"
+                                <input
+                                  type="text"
                                   placeholder="Gõ tên..."
-                    value={reportFilterName}
+                                  value={reportFilterName}
                                   onChange={(e) => { setReportFilterName(e.target.value); setReportFilterUserId(''); }}
                                   className="w-[140px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
                                 />
