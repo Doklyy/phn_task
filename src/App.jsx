@@ -407,10 +407,8 @@ const App = () => {
         const rec = recordByDay[day];
         const rawCode = rec ? String(rec.attendanceCode ?? rec.attendance_code ?? '').trim().toUpperCase() : '';
         const isHalf = rawCode === 'N_HALF' || (rawCode || '').includes('HALF');
-        // Nghỉ T7 (N_T7, NGHI_T7, SAT_OFF): không cần báo cáo, không tính công — hiển thị N
-        const isSaturdayOff = isWeekend
-          && (rawCode.includes('T7') || rawCode.includes('SAT'))
-          && (rawCode.includes('NGHI') || rawCode.includes('OFF') || rawCode.startsWith('N_'));
+        // Theo DB: TT7 = đi làm thứ 7 (0.5 công), T7 = nghỉ thứ 7 (N, không công)
+        const isSaturdayOff = isWeekend && rawCode === 'T7';
         const isFullLeave = (rawCode.startsWith('N_') && !isHalf) || rawCode === 'CN' || !!isSaturdayOff;
         let workDay = 0;
         if (isHalf) {

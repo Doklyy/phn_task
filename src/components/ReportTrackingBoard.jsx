@@ -136,9 +136,8 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
           const weekend = isWeekend(year, month, day);
           const code = rec ? String(rec.attendanceCode || rec.attendance_code || '').trim().toUpperCase() : '';
           const isHalf = code === 'N_HALF' || code.includes('HALF');
-          const isSaturdayOff = weekend
-            && (code.includes('T7') || code.includes('SAT'))
-            && (code.includes('NGHI') || code.includes('OFF') || code.startsWith('N_'));
+          // Theo DB hiện tại: TT7 = đi làm thứ 7 (0.5 công), T7 = nghỉ thứ 7 (N, không công)
+          const isSaturdayOff = weekend && code === 'T7';
           const isFullLeave = (code.startsWith('N_') && !isHalf) || code === 'CN' || !!isSaturdayOff;
           const isLate = code === 'M' || code === 'N_LATE';
 
@@ -146,7 +145,7 @@ export function ReportTrackingBoard({ currentUser, role, canManageAttendance = f
           if (!isFullLeave) {
             if (isHalf) workDay = 0.5;
             else if (!weekend) workDay = 1;
-            else if (rec) workDay = 0.5; // Thứ 7 đi làm (trực) = 0.5; không có rec hoặc mã N_T7 = nghỉ, workDay 0
+            else if (rec) workDay = 0.5; // Thứ 7 đi làm (TT7) = 0.5; không có rec hoặc mã T7 = nghỉ, workDay 0
           }
 
           const hadWork = workDay > 0;
