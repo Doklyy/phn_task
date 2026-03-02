@@ -775,16 +775,18 @@ const App = () => {
     });
   }, [tasks, role, currentUser?.id, taskSearch, taskAssigneeFilter, taskAssigneeNameFilter, users]);
 
-  // Nhiệm vụ đã có ít nhất một báo cáo tiến độ (để hiển thị tích trên thẻ Trello)
+  // Nhiệm vụ đã có báo cáo tiến độ TRONG NGÀY HÔM NAY (để hiển thị tích "Đã báo" trên thẻ Trello)
   const taskIdsWithProgressReport = useMemo(() => {
     const set = new Set();
-    const list = role === 'admin' ? allReportsList : myReportsList;
-    (list || []).forEach((r) => {
-      const id = r.taskId ?? r.task_id;
-      if (id != null && id !== '') set.add(String(id));
+    const today = new Date().toISOString().slice(0, 10);
+    Object.entries(reportHistoryByTask || {}).forEach(([taskId, history]) => {
+      const arr = Array.isArray(history) ? history : [];
+      if (arr.some((r) => (r.date || '').slice(0, 10) === today)) {
+        set.add(String(taskId));
+      }
     });
     return set;
-  }, [role, allReportsList, myReportsList]);
+  }, [reportHistoryByTask]);
 
   // Phân nhóm theo trạng thái: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng (chuẩn hóa nhãn)
   // Quá hạn: chưa xong, quá hạn (loại đợi duyệt để tránh báo đỏ khi đã gửi hoàn thành)
