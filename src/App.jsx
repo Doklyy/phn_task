@@ -756,7 +756,7 @@ const App = () => {
     else if (role === 'leader') base = tasks.filter((t) => t.leaderId === currentUser.id || t.assigneeId === currentUser.id);
     else base = tasks.filter((t) => t.assigneeId === currentUser.id);
 
-    if ((role === 'admin' || role === 'leader') && taskAssigneeFilter && taskAssigneeFilter !== 'all') {
+    if (taskAssigneeFilter && taskAssigneeFilter !== 'all') {
       base = base.filter((t) => String(t.assigneeId || '') === String(taskAssigneeFilter));
     }
 
@@ -1519,7 +1519,7 @@ const App = () => {
                     >
                       <Filter size={18} /> Lọc tháng
                     </button>
-                    {(role === 'admin' || role === 'leader') && (
+                    {(
                       <div className="flex flex-col gap-1">
                         <span className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên</span>
                         <div className="flex flex-wrap items-center gap-2">
