@@ -477,7 +477,8 @@ const App = () => {
   const personnelScrollRestoreRef = useRef(null);
   const [taskSearch, setTaskSearch] = useState('');
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all');
-  const [taskAssigneeNameFilter, setTaskAssigneeNameFilter] = useState(''); // Tìm theo tên nhân sự
+  const [taskAssigneeNameFilter, setTaskAssigneeNameFilter] = useState(''); // Tìm theo tên nhân sự (tab Nhiệm vụ)
+  const [dashTaskAssigneeNameFilter, setDashTaskAssigneeNameFilter] = useState(''); // Tìm theo tên nhân sự (tab Theo dõi Nhiệm vụ trong Dashboard)
   const [forcedReportDate, setForcedReportDate] = useState('');
   const [tasksViewMode, setTasksViewMode] = useState('trello'); // 'list' | 'trello' — mặc định Trello để dễ nhìn
   const [reportsViewMode, setReportsViewMode] = useState('trello'); // 'list' | 'trello'
@@ -1279,10 +1280,13 @@ const App = () => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               };
+              const apiRanking = (ranking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
               const computedSorted = (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
-              // Dùng điểm tính theo tháng từ tasks (computedSorted) để bảng xếp hạng mỗi tháng độc lập.
-              const displayRanking = computedSorted;
-              const myScoreForDisplay = myComputedScore ?? 0;
+              // Backend trả điểm theo tháng (month=...) → dùng API cho tháng đó (vd. Tháng 2 có điểm). Tháng mới (vd. Tháng 3) API trả rỗng → dùng computed (0 điểm).
+              const hasApiScoresForMonth = apiRanking.some((r) => (Number(r.totalScore) ?? 0) > 0);
+              const useApiForDisplay = hasApiScoresForMonth;
+              const displayRanking = useApiForDisplay ? apiRanking : computedSorted;
+              const myScoreForDisplay = useApiForDisplay ? (scoringUser?.totalScore ?? 0) : (myComputedScore ?? 0);
               const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
               const totalRanked = displayRanking.length;
               const scoreDisplay = (v) => (v != null && v !== '' ? (Number(v) < 1 && Number(v) > 0 ? (Number(v) * 100).toFixed(1) : String(Number(v))) : '—');
@@ -1360,42 +1364,66 @@ const App = () => {
                   </section>
               );
 
-              const renderTasksInDashboard = () => (
-                <section className="mb-3" id="task-list-section">
-                  {role === 'admin' && (
-                    <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                      <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt</h3>
-                      <p className="text-slate-600 text-sm mb-2">
-                        {tasksPendingApproval.length > 0
-                          ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
-                          : 'Chưa có nhiệm vụ nào đợi duyệt.'}
-                      </p>
-                      <button
-                        type="button"
-                        onClick={() => setActiveTab('tasks')}
-                        className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                      >
-                        Xem bảng Trello (cột Đợi duyệt) →
-                      </button>
-                    </div>
-                  )}
-                  <div className="mb-4">
-                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
-                    <p className="text-slate-500 font-medium mt-1"></p>
-                  </div>
-                  <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                    {tasksLoading ? (
-                      <div className="py-10 text-center text-slate-500">Đang tải...</div>
-                    ) : (
-                      <TasksTrelloBoard
-                        tasks={filteredTasks}
-                        onTaskClick={(id) => setSelectedTaskId(id)}
-                        taskIdsWithProgressReport={taskIdsWithProgressReport}
-                      />
+              const renderTasksInDashboard = () => {
+                const nameQ = dashTaskAssigneeNameFilter.trim().toLowerCase();
+                const dashboardTasks = nameQ && (users || []).length
+                  ? filteredTasks.filter((t) => {
+                      const uid = String(t.assigneeId ?? t.assignee_id ?? '');
+                      const u = (users || []).find((us) => String(us.id ?? us.userId) === uid);
+                      const nm = (u?.name ?? u?.fullName ?? u?.username ?? '').toLowerCase();
+                      return nm.includes(nameQ);
+                    })
+                  : filteredTasks;
+
+                return (
+                  <section className="mb-3" id="task-list-section">
+                    {role === 'admin' && (
+                      <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+                        <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt</h3>
+                        <p className="text-slate-600 text-sm mb-2">
+                          {tasksPendingApproval.length > 0
+                            ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
+                            : 'Chưa có nhiệm vụ nào đợi duyệt.'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => setActiveTab('tasks')}
+                          className="text-sm font-semibold text-amber-600 hover:text-amber-700"
+                        >
+                          Xem bảng Trello (cột Đợi duyệt) →
+                        </button>
+                      </div>
                     )}
-                  </div>
-                </section>
-              );
+                    <div className="mb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
+                      <div>
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
+                        <p className="text-slate-500 font-medium mt-1">Theo dõi nhanh các nhiệm vụ trong tháng đang chọn.</p>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <label className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên:</label>
+                        <input
+                          type="text"
+                          placeholder="Gõ tên nhân viên..."
+                          value={dashTaskAssigneeNameFilter}
+                          onChange={(e) => setDashTaskAssigneeNameFilter(e.target.value)}
+                          className="px-3 py-1.5 rounded-lg text-xs sm:text-sm border border-slate-200 bg-white text-slate-700 min-w-[160px]"
+                        />
+                      </div>
+                    </div>
+                    <div className="bg-white border border-slate-200 rounded-2xl p-4">
+                      {tasksLoading ? (
+                        <div className="py-10 text-center text-slate-500">Đang tải...</div>
+                      ) : (
+                        <TasksTrelloBoard
+                          tasks={dashboardTasks}
+                          onTaskClick={(id) => setSelectedTaskId(id)}
+                          taskIdsWithProgressReport={taskIdsWithProgressReport}
+                        />
+                      )}
+                    </div>
+                  </section>
+                );
+              };
 
               return (
                 <>
