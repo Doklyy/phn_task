@@ -406,6 +406,7 @@ const App = () => {
         const rec = recordByDay[day];
         const rawCode = rec ? String(rec.attendanceCode ?? rec.attendance_code ?? '').trim().toUpperCase() : '';
         const isHalf = rawCode === 'N_HALF' || (rawCode || '').includes('HALF');
+        // Nghỉ T7 (N_T7, NGHI_T7, SAT_OFF): không cần báo cáo, không tính công — hiển thị N
         const isSaturdayOff = isWeekend && (rawCode.includes('T7') || rawCode.includes('SAT')) && (rawCode.includes('NGHI') || rawCode.includes('OFF') || rawCode.startsWith('N_'));
         const isFullLeave = (rawCode.startsWith('N_') && !isHalf) || rawCode === 'CN' || !!isSaturdayOff;
         let workDay = 0;
@@ -473,6 +474,7 @@ const App = () => {
   const personnelScrollRestoreRef = useRef(null);
   const [taskSearch, setTaskSearch] = useState('');
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all');
+  const [taskAssigneeNameFilter, setTaskAssigneeNameFilter] = useState(''); // Tìm theo tên nhân sự
   const [forcedReportDate, setForcedReportDate] = useState('');
   const [tasksViewMode, setTasksViewMode] = useState('trello'); // 'list' | 'trello' — mặc định Trello để dễ nhìn
   const [reportsViewMode, setReportsViewMode] = useState('trello'); // 'list' | 'trello'
@@ -745,6 +747,16 @@ const App = () => {
       base = base.filter((t) => String(t.assigneeId || '') === String(taskAssigneeFilter));
     }
 
+    const nameQ = taskAssigneeNameFilter.trim().toLowerCase();
+    if (nameQ && (users || []).length) {
+      base = base.filter((t) => {
+        const uid = String(t.assigneeId ?? t.assignee_id ?? '');
+        const u = (users || []).find((us) => String(us.id ?? us.userId) === uid);
+        const name = (u?.name ?? u?.fullName ?? u?.username ?? '').toLowerCase();
+        return name.includes(nameQ);
+      });
+    }
+
     const q = taskSearch.trim().toLowerCase();
     if (!q) return base;
     return base.filter((t) => {
@@ -753,7 +765,7 @@ const App = () => {
       const objective = (t.objective || '').toLowerCase();
       return title.includes(q) || content.includes(q) || objective.includes(q);
     });
-  }, [tasks, role, currentUser?.id, taskSearch, taskAssigneeFilter]);
+  }, [tasks, role, currentUser?.id, taskSearch, taskAssigneeFilter, taskAssigneeNameFilter, users]);
 
   // Nhiệm vụ đã có ít nhất một báo cáo tiến độ (để hiển thị tích trên thẻ Trello)
   const taskIdsWithProgressReport = useMemo(() => {
@@ -1491,24 +1503,33 @@ const App = () => {
                       <Filter size={18} /> Lọc tháng
                     </button>
                     {(role === 'admin' || role === 'leader') && (
-                      <select
-                        value={taskAssigneeFilter}
-                        onChange={(e) => setTaskAssigneeFilter(e.target.value)}
-                        className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 font-medium min-w-[140px]"
-                      >
-                        <option value="all">Tất cả nhân sự</option>
-                        {(users || [])
-                          .filter((u) => (u.id ?? u.userId) != null)
-                          .map((u) => {
-                            const id = String(u.id ?? u.userId);
-                            const name = u.name || u.fullName || u.username || id;
-                            return (
-                              <option key={id} value={id}>
-                                {name}
-                              </option>
-                            );
-                          })}
-                      </select>
+                      <>
+                        <input
+                          type="text"
+                          placeholder="Tìm theo tên nhân sự..."
+                          value={taskAssigneeNameFilter}
+                          onChange={(e) => setTaskAssigneeNameFilter(e.target.value)}
+                          className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 min-w-[180px] max-w-[220px]"
+                        />
+                        <select
+                          value={taskAssigneeFilter}
+                          onChange={(e) => setTaskAssigneeFilter(e.target.value)}
+                          className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 font-medium min-w-[140px]"
+                        >
+                          <option value="all">Tất cả nhân sự</option>
+                          {(users || [])
+                            .filter((u) => (u.id ?? u.userId) != null)
+                            .map((u) => {
+                              const id = String(u.id ?? u.userId);
+                              const name = u.name || u.fullName || u.username || id;
+                              return (
+                                <option key={id} value={id}>
+                                  {name}
+                                </option>
+                              );
+                            })}
+                        </select>
+                      </>
                     )}
                   </div>
                 </div>
@@ -1974,9 +1995,19 @@ const App = () => {
                   {allReportsLoading ? (
                     <p className="text-slate-500 text-sm py-8">Đang tải danh sách báo cáo...</p>
                   ) : (() => {
-                    const filtered = reportFilterName.trim()
-                      ? allReportsList.filter((r) => (r.userName || '').toLowerCase().includes(reportFilterName.trim().toLowerCase()))
-                      : allReportsList;
+                    const userMap = {};
+                    (users || []).forEach((u) => {
+                      const id = String(u.id ?? u.userId ?? '');
+                      if (id) userMap[id] = (u.name || u.fullName || u.username || '').toLowerCase();
+                    });
+                    const q = reportFilterName.trim().toLowerCase();
+                    const filtered = !q
+                      ? allReportsList
+                      : allReportsList.filter((r) => {
+                          const uid = String(r.userId ?? r.user_id ?? '');
+                          const name = (r.userName ?? r.user_name ?? userMap[uid] ?? '').toLowerCase();
+                          return name.includes(q);
+                        });
                     const byDay = {};
                     filtered.forEach((r) => {
                       const d = (r.date || r.reportDate || '').slice(0, 10);
@@ -2016,13 +2047,13 @@ const App = () => {
                               onChange={(e) => setReportDateFilter(e.target.value)}
                               className="border border-slate-200 rounded-lg px-3 py-2 text-sm"
                             />
-                  <input
-                    type="text"
-                              placeholder="Lọc theo tên..."
-                    value={reportFilterName}
-                    onChange={(e) => setReportFilterName(e.target.value)}
-                              className="max-w-[180px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                  />
+                            <input
+                              type="text"
+                              placeholder="Tìm theo tên nhân sự..."
+                              value={reportFilterName}
+                              onChange={(e) => setReportFilterName(e.target.value)}
+                              className="max-w-[200px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                            />
                             <span className="bg-slate-100 px-4 py-1.5 rounded-full text-sm font-semibold text-slate-700 inline-flex items-center gap-2 border border-slate-200">
                               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                               {dayReports.length} báo cáo / {groupedByPerson.length} nhân sự
