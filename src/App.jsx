@@ -866,23 +866,29 @@ const App = () => {
       });
   }, [currentUser?.id]);
 
-  // Cơ chế khóa: Muốn tiếp nhận công việc mới hôm nay thì phải đã báo cáo tiến độ cho việc tồn đọng của ngày hôm trước
-  const yesterday = useMemo(() => {
+  // Cơ chế khóa: Muốn tiếp nhận công việc mới hôm nay thì phải đã báo cáo tiến độ cho việc tồn đọng của ngày hôm trước.
+  // Nếu hôm qua là cuối tuần (Thứ 7/CN) thì không khóa (không bắt báo cáo).
+  const { yesterday, yesterdayDayOfWeek } = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - 1);
-    return d.toISOString().slice(0, 10);
+    return {
+      yesterday: d.toISOString().slice(0, 10),
+      yesterdayDayOfWeek: d.getDay(), // 0=CN, 6=T7
+    };
   }, []);
   const myAcceptedTaskIds = useMemo(
     () => filteredTasks.filter((t) => t.assigneeId === currentUser?.id && t.status === 'accepted').map((t) => t.id),
     [filteredTasks, currentUser?.id]
   );
   const hasReportedYesterdayForAll = useMemo(() => {
+    // Hôm qua là cuối tuần: không yêu cầu báo cáo, luôn cho phép tiếp nhận việc mới
+    if (yesterdayDayOfWeek === 0 || yesterdayDayOfWeek === 6) return true;
     if (myAcceptedTaskIds.length === 0) return true;
     return myAcceptedTaskIds.every((taskId) => {
       const history = reportHistoryByTask[taskId] || [];
       return history.some((r) => r.date === yesterday);
     });
-  }, [myAcceptedTaskIds, reportHistoryByTask, yesterday]);
+  }, [myAcceptedTaskIds, reportHistoryByTask, yesterday, yesterdayDayOfWeek]);
   const acceptNewLocked = !hasReportedYesterdayForAll;
 
   // Validation form báo cáo
