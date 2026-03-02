@@ -406,7 +406,8 @@ const App = () => {
         const rec = recordByDay[day];
         const rawCode = rec ? String(rec.attendanceCode ?? rec.attendance_code ?? '').trim().toUpperCase() : '';
         const isHalf = rawCode === 'N_HALF' || (rawCode || '').includes('HALF');
-        const isFullLeave = (rawCode.startsWith('N_') && !isHalf) || rawCode === 'CN';
+        const isSaturdayOff = isWeekend && (rawCode.includes('T7') || rawCode.includes('SAT')) && (rawCode.includes('NGHI') || rawCode.includes('OFF') || rawCode.startsWith('N_'));
+        const isFullLeave = (rawCode.startsWith('N_') && !isHalf) || rawCode === 'CN' || !!isSaturdayOff;
         let workDay = 0;
         if (isHalf) {
           workDay = 0.5;
@@ -1257,10 +1258,9 @@ const App = () => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               };
-              const apiRanking = (ranking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
+              // Luôn dùng điểm theo tháng đang chọn (computed) để bảng vinh danh tháng 2 khác tháng 3, mỗi tháng reset.
               const computedSorted = (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
-              const hasApiScores = apiRanking.some((r) => (Number(r.totalScore) ?? 0) > 0);
-              const displayRanking = hasApiScores ? apiRanking : computedSorted;
+              const displayRanking = computedSorted;
               const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
               const totalRanked = displayRanking.length;
               const scoreDisplay = (v) => (v != null && v !== '' ? (Number(v) < 1 && Number(v) > 0 ? (Number(v) * 100).toFixed(1) : String(Number(v))) : '—');
@@ -1272,7 +1272,7 @@ const App = () => {
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm</p>
                       <p className="text-2xl font-black text-slate-900">
-                        {score100(scoringUser?.totalScore)}
+                        {score100(myComputedScore)}
                       </p>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
@@ -1329,8 +1329,8 @@ const App = () => {
                           <tr className="bg-slate-50 font-bold">
                             <td className="py-2 px-3">Tổng cộng</td>
                             <td className="py-2 px-3">100%</td>
-                            <td className="py-2 px-3">{score100(scoringUser?.totalScore)}</td>
-                            <td className="py-2 px-3" />
+                            <td className="py-2 px-3">{score100(myComputedScore)}</td>
+                            <td className="py-2 px-3 text-slate-500 text-xs">Theo tháng đang chọn</td>
                           </tr>
                         </tbody>
                       </table>
