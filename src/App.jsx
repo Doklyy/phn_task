@@ -1388,7 +1388,7 @@ const App = () => {
                   )}
                   <div className="mb-4">
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
-                    <p className="text-slate-500 font-medium mt-1">Bảng Trello: Quá hạn, Nhiệm vụ mới, Đang thực hiện, Đợi duyệt, Hoàn thành, Tạm dừng.</p>
+                    <p className="text-slate-500 font-medium mt-1"></p>
                     </div>
                   <div className="bg-white border border-slate-200 rounded-2xl p-4">
                     {tasksLoading ? (
@@ -1503,7 +1503,7 @@ const App = () => {
                         </button>
                       )}
                     </div>
-                    <p className="text-slate-500 font-medium mt-1">Bảng Trello: Quá hạn, Nhiệm vụ mới, Đang thực hiện, Đợi duyệt, Hoàn thành, Tạm dừng. Bấm thẻ để xem chi tiết.</p>
+                    <p className="text-slate-500 font-medium mt-1">Bấm thẻ để xem chi tiết.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     <button
