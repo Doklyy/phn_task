@@ -1,8 +1,10 @@
 import React from 'react';
-import { ClipboardList, User, CheckCircle2, Clock, TrendingUp } from 'lucide-react';
+import { ClipboardList, User, CheckCircle2, Clock, TrendingUp, AlertCircle } from 'lucide-react';
+
+const OVERDUE_COLUMN = { id: 'overdue', status: null, title: 'Quá hạn', color: 'bg-red-50 border-red-200', headerBg: 'bg-red-100 text-red-900' };
 
 const STATUS_COLUMNS = [
-  { id: 'new', status: 'new', title: 'Tồn đọng', color: 'bg-amber-50 border-amber-200', headerBg: 'bg-amber-100 text-amber-900' },
+  { id: 'new', status: 'new', title: 'Nhiệm vụ mới', color: 'bg-amber-50 border-amber-200', headerBg: 'bg-amber-100 text-amber-900' },
   { id: 'accepted', status: 'accepted', title: 'Đang thực hiện', color: 'bg-emerald-50 border-emerald-200', headerBg: 'bg-emerald-100 text-emerald-900' },
   { id: 'pending_approval', status: 'pending_approval', title: 'Đợi duyệt', color: 'bg-violet-50 border-violet-200', headerBg: 'bg-violet-100 text-violet-900' },
   { id: 'completed', status: 'completed', title: 'Hoàn thành', color: 'bg-slate-50 border-slate-200', headerBg: 'bg-slate-200 text-slate-800' },
@@ -41,34 +43,49 @@ function qualityLabel(quality) {
   return String(q);
 }
 
+function isOverdue(task) {
+  const status = (task?.status || '').toLowerCase();
+  if (status === 'completed' || status === 'pending_approval') return false;
+  const deadline = task?.deadline;
+  if (!deadline) return false;
+  const d = new Date(String(deadline).replace(' ', 'T'));
+  return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
+}
+
 export function TasksTrelloBoard({ tasks = [], onTaskClick, taskIdsWithProgressReport }) {
   const reportedSet = taskIdsWithProgressReport instanceof Set
     ? taskIdsWithProgressReport
     : new Set(Array.isArray(taskIdsWithProgressReport) ? taskIdsWithProgressReport : []);
 
-  const getTasksByStatus = (status) => {
+  const getTasksByStatus = (status, excludeOverdue = false) => {
     const s = (status || '').toLowerCase();
-    return (tasks || []).filter((t) => (t.status || '').toLowerCase() === s);
+    let list = (tasks || []).filter((t) => (t.status || '').toLowerCase() === s);
+    if (excludeOverdue) list = list.filter((t) => !isOverdue(t));
+    return list;
   };
+
+  const overdueTasks = (tasks || []).filter(isOverdue);
 
   const hasReportedProgress = (task) => {
     if (!task?.id) return false;
     return reportedSet.has(String(task.id));
   };
 
+  const allColumns = [OVERDUE_COLUMN, ...STATUS_COLUMNS];
+
   return (
     <div>
       <p className="text-sm text-slate-500 mb-3">Xem nhiệm vụ theo trạng thái (dạng Trello). Bấm vào thẻ để xem chi tiết.</p>
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[400px]">
-      {STATUS_COLUMNS.map((col) => {
-        const columnTasks = getTasksByStatus(col.status);
+      {allColumns.map((col) => {
+        const columnTasks = col.id === 'overdue' ? overdueTasks : getTasksByStatus(col.status, ['new', 'accepted', 'paused'].includes(col.status));
         return (
           <div
             key={col.id}
             className={`flex-shrink-0 w-72 rounded-xl border-2 ${col.color} flex flex-col overflow-hidden`}
           >
             <div className={`px-4 py-3 font-semibold text-sm flex items-center gap-2 ${col.headerBg}`}>
-              <ClipboardList size={18} />
+              {col.id === 'overdue' ? <AlertCircle size={18} /> : <ClipboardList size={18} />}
               <span>{col.title}</span>
               <span className="ml-auto bg-white/80 rounded-full px-2 py-0.5 text-xs">{columnTasks.length}</span>
             </div>
@@ -76,6 +93,7 @@ export function TasksTrelloBoard({ tasks = [], onTaskClick, taskIdsWithProgressR
               {columnTasks.map((task) => {
                 const reported = hasReportedProgress(task);
                 const isNew = (task.status || '').toLowerCase() === 'new';
+                const taskOverdue = isOverdue(task);
                 const description = task.objective || task.content || '';
                 return (
                   <button
@@ -84,12 +102,18 @@ export function TasksTrelloBoard({ tasks = [], onTaskClick, taskIdsWithProgressR
                     onClick={() => onTaskClick && onTaskClick(task.id)}
                     className="w-full text-left bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md hover:border-slate-300 transition-all relative overflow-hidden group"
                   >
-                    {isNew && <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500" />}
+                    {isNew && !taskOverdue && <div className="absolute top-0 left-0 w-1.5 h-full bg-orange-500" />}
+                    {taskOverdue && <div className="absolute top-0 left-0 w-1.5 h-full bg-red-500" />}
                     <div className="flex flex-wrap items-center gap-2 mb-1.5">
                       <p className="font-bold text-slate-900 text-sm line-clamp-2 flex-1 min-w-0 group-hover:text-[#D4384E] transition-colors">
                         {task.title || 'Nhiệm vụ'}
                       </p>
-                      {isNew && (
+                      {taskOverdue && (
+                        <span className="text-[10px] font-black px-2 py-0.5 rounded bg-red-500 text-white uppercase shrink-0">
+                          QUÁ HẠN
+                        </span>
+                      )}
+                      {isNew && !taskOverdue && (
                         <span className="text-[10px] font-black px-2 py-0.5 rounded bg-orange-500 text-white uppercase shrink-0">
                           MỚI
                         </span>

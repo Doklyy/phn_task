@@ -28,6 +28,10 @@ export default function ReportReminderOverlay({ userId, onGoReport, refetchTrigg
   if (loading || !reminder?.missingYesterday) return null;
   if (goneToReport) return null;
 
+  // Chủ nhật không đi làm → không yêu cầu báo cáo. Thứ 7 nghỉ (backend trả missingYesterday: false) cũng không bắt báo cáo.
+  const yesterdayDate = reminder.yesterday ? new Date(String(reminder.yesterday).replace(' ', 'T').slice(0, 10)) : null;
+  if (yesterdayDate && !Number.isNaN(yesterdayDate.getTime()) && yesterdayDate.getDay() === 0) return null;
+
   const missingTasks = Array.isArray(reminder.missingTasks) ? reminder.missingTasks : [];
   const yesterdayStr = reminder.yesterday
     ? new Date(reminder.yesterday).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })

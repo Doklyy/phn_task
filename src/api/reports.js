@@ -65,7 +65,8 @@ export async function getMyReports(filters = {}) {
  * Nhắc báo cáo bù: chưa báo cáo ngày hôm qua thì chặn dùng hệ thống.
  * GET /reports/reminder?userId=...
  * Response: { missingYesterday, yesterday, message, missingTasks: [{ taskId, taskTitle }] }
- * Backend: Nghỉ T7 (không chấm công) = không phải báo cáo. Đi làm T7 (xoay vòng, có chấm công) = nửa ngày, vẫn phải báo cáo. Nghỉ nửa ngày (N_HALF) vẫn phải báo cáo.
+ * Backend nên: Chủ nhật → missingYesterday: false. Thứ 7 nghỉ (mã N_T7 / Nghỉ thứ 7) → missingYesterday: false. Đi làm T7 (trực) = vẫn phải báo cáo. N_HALF vẫn phải báo cáo.
+ * Frontend đã ẩn overlay khi yesterday là Chủ nhật.
  */
 export async function getReportsReminder(userId) {
   if (!isApiConfigured() || !userId) return { missingYesterday: false };

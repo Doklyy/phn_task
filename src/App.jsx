@@ -676,18 +676,37 @@ const App = () => {
 
   const [scoringUser, setScoringUser] = useState(null);
   const [ranking, setRanking] = useState([]);
+
+  // Nhiệm vụ hoàn thành trong tháng được chọn (dashMonth) — dùng cho điểm & xếp hạng theo tháng (mỗi tháng reset).
+  const tasksCompletedInSelectedMonth = useMemo(() => {
+    const [y, m] = dashMonth.split('-').map(Number);
+    if (!y || !m) return [];
+    const firstDay = `${y}-${String(m).padStart(2, '0')}-01`;
+    const lastDay = new Date(y, m, 0).getDate();
+    const lastDayStr = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    return (tasks || []).filter((t) => {
+      if ((t.status || '').toLowerCase() !== 'completed') return false;
+      const completedAt = (t.completedAt || t.completed_at || '').toString().slice(0, 10);
+      return completedAt >= firstDay && completedAt <= lastDayStr;
+    });
+  }, [tasks, dashMonth]);
+
   useEffect(() => {
     if (!currentUser?.id) return;
-    getScoringUser(currentUser.id).then(setScoringUser).catch(() => setScoringUser(null));
-  }, [currentUser?.id, tasks.length]);
+    getScoringUser(currentUser.id, { month: dashMonth })
+      .then(setScoringUser)
+      .catch(() => setScoringUser(null));
+  }, [currentUser?.id, dashMonth, tasks.length]);
   useEffect(() => {
-    getRanking().then((r) => setRanking(Array.isArray(r) ? r : [])).catch(() => setRanking([]));
-  }, [currentUser?.id]);
+    getRanking({ month: dashMonth })
+      .then((r) => setRanking(Array.isArray(r) ? r : []))
+      .catch(() => setRanking([]));
+  }, [currentUser?.id, dashMonth]);
 
-  // Công thức theo file CSV: Điểm W (trọng số), Q (chất lượng đạt), T (hoàn thành đúng hạn); Tổng = W×Q×T. Xếp hạng theo tổng điểm.
+  // Công thức theo file CSV: Điểm W×Q×T. Xếp hạng theo tổng điểm — tính theo tháng (chỉ nhiệm vụ hoàn thành trong tháng đó).
   const computedRanking = useMemo(
-    () => computeRankingFromTasks(tasks, users),
-    [tasks, users]
+    () => computeRankingFromTasks(tasksCompletedInSelectedMonth, users),
+    [tasksCompletedInSelectedMonth, users]
   );
   const myComputedScore = useMemo(() => {
     if (!currentUser?.id) return null;
@@ -1321,7 +1340,6 @@ const App = () => {
 
               const renderTasksInDashboard = () => (
                 <section className="mb-3" id="task-list-section">
-                  {/* Tái sử dụng layout giống tab Nhiệm vụ */}
                   {role === 'admin' && (
                     <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
                       <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt</h3>
@@ -1330,95 +1348,28 @@ const App = () => {
                           ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
                           : 'Chưa có nhiệm vụ nào đợi duyệt.'}
                       </p>
-                        <button
-                          type="button"
-                        onClick={() => setListFilter('pending_approval')}
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab('tasks')}
                         className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                        >
-                        Xem danh sách Đợi duyệt →
-                        </button>
+                      >
+                        Xem bảng Trello (cột Đợi duyệt) →
+                      </button>
                     </div>
                   )}
-                  <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
-                    <div>
-                      <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
-                      <p className="text-slate-500 font-medium">
-                        {listFilter === 'all' && 'Tất cả công việc của bạn.'}
-                        {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}).`}
-                        {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}).`}
-                        {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ.`}
-                        {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
-                        {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
-                      </p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                        onClick={() => setListFilter('all')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'all' ? 'text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                        style={listFilter === 'all' ? { backgroundColor: VIETTEL_RED } : undefined}
-                      >
-                        Tất cả {filteredTasks.length ? `(${filteredTasks.length})` : ''}
-                        </button>
-                      <button
-                        type="button"
-                        onClick={() => setListFilter('overdue')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'overdue' ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Quá hạn {tasksOverdue.length ? `(${tasksOverdue.length})` : ''}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setListFilter('in_progress')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'in_progress' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Đang thực hiện {tasksInProgress.length ? `(${tasksInProgress.length})` : ''}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setListFilter('pending_approval')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'pending_approval' ? 'bg-amber-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Đợi duyệt {tasksPendingApproval.length > 0 ? `(${tasksPendingApproval.length})` : ''}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setListFilter('completed')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'completed' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Hoàn thành {tasksCompleted.length ? `(${tasksCompleted.length})` : ''}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setListFilter('paused')}
-                        className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'paused' ? 'bg-violet-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                      >
-                        Tạm dừng {tasksPaused.length ? `(${tasksPaused.length})` : ''}
-                      </button>
-                    </div>
+                  <div className="mb-4">
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
+                    <p className="text-slate-500 font-medium mt-1">Bảng Trello: Quá hạn, Nhiệm vụ mới, Đang thực hiện, Đợi duyệt, Hoàn thành, Tạm dừng.</p>
                   </div>
-
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="bg-white border border-slate-200 rounded-2xl p-4">
                     {tasksLoading ? (
-                      <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                        Đang tải danh sách nhiệm vụ...
-                      </div>
+                      <div className="py-10 text-center text-slate-500">Đang tải...</div>
                     ) : (
-                      <>
-                        {tasksByFilter.map((task) => (
-                          <TaskListCard
-                            key={task.id}
-                            task={task}
-                            users={users}
-                            onClick={() => setSelectedTaskId(task.id)}
-                          />
-                        ))}
-                        {tasksByFilter.length === 0 && (
-                          <div className="bg-white border border-slate-200 rounded-2xl p-10 text-center text-slate-500">
-                            Không có công việc nào trong nhóm này.
-                    </div>
-                        )}
-                      </>
+                      <TasksTrelloBoard
+                        tasks={filteredTasks}
+                        onTaskClick={(id) => setSelectedTaskId(id)}
+                        taskIdsWithProgressReport={taskIdsWithProgressReport}
+                      />
                     )}
                   </div>
                 </section>
@@ -1523,59 +1474,9 @@ const App = () => {
                         </button>
                       )}
                     </div>
-                    <p className="text-slate-500 font-medium mt-1">
-                      {listFilter === 'all' && 'Tất cả công việc của bạn. Kích vào từng dòng để xem chi tiết và thao tác.'}
-                      {listFilter === 'overdue' && `Công việc quá hạn (${tasksByFilter.length}). Kích vào để xem chi tiết.`}
-                      {listFilter === 'in_progress' && `Đang thực hiện (${tasksByFilter.length}). Kích vào để cập nhật tiến độ.`}
-                      {listFilter === 'pending_approval' && `Đợi duyệt ${tasksByFilter.length} nhiệm vụ. Duyệt hoặc trả về tồn đọng.`}
-                      {listFilter === 'completed' && `Đã hoàn thành (${tasksByFilter.length}).`}
-                      {listFilter === 'paused' && `Tạm dừng (${tasksByFilter.length}).`}
-                    </p>
+                    <p className="text-slate-500 font-medium mt-1">Bảng Trello: Quá hạn, Nhiệm vụ mới, Đang thực hiện, Đợi duyệt, Hoàn thành, Tạm dừng. Bấm thẻ để xem chi tiết.</p>
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
-                    <button
-                      type="button"
-                      onClick={() => setListFilter('all')}
-                      className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'all' ? 'text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                      style={listFilter === 'all' ? { backgroundColor: VIETTEL_RED } : undefined}
-                    >
-                      Tất cả
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListFilter('overdue')}
-                      className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'overdue' ? 'bg-red-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >
-                      Quá hạn
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListFilter('in_progress')}
-                      className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'in_progress' ? 'bg-emerald-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >
-                      Đang thực hiện
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListFilter('pending_approval')}
-                      className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'pending_approval' ? 'bg-amber-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >
-                      Đợi duyệt {tasksPendingApproval.length > 0 ? `(${tasksPendingApproval.length})` : ''}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListFilter('completed')}
-                      className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'completed' ? 'bg-slate-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >
-                      Hoàn thành
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setListFilter('paused')}
-                      className={`px-3 py-2 rounded-xl text-sm font-bold transition-all ${listFilter === 'paused' ? 'bg-violet-600 text-white' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
-                    >
-                      Tạm dừng
-                    </button>
                     <button
                       type="button"
                       onClick={handleExportExcel}
@@ -1618,7 +1519,7 @@ const App = () => {
                     <div className="py-10 text-center text-slate-500">Đang tải...</div>
                   ) : (
                     <TasksTrelloBoard
-                      tasks={tasksByFilter}
+                      tasks={filteredTasks}
                       onTaskClick={(id) => setSelectedTaskId(id)}
                       taskIdsWithProgressReport={taskIdsWithProgressReport}
                     />
@@ -2452,6 +2353,13 @@ const TaskDetailModal = ({
   const [editWeight, setEditWeight] = useState(task.weight != null ? String(task.weight) : '0.5');
   const [editStatus, setEditStatus] = useState((task.status || 'NEW').toUpperCase());
   const [editQuality, setEditQuality] = useState(task.quality != null ? String(task.quality) : '');
+  const yesterdayStr = useMemo(() => {
+    const d = new Date();
+    d.setDate(d.getDate() - 1);
+    return d.toISOString().slice(0, 10);
+  }, []);
+  const [editPausedFrom, setEditPausedFrom] = useState(yesterdayStr);
+  const [editPausedTo, setEditPausedTo] = useState(`${new Date().getFullYear()}-03-15`);
 
   const formatDeadline = (v) => {
     if (!v) return '—';
@@ -2894,6 +2802,10 @@ const TaskDetailModal = ({
                     setEditWeight(task.weight != null ? String(task.weight) : '0.5');
                     setEditStatus((task.status || 'NEW').toUpperCase());
                     setEditQuality(task.quality != null ? String(task.quality) : '');
+                    const d = new Date();
+                    d.setDate(d.getDate() - 1);
+                    setEditPausedFrom(d.toISOString().slice(0, 10));
+                    setEditPausedTo(`${new Date().getFullYear()}-03-15`);
                     setEditError('');
                     setEditOpen(true);
                   }}
@@ -2945,6 +2857,21 @@ const TaskDetailModal = ({
                       </select>
                     </div>
                   </div>
+                  {editStatus === 'PAUSED' && (
+                    <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tạm dừng từ ngày</label>
+                          <input type="date" value={editPausedFrom} onChange={(e) => setEditPausedFrom(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tạm dừng đến ngày</label>
+                          <input type="date" value={editPausedTo} onChange={(e) => setEditPausedTo(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        </div>
+                      </div>
+                      <p className="text-xs text-slate-500">Khoảng thời gian sẽ được ghi vào Mục tiêu. Nếu lưu bị lỗi <em>tasks_status_check</em>, cần chạy script PostgreSQL (xem backend/scripts/add_tasks_status_paused_postgres.sql).</p>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chất lượng (0–1, tùy chọn)</label>
                     <input type="number" step="0.01" min="0" max="1" value={editQuality} onChange={(e) => setEditQuality(e.target.value)} placeholder="Để trống nếu chưa đánh giá" className="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
@@ -2956,10 +2883,21 @@ const TaskDetailModal = ({
                       onClick={() => {
                         setEditError('');
                         setEditSaving(true);
+                        let objective = editObjective.trim();
+                        if (editStatus === 'PAUSED' && editPausedFrom && editPausedTo) {
+                          const fmt = (ymd) => {
+                            if (!ymd) return '';
+                            const [y, m, d] = ymd.split('-');
+                            return `${d}/${m}/${y}`;
+                          };
+                          const line = `Tạm dừng từ ${fmt(editPausedFrom)} đến ${fmt(editPausedTo)}.`;
+                          objective = objective.replace(/\n?Tạm dừng từ \d{1,2}\/\d{1,2}\/\d{4} đến \d{1,2}\/\d{1,2}\/\d{4}\.?/g, '').trim();
+                          objective = objective ? `${objective}\n${line}` : line;
+                        }
                         const payload = {
                           title: editTitle.trim() || undefined,
                           content: editContent.trim() || undefined,
-                          objective: editObjective.trim() || undefined,
+                          objective: objective || undefined,
                           deadline: editDeadline ? `${editDeadline}:00` : undefined,
                           weight: editWeight !== '' ? Number(editWeight) : undefined,
                           status: editStatus || undefined,
