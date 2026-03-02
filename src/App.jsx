@@ -198,6 +198,7 @@ const App = () => {
   const [allReportsList, setAllReportsList] = useState([]);
   const [allReportsLoading, setAllReportsLoading] = useState(false);
   const [reportFilterName, setReportFilterName] = useState('');
+  const [reportFilterUserId, setReportFilterUserId] = useState(''); // Lọc báo cáo theo 1 nhân viên (dropdown)
   const [reportDateFilter, setReportDateFilter] = useState(''); // Ngày xem báo cáo (YYYY-MM-DD)
   const [reportsSubTab, setReportsSubTab] = useState('today');
   const [myReportsList, setMyReportsList] = useState([]);
@@ -387,6 +388,8 @@ const App = () => {
       if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = new Set();
       reportsByUserAndDay[uid][day].add(taskId);
     });
+    const staffNameLower = (name) => (name || '').toLowerCase();
+    const isNghiT7ByName = (name) => ['phụ nam', 'minh trang', 'thủy dương'].some((part) => staffNameLower(name).includes(part));
     return (staffList || []).map((s) => {
       const sid = String(s.id ?? s.userId);
       const records = adminAttendanceMap[sid] || [];
@@ -399,15 +402,19 @@ const App = () => {
         recordByDay[day] = r;
       });
       const tasksForUser = (tasks || []).filter((t) => String(t.assigneeId) === sid);
+      const staffDisplayName = s.name || s.fullName || s.username || '';
       const days = {};
       for (let day = 1; day <= lastDay; day += 1) {
         const dateObj = new Date(y, m - 1, day);
         const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
+        const isSaturday = dateObj.getDay() === 6;
         const rec = recordByDay[day];
         const rawCode = rec ? String(rec.attendanceCode ?? rec.attendance_code ?? '').trim().toUpperCase() : '';
         const isHalf = rawCode === 'N_HALF' || (rawCode || '').includes('HALF');
         // Nghỉ T7 (N_T7, NGHI_T7, SAT_OFF): không cần báo cáo, không tính công — hiển thị N
-        const isSaturdayOff = isWeekend && (rawCode.includes('T7') || rawCode.includes('SAT')) && (rawCode.includes('NGHI') || rawCode.includes('OFF') || rawCode.startsWith('N_'));
+        const isSaturdayOffByCode = isWeekend && (rawCode.includes('T7') || rawCode.includes('SAT')) && (rawCode.includes('NGHI') || rawCode.includes('OFF') || rawCode.startsWith('N_'));
+        const isSaturdayOffByName = isSaturday && isNghiT7ByName(staffDisplayName);
+        const isSaturdayOff = isSaturdayOffByCode || isSaturdayOffByName;
         const isFullLeave = (rawCode.startsWith('N_') && !isHalf) || rawCode === 'CN' || !!isSaturdayOff;
         let workDay = 0;
         if (isHalf) {
@@ -680,17 +687,23 @@ const App = () => {
   const [scoringUser, setScoringUser] = useState(null);
   const [ranking, setRanking] = useState([]);
 
-  // Nhiệm vụ hoàn thành trong tháng được chọn (dashMonth) — dùng cho điểm & xếp hạng theo tháng (mỗi tháng reset).
+  // Nhiệm vụ hoàn thành trong tháng được chọn — dùng cho điểm & xếp hạng theo tháng (mỗi tháng reset).
+  // Ưu tiên completedAt; nếu không có thì dùng submittedAt hoặc deadline để tránh mất điểm khi BE chưa trả completedAt.
   const tasksCompletedInSelectedMonth = useMemo(() => {
     const [y, m] = dashMonth.split('-').map(Number);
     if (!y || !m) return [];
     const firstDay = `${y}-${String(m).padStart(2, '0')}-01`;
     const lastDay = new Date(y, m, 0).getDate();
     const lastDayStr = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+    const inMonth = (dateStr) => dateStr && dateStr >= firstDay && dateStr <= lastDayStr;
     return (tasks || []).filter((t) => {
       if ((t.status || '').toLowerCase() !== 'completed') return false;
       const completedAt = (t.completedAt || t.completed_at || '').toString().slice(0, 10);
-      return completedAt >= firstDay && completedAt <= lastDayStr;
+      if (inMonth(completedAt)) return true;
+      const submittedAt = (t.submittedAt || t.submitted_at || '').toString().slice(0, 10);
+      if (inMonth(submittedAt)) return true;
+      const deadline = (t.deadline || '').toString().slice(0, 10);
+      return inMonth(deadline);
     });
   }, [tasks, dashMonth]);
 
@@ -1270,9 +1283,13 @@ const App = () => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               };
-              // Luôn dùng điểm theo tháng đang chọn (computed) để bảng vinh danh tháng 2 khác tháng 3, mỗi tháng reset.
+              const apiRanking = (ranking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
               const computedSorted = (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
-              const displayRanking = computedSorted;
+              // Backend trả điểm theo tháng (month=...) → dùng API cho tháng đó (vd. Tháng 2 có điểm). Tháng mới (vd. Tháng 3) API trả rỗng → dùng computed (0 điểm).
+              const hasApiScoresForMonth = apiRanking.some((r) => (Number(r.totalScore) ?? 0) > 0);
+              const useApiForDisplay = hasApiScoresForMonth;
+              const displayRanking = useApiForDisplay ? apiRanking : computedSorted;
+              const myScoreForDisplay = useApiForDisplay ? (scoringUser?.totalScore ?? 0) : (myComputedScore ?? 0);
               const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
               const totalRanked = displayRanking.length;
               const scoreDisplay = (v) => (v != null && v !== '' ? (Number(v) < 1 && Number(v) > 0 ? (Number(v) * 100).toFixed(1) : String(Number(v))) : '—');
@@ -1284,7 +1301,7 @@ const App = () => {
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm</p>
                       <p className="text-2xl font-black text-slate-900">
-                        {score100(myComputedScore)}
+                        {score100(myScoreForDisplay)}
                       </p>
                       </div>
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
@@ -1341,7 +1358,7 @@ const App = () => {
                           <tr className="bg-slate-50 font-bold">
                             <td className="py-2 px-3">Tổng cộng</td>
                             <td className="py-2 px-3">100%</td>
-                            <td className="py-2 px-3">{score100(myComputedScore)}</td>
+                            <td className="py-2 px-3">{score100(myScoreForDisplay)}</td>
                             <td className="py-2 px-3 text-slate-500 text-xs">Theo tháng đang chọn</td>
                           </tr>
                         </tbody>
@@ -1503,33 +1520,38 @@ const App = () => {
                       <Filter size={18} /> Lọc tháng
                     </button>
                     {(role === 'admin' || role === 'leader') && (
-                      <>
-                        <input
-                          type="text"
-                          placeholder="Tìm theo tên nhân sự..."
-                          value={taskAssigneeNameFilter}
-                          onChange={(e) => setTaskAssigneeNameFilter(e.target.value)}
-                          className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 min-w-[180px] max-w-[220px]"
-                        />
-                        <select
-                          value={taskAssigneeFilter}
-                          onChange={(e) => setTaskAssigneeFilter(e.target.value)}
-                          className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 font-medium min-w-[140px]"
-                        >
-                          <option value="all">Tất cả nhân sự</option>
-                          {(users || [])
-                            .filter((u) => (u.id ?? u.userId) != null)
-                            .map((u) => {
-                              const id = String(u.id ?? u.userId);
-                              const name = u.name || u.fullName || u.username || id;
-                              return (
-                                <option key={id} value={id}>
-                                  {name}
-                                </option>
-                              );
-                            })}
-                        </select>
-                      </>
+                      <div className="flex flex-col gap-1">
+                        <span className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên</span>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <input
+                            type="text"
+                            placeholder="Gõ tên nhân viên..."
+                            value={taskAssigneeNameFilter}
+                            onChange={(e) => setTaskAssigneeNameFilter(e.target.value)}
+                            className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 min-w-[180px] max-w-[220px]"
+                            title="Lọc nhiệm vụ theo tên người thực hiện"
+                          />
+                          <select
+                            value={taskAssigneeFilter}
+                            onChange={(e) => setTaskAssigneeFilter(e.target.value)}
+                            className="px-3 py-2 rounded-xl text-sm border border-slate-200 bg-white text-slate-700 font-medium min-w-[160px]"
+                            title="Chọn 1 nhân viên"
+                          >
+                            <option value="all">Tất cả nhân sự</option>
+                            {(users || [])
+                              .filter((u) => (u.id ?? u.userId) != null)
+                              .map((u) => {
+                                const id = String(u.id ?? u.userId);
+                                const name = u.name || u.fullName || u.username || id;
+                                return (
+                                  <option key={id} value={id}>
+                                    {name}
+                                  </option>
+                                );
+                              })}
+                            </select>
+                          </div>
+                        </div>
                     )}
                   </div>
                 </div>
@@ -2001,13 +2023,17 @@ const App = () => {
                       if (id) userMap[id] = (u.name || u.fullName || u.username || '').toLowerCase();
                     });
                     const q = reportFilterName.trim().toLowerCase();
-                    const filtered = !q
-                      ? allReportsList
-                      : allReportsList.filter((r) => {
-                          const uid = String(r.userId ?? r.user_id ?? '');
-                          const name = (r.userName ?? r.user_name ?? userMap[uid] ?? '').toLowerCase();
-                          return name.includes(q);
-                        });
+                    let filtered = allReportsList;
+                    if (reportFilterUserId) {
+                      filtered = filtered.filter((r) => String(r.userId ?? r.user_id) === String(reportFilterUserId));
+                    }
+                    if (q) {
+                      filtered = filtered.filter((r) => {
+                        const uid = String(r.userId ?? r.user_id ?? '');
+                        const name = (r.userName ?? r.user_name ?? userMap[uid] ?? '').toLowerCase();
+                        return name.includes(q);
+                      });
+                    }
                     const byDay = {};
                     filtered.forEach((r) => {
                       const d = (r.date || r.reportDate || '').slice(0, 10);
@@ -2047,13 +2073,31 @@ const App = () => {
                               onChange={(e) => setReportDateFilter(e.target.value)}
                               className="border border-slate-200 rounded-lg px-3 py-2 text-sm"
                             />
-                            <input
-                              type="text"
-                              placeholder="Tìm theo tên nhân sự..."
-                              value={reportFilterName}
-                              onChange={(e) => setReportFilterName(e.target.value)}
-                              className="max-w-[200px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
-                            />
+                            <div className="flex flex-col gap-1">
+                              <label className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên</label>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                  type="text"
+                                  placeholder="Gõ tên..."
+                                  value={reportFilterName}
+                                  onChange={(e) => { setReportFilterName(e.target.value); setReportFilterUserId(''); }}
+                                  className="w-[140px] border border-slate-200 rounded-lg px-3 py-2 text-sm"
+                                />
+                                <select
+                                  value={reportFilterUserId}
+                                  onChange={(e) => { setReportFilterUserId(e.target.value); setReportFilterName(''); }}
+                                  className="border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white min-w-[160px]"
+                                  title="Chọn 1 nhân viên"
+                                >
+                                  <option value="">Tất cả nhân viên</option>
+                                  {(users || []).filter((u) => (u.id ?? u.userId) != null).map((u) => {
+                                    const id = String(u.id ?? u.userId);
+                                    const name = u.name || u.fullName || u.username || id;
+                                    return <option key={id} value={id}>{name}</option>;
+                                  })}
+                                </select>
+                              </div>
+                            </div>
                             <span className="bg-slate-100 px-4 py-1.5 rounded-full text-sm font-semibold text-slate-700 inline-flex items-center gap-2 border border-slate-200">
                               <span className="w-2 h-2 rounded-full bg-blue-500 animate-pulse" />
                               {dayReports.length} báo cáo / {groupedByPerson.length} nhân sự
