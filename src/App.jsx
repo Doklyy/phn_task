@@ -771,27 +771,6 @@ const App = () => {
     return r ? r.totalScore : 0;
   }, [computedRanking, currentUser?.id]);
 
-  // Điểm đánh giá W×Q (không nhân T) theo tháng — để hiển thị khi tổng W×Q×T = 0 nhưng có task đã được chấm
-  const myEvalScoreWQ = useMemo(() => {
-    if (!currentUser?.id) return 0;
-    const [y, m] = dashMonth.split('-').map(Number);
-    if (!y || !m) return 0;
-    const firstDay = `${y}-${String(m).padStart(2, '0')}-01`;
-    const lastDay = new Date(y, m, 0).getDate();
-    const lastDayStr = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-    const inMonth = (dateStr) => {
-      const norm = toYYYYMMDD(dateStr);
-      return norm && norm >= firstDay && norm <= lastDayStr;
-    };
-    return (tasks || [])
-      .filter((t) => String(t.assigneeId ?? t.assignee_id) === String(currentUser.id) && (t.weight != null || t.quality != null))
-      .filter((t) => inMonth(t.completedAt || t.completed_at || '') || inMonth(t.submittedAt || t.submitted_at || '') || inMonth(t.deadline || ''))
-      .reduce((sum, t) => {
-        const { w, q } = taskScoreBreakdown(t);
-        return sum + w * q;
-      }, 0);
-  }, [currentUser?.id, dashMonth, tasks]);
-
   const openUserReports = useCallback(async (user) => {
     if (!user?.id && !user?.userId) return;
     const uid = user.id ?? user.userId;
@@ -1347,8 +1326,7 @@ const App = () => {
           <div className="max-w-5xl mx-auto pb-4">
             {/* Bảng điều khiển với 3 tab nội bộ: Điểm & Xếp hạng / Theo dõi Nhiệm vụ / Chuyên cần */}
             {activeTab === 'dash' && (() => {
-              // Điểm tổng (W×Q×T) là số điểm tuyệt đối, KHÔNG phải % → chỉ cần format số, không nhân 100.
-              const score100 = (v) => (v != null ? Number(v).toFixed(1) : '—');
+              const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
               const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
               const filterName = (r) => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
@@ -1357,15 +1335,8 @@ const App = () => {
               // Điểm theo tháng: thuật toán W×Q×T (đã áp dụng trong computeRankingFromTasks + taskScore).
               const scoreByUserId = {};
               (computedRanking || []).forEach((r) => { scoreByUserId[String(r.userId)] = Number(r.totalScore) || 0; });
-              // TẤT CẢ thành viên phòng: gộp fetchUsers + fetchPersonnel + assignees từ tasks để tối đa số người (backend nên trả full phòng từ GET /api/users).
-              const byId = {};
-              [...(allUsersForRanking || []), ...(users || [])].forEach((u) => {
-                const sid = String(u.id ?? u.userId ?? '');
-                if (!sid) return;
-                if (!byId[sid]) byId[sid] = { ...u, _sid: sid };
-                else byId[sid] = { ...byId[sid], name: u.name ?? u.fullName ?? u.username ?? byId[sid].name, fullName: u.fullName ?? byId[sid].fullName, username: u.username ?? byId[sid].username };
-              });
-              const baseList = Object.values(byId);
+              // TẤT CẢ thành viên phòng: ưu tiên allUsersForRanking (fetchUsers — trả full phòng cho mọi role), fallback users + assignees từ tasks.
+              const baseList = (allUsersForRanking && allUsersForRanking.length > 0) ? allUsersForRanking : (users || []);
               const assigneeMap = {};
               (tasks || []).forEach((t) => {
                 const id = t.assigneeId ?? t.assignee_id;
@@ -1374,7 +1345,7 @@ const App = () => {
                 if (!assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: t.assigneeName ?? t.assignee_name ?? sid };
               });
               (baseList || []).forEach((u) => {
-                const sid = String(u.id ?? u.userId ?? u._sid ?? '');
+                const sid = String(u.id ?? u.userId ?? '');
                 if (!sid) return;
                 if (!assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: u.name ?? u.fullName ?? u.username ?? sid };
                 else assigneeMap[sid].name = u.name ?? u.fullName ?? u.username ?? assigneeMap[sid].name;
@@ -1403,9 +1374,6 @@ const App = () => {
                       <p className="text-2xl font-black text-slate-900">
                         {score100(myScoreForDisplay)}
                       </p>
-                      {Number(myScoreForDisplay) === 0 && Number(myEvalScoreWQ) > 0 && (
-                        <p className="text-xs text-slate-500 mt-1" title="Điểm đánh giá W×Q (chưa nhân T). Điểm chính thức = W×Q×T khi hoàn thành đúng hạn.">Đánh giá (W×Q): {myEvalScoreWQ}</p>
-                      )}
                       </div>
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng</p>
@@ -1416,9 +1384,6 @@ const App = () => {
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 md:col-span-1">
                         <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
                         <p className="text-[10px] text-slate-500 mb-2">Top 3 điểm cao nhất — kéo xuống xem toàn bộ phòng</p>
-                        {displayRanking.length <= 1 && (
-                          <p className="text-[10px] text-amber-600 mb-1">Để thấy cả phòng: backend trả đầy đủ danh sách từ GET /api/users cho mọi role.</p>
-                        )}
                         <div className="relative">
                           <div className="space-y-1 max-h-[8.5rem] overflow-y-auto overflow-x-hidden pr-2 scroll-smooth scrollbar-thin" style={{ scrollbarWidth: 'thin' }}>
                             {displayRanking.map((r, idx) => (
@@ -1465,7 +1430,7 @@ const App = () => {
                             <td className="py-2 px-3">Tổng cộng</td>
                             <td className="py-2 px-3">100%</td>
                             <td className="py-2 px-3">{score100(myScoreForDisplay)}</td>
-                            <td className="py-2 px-3 text-slate-500 text-xs">Theo tháng đang chọn</td>
+                            <td className="py-2 px-3 text-slate-500 text-xs"></td>
                           </tr>
                         </tbody>
                       </table>
@@ -1481,8 +1446,8 @@ const App = () => {
                             <tr className="border-b border-slate-200">
                               <th className="text-left py-2 px-3 font-semibold text-slate-700 w-12">STT</th>
                               <th className="text-left py-2 px-3 font-semibold text-slate-700">Tên</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chuyên cần (40%)</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chất lượng (60%)</th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chuyên cần </th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chất lượng</th>
                               <th className="text-left py-2 px-3 font-semibold text-slate-700">Tổng điểm</th>
                             </tr>
                           </thead>
@@ -1518,8 +1483,8 @@ const App = () => {
                       return (
                         <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
                           <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                            <h3 className="text-sm font-bold text-slate-800">Đánh giá admin theo nhiệm vụ</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">Tên CV · Người thực hiện · Hạn · Đánh giá CH · Trọng số · Chất lượng · Trạng thái · Điểm</p>
+                            <h3 className="text-sm font-bold text-slate-800">Đánh giá của chỉ huy theo nhiệm vụ</h3>
+                            <p className="text-xs text-slate-500 mt-0.5"></p>
                           </div>
                           <div className="overflow-x-auto max-h-[24rem] overflow-y-auto">
                             <table className="w-full text-sm">
@@ -1537,8 +1502,7 @@ const App = () => {
                               </thead>
                               <tbody>
                                 {tasksWithEval.map((t) => {
-                                  const u = baseList.find((x) => String(x.id ?? x.userId ?? x._sid) === String(t.assigneeId));
-                                  const assigneeName = u?.name ?? u?.fullName ?? u?.username ?? t.assigneeName ?? '—';
+                                  const assigneeName = (users || []).find((u) => String(u.id ?? u.userId) === String(t.assigneeId))?.name ?? (users || []).find((u) => String(u.id ?? u.userId) === String(t.assigneeId))?.fullName ?? t.assigneeName ?? '—';
                                   return (
                                     <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50/50">
                                       <td className="py-2 px-3 text-slate-800 max-w-[200px] truncate" title={t.title}>{t.title || '—'}</td>
@@ -1551,9 +1515,7 @@ const App = () => {
                                       <td className="py-2 px-3 font-semibold text-slate-900">
                                         {t.quality != null || t.weight != null ? (() => {
                                           const { w, q, t: tVal, score } = taskScoreBreakdown(t);
-                                          const evalScore = w * q;
-                                          if (score === 0 && evalScore > 0) return <span title={`Điểm chính thức W×Q×T = 0 (T=0: chưa hoàn thành đúng hạn). Điểm đánh giá W×Q = ${evalScore}`}>{evalScore} <span className="text-slate-500 font-normal text-xs">(W×Q, T=0)</span></span>;
-                                          if (score > 0) return <span title={`W×Q×T = ${score}`}>{score}</span>;
+                                          if (score === 0 && (w > 0 || q > 0)) return <span title={`W=${w} × Q=${q} × T=${tVal} = 0 (T=0: chưa hoàn thành đúng hạn)`}>{score} <span className="text-slate-400 font-normal text-xs"></span></span>;
                                           return score;
                                         })() : '—'}
                                       </td>
@@ -2698,7 +2660,7 @@ const TaskDetailModal = ({
             </div>
             {(task.leaderComment != null && task.leaderComment !== '') || task.weight != null || task.quality != null ? (
               <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Đánh giá của admin / chỉ huy</h4>
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Đánh giá của chỉ huy</h4>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
                   <div><dt className="text-slate-500">Đánh giá của chỉ huy</dt><dd className="text-slate-800 mt-0.5">{task.leaderComment || '—'}</dd></div>
                   <div><dt className="text-slate-500">Trọng số CV</dt><dd className="text-slate-800 mt-0.5">{weightLabel(task.weight)}</dd></div>
