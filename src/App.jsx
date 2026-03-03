@@ -29,7 +29,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import { fetchTasksForCurrentUser, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
 import { getScoringUser, getRanking } from './api/scoring.js';
-import { computeRankingFromTasks } from './utils/scoringFormula.js';
+import { computeRankingFromTasks, taskScore, isCompletedOnTime } from './utils/scoringFormula.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
 import { uploadFile, getUploadedFileUrl, downloadAttachment } from './api/client.js';
@@ -52,6 +52,25 @@ const USERS_DB = [
 // Màu đỏ Viettel dịu mắt (không đỏ gắt)
 const VIETTEL_RED = '#D4384E';
 const CHART_COLORS = { new: '#f97316', accepted: '#22c55e', overdue: VIETTEL_RED, completed: '#64748b', paused: '#8b5cf6' };
+
+/** Chuẩn hóa chuỗi ngày từ BE (YYYY-MM-DD hoặc DD/MM/YYYY hoặc có time) thành YYYY-MM-DD để so sánh theo tháng. */
+function toYYYYMMDD(dateStr) {
+  if (!dateStr) return '';
+  const s = String(dateStr).trim();
+  const iso = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (iso) return iso[0];
+  const dmy = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (dmy) {
+    const [, dd, mm, yyyy] = dmy;
+    return `${yyyy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`;
+  }
+  const d = new Date(s.replace(' ', 'T'));
+  if (!Number.isNaN(d.getTime())) {
+    const y = d.getFullYear(), m = d.getMonth() + 1, day = d.getDate();
+    return `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
+  return '';
+}
 
 // Kiểm tra task có thuộc kỳ (tháng/quý/năm) không (theo deadline hoặc completedAt)
 const taskInPeriod = (task, periodType, periodValue) => {
@@ -147,6 +166,18 @@ const qualityLabel = (quality) => {
   // Chỉ hiển thị chữ (không Q1–Q5)
   return best.label;
 };
+
+/** Trạng thái CV theo đánh giá admin (CSV): Hoàn thành đúng hạn / Không hoàn thành / Chưa đến hạn / Đang thực hiện. */
+function statusCVLabel(task) {
+  if (!task) return '—';
+  const s = (task.status || '').toLowerCase();
+  if (s === 'completed') return isCompletedOnTime(task) ? 'Hoàn thành đúng hạn' : 'Hoàn thành';
+  if (s === 'pending_approval') return 'Đợi duyệt';
+  if (s === 'accepted') return 'Đang thực hiện';
+  if (s === 'paused') return 'Tạm dừng';
+  if (s === 'new') return 'Chưa đến hạn';
+  return '—';
+}
 
 const getInitials = (name) => {
   if (!name || typeof name !== 'string') return '—';
@@ -683,21 +714,24 @@ const App = () => {
   const [ranking, setRanking] = useState([]);
 
   // Nhiệm vụ hoàn thành trong tháng được chọn — dùng cho điểm & xếp hạng theo tháng (mỗi tháng reset).
-  // Ưu tiên completedAt; nếu không có thì dùng submittedAt hoặc deadline để tránh mất điểm khi BE chưa trả completedAt.
+  // Chuẩn hóa ngày từ BE (có thể DD/MM/YYYY hoặc YYYY-MM-DD) bằng toYYYYMMDD để tháng 2/3 hiển thị đúng.
   const tasksCompletedInSelectedMonth = useMemo(() => {
     const [y, m] = dashMonth.split('-').map(Number);
     if (!y || !m) return [];
     const firstDay = `${y}-${String(m).padStart(2, '0')}-01`;
     const lastDay = new Date(y, m, 0).getDate();
     const lastDayStr = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
-    const inMonth = (dateStr) => dateStr && dateStr >= firstDay && dateStr <= lastDayStr;
+    const inMonth = (dateStr) => {
+      const norm = toYYYYMMDD(dateStr);
+      return norm && norm >= firstDay && norm <= lastDayStr;
+    };
     return (tasks || []).filter((t) => {
       if ((t.status || '').toLowerCase() !== 'completed') return false;
-      const completedAt = (t.completedAt || t.completed_at || '').toString().slice(0, 10);
+      const completedAt = t.completedAt || t.completed_at || '';
       if (inMonth(completedAt)) return true;
-      const submittedAt = (t.submittedAt || t.submitted_at || '').toString().slice(0, 10);
+      const submittedAt = t.submittedAt || t.submitted_at || '';
       if (inMonth(submittedAt)) return true;
-      const deadline = (t.deadline || '').toString().slice(0, 10);
+      const deadline = t.deadline || '';
       return inMonth(deadline);
     });
   }, [tasks, dashMonth]);
@@ -1286,10 +1320,23 @@ const App = () => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               };
-              // Xếp hạng theo THÁNG: luôn tính từ danh sách nhiệm vụ hoàn thành trong tháng đang chọn,
-              // tránh trường hợp API trả tổng điểm cả năm làm cho việc đổi tháng không thay đổi kết quả.
-              const computedSorted = (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
-              const displayRanking = computedSorted;
+              // Xếp hạng theo THÁNG: luôn tính từ nhiệm vụ hoàn thành trong tháng đang chọn.
+              // Hiển thị TẤT CẢ nhân viên (từ users): có điểm thì hiện điểm, không thì 0 — Tháng 3 mới sẽ thấy toàn bộ với 0.
+              const scoreByUserId = {};
+              (computedRanking || []).forEach((r) => { scoreByUserId[String(r.userId)] = Number(r.totalScore) || 0; });
+              const allStaffForRanking = (users || []).filter((u) => {
+                const name = String(u?.name ?? u?.fullName ?? u?.username ?? '').toLowerCase();
+                return name && filterName({ name, userName: name });
+              });
+              const displayRanking = allStaffForRanking.length > 0
+                ? allStaffForRanking
+                    .map((u) => ({
+                      userId: u.id ?? u.userId,
+                      name: u.name ?? u.fullName ?? u.username ?? '—',
+                      totalScore: scoreByUserId[String(u.id ?? u.userId)] ?? 0,
+                    }))
+                    .sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0))
+                : (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
               const myScoreForDisplay = myComputedScore ?? 0;
               const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
               const totalRanked = displayRanking.length;
@@ -1399,6 +1446,59 @@ const App = () => {
                         </table>
                       </div>
                     </div>
+                    {/* Đánh giá admin theo từng nhiệm vụ — dễ nhìn, dễ tra cứu */}
+                    {(() => {
+                      const tasksWithEval = (tasks || []).filter((t) =>
+                        (t.leaderComment != null && t.leaderComment !== '') || t.weight != null || t.quality != null
+                      );
+                      const formatDateShort = (v) => {
+                        if (!v) return '—';
+                        const d = new Date(String(v).replace(' ', 'T'));
+                        return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                      };
+                      if (tasksWithEval.length === 0) return null;
+                      return (
+                        <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
+                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                            <h3 className="text-sm font-bold text-slate-800">Đánh giá admin theo nhiệm vụ</h3>
+                            <p className="text-xs text-slate-500 mt-0.5">Tên CV · Người thực hiện · Hạn · Đánh giá CH · Trọng số · Chất lượng · Trạng thái · Điểm</p>
+                          </div>
+                          <div className="overflow-x-auto max-h-[24rem] overflow-y-auto">
+                            <table className="w-full text-sm">
+                              <thead className="bg-slate-50 sticky top-0">
+                                <tr className="border-b border-slate-200">
+                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Tên công việc</th>
+                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Người thực hiện</th>
+                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Hạn</th>
+                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Đánh giá chỉ huy</th>
+                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Trọng số</th>
+                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Chất lượng</th>
+                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Trạng thái</th>
+                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {tasksWithEval.map((t) => {
+                                  const assigneeName = (users || []).find((u) => String(u.id ?? u.userId) === String(t.assigneeId))?.name ?? (users || []).find((u) => String(u.id ?? u.userId) === String(t.assigneeId))?.fullName ?? t.assigneeName ?? '—';
+                                  return (
+                                    <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50/50">
+                                      <td className="py-2 px-3 text-slate-800 max-w-[200px] truncate" title={t.title}>{t.title || '—'}</td>
+                                      <td className="py-2 px-3 text-slate-700">{assigneeName}</td>
+                                      <td className="py-2 px-3 text-slate-600">{formatDateShort(t.deadline)}</td>
+                                      <td className="py-2 px-3 text-slate-600 max-w-[140px] truncate" title={t.leaderComment}>{t.leaderComment || '—'}</td>
+                                      <td className="py-2 px-3">{weightLabel(t.weight)}</td>
+                                      <td className="py-2 px-3">{qualityLabel(t.quality)}</td>
+                                      <td className="py-2 px-3">{statusCVLabel(t)}</td>
+                                      <td className="py-2 px-3 font-semibold text-slate-900">{t.quality != null || t.weight != null ? taskScore(t) : '—'}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </section>
               );
 
@@ -2529,6 +2629,18 @@ const TaskDetailModal = ({
                 </span>
               )}
             </div>
+            {(task.leaderComment != null && task.leaderComment !== '') || task.weight != null || task.quality != null ? (
+              <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Đánh giá của admin / chỉ huy</h4>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  <div><dt className="text-slate-500">Đánh giá của chỉ huy</dt><dd className="text-slate-800 mt-0.5">{task.leaderComment || '—'}</dd></div>
+                  <div><dt className="text-slate-500">Trọng số CV</dt><dd className="text-slate-800 mt-0.5">{weightLabel(task.weight)}</dd></div>
+                  <div><dt className="text-slate-500">Chất lượng CV</dt><dd className="text-slate-800 mt-0.5">{qualityLabel(task.quality)}</dd></div>
+                  <div><dt className="text-slate-500">Trạng thái CV</dt><dd className="text-slate-800 mt-0.5">{statusCVLabel(task)}</dd></div>
+                  <div className="sm:col-span-2"><dt className="text-slate-500">Tổng điểm nhiệm vụ</dt><dd className="text-slate-900 font-bold mt-0.5">{task.quality != null || task.weight != null ? taskScore(task) : '—'}</dd></div>
+                </dl>
+              </div>
+            ) : null}
           </div>
           <div>
             <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Mục tiêu</h4>
@@ -3428,6 +3540,8 @@ const TaskListCard = ({ task, users, onClick }) => {
         <TaskMetric label="Hạn chót" value={task.deadline} icon={<Clock size={14} />} />
         <TaskMetric label="Trọng số CV" value={weightLabel(task.weight)} icon={<TrendingUp size={14} />} color="blue" />
         <TaskMetric label="Chất lượng CV" value={qualityText} icon={<CheckCircle2 size={14} />} color="orange" />
+        <TaskMetric label="Trạng thái CV" value={statusCVLabel(task)} icon={<ClipboardList size={14} />} />
+        <TaskMetric label="Tổng điểm NV" value={task.quality != null || task.weight != null ? String(taskScore(task)) : '—'} icon={<Star size={14} />} color="blue" />
         <span className="text-slate-400 text-xs ml-auto">Xem chi tiết →</span>
       </div>
       {task.leaderComment && (
