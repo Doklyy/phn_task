@@ -29,7 +29,7 @@ import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
 import { fetchTasksForCurrentUser, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
 import { getScoringUser, getRanking } from './api/scoring.js';
-import { computeRankingFromTasks, taskScore, isCompletedOnTime } from './utils/scoringFormula.js';
+import { computeRankingFromTasks, taskScore, taskScoreBreakdown, isCompletedOnTime } from './utils/scoringFormula.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
 import { fetchUsers, fetchPersonnel, updateUserRole, updateAttendancePermission, deleteUser, createUser, updateUserTeam } from './api/users.js';
 import { uploadFile, getUploadedFileUrl, downloadAttachment } from './api/client.js';
@@ -542,6 +542,18 @@ const App = () => {
         setUsersError('Không tải được danh sách nhân sự. Vui lòng thử lại sau.');
       })
       .finally(() => setUsersLoading(false));
+  }, [currentUser?.id]);
+
+  // Danh sách toàn bộ user (cho bảng vinh danh): mọi role đều thấy cả phòng, không chỉ người có quyền chấm công/leader
+  const [allUsersForRanking, setAllUsersForRanking] = useState([]);
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setAllUsersForRanking([]);
+      return;
+    }
+    fetchUsers(currentUser.id)
+      .then((data) => setAllUsersForRanking(Array.isArray(data) ? data : []))
+      .catch(() => setAllUsersForRanking([]));
   }, [currentUser?.id]);
 
   // Khôi phục scroll sau khi cập nhật danh sách nhân sự (tránh list bị đẩy lên đầu)
@@ -1323,7 +1335,8 @@ const App = () => {
               // Điểm theo tháng: thuật toán W×Q×T (đã áp dụng trong computeRankingFromTasks + taskScore).
               const scoreByUserId = {};
               (computedRanking || []).forEach((r) => { scoreByUserId[String(r.userId)] = Number(r.totalScore) || 0; });
-              // TẤT CẢ thành viên phòng: gộp từ users VÀ từ assignee trong tasks — để staff/role không quản lý vẫn thấy cả phòng.
+              // TẤT CẢ thành viên phòng: ưu tiên allUsersForRanking (fetchUsers — trả full phòng cho mọi role), fallback users + assignees từ tasks.
+              const baseList = (allUsersForRanking && allUsersForRanking.length > 0) ? allUsersForRanking : (users || []);
               const assigneeMap = {};
               (tasks || []).forEach((t) => {
                 const id = t.assigneeId ?? t.assignee_id;
@@ -1331,7 +1344,7 @@ const App = () => {
                 const sid = String(id);
                 if (!assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: t.assigneeName ?? t.assignee_name ?? sid };
               });
-              (users || []).forEach((u) => {
+              (baseList || []).forEach((u) => {
                 const sid = String(u.id ?? u.userId ?? '');
                 if (!sid) return;
                 if (!assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: u.name ?? u.fullName ?? u.username ?? sid };
@@ -1499,7 +1512,13 @@ const App = () => {
                                       <td className="py-2 px-3">{weightLabel(t.weight)}</td>
                                       <td className="py-2 px-3">{qualityLabel(t.quality)}</td>
                                       <td className="py-2 px-3">{statusCVLabel(t)}</td>
-                                      <td className="py-2 px-3 font-semibold text-slate-900">{t.quality != null || t.weight != null ? taskScore(t) : '—'}</td>
+                                      <td className="py-2 px-3 font-semibold text-slate-900">
+                                        {t.quality != null || t.weight != null ? (() => {
+                                          const { w, q, t: tVal, score } = taskScoreBreakdown(t);
+                                          if (score === 0 && (w > 0 || q > 0)) return <span title={`W=${w} × Q=${q} × T=${tVal} = 0 (T=0: chưa hoàn thành đúng hạn)`}>{score} <span className="text-slate-400 font-normal text-xs">(W×Q×T)</span></span>;
+                                          return score;
+                                        })() : '—'}
+                                      </td>
                                     </tr>
                                   );
                                 })}

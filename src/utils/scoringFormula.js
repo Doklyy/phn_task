@@ -34,11 +34,11 @@ export function qualityToQ(quality) {
   return q >= 0.6 ? 1 : 0;
 }
 
-/** Nhiệm vụ hoàn thành đúng hạn: completedAt <= deadline (hoặc trong vòng 1 ngày sau deadline) */
+/** Nhiệm vụ hoàn thành đúng hạn: completedAt <= deadline (hoặc trong vòng 1 ngày sau deadline). Hỗ trợ cả completed_at từ BE. */
 export function isCompletedOnTime(task) {
   if (!task || (task.status || '').toLowerCase() !== 'completed') return false;
   const deadline = task.deadline;
-  const completedAt = task.completedAt;
+  const completedAt = task.completedAt ?? task.completed_at;
   if (!deadline || !completedAt) return false;
   const dEnd = new Date(String(deadline).replace(' ', 'T'));
   const dDone = new Date(String(completedAt).replace(' ', 'T'));
@@ -54,10 +54,18 @@ export function taskToT(task) {
 
 /** Điểm nhiệm vụ = W × Q × T (chỉ tính khi đã hoàn thành và có chất lượng) */
 export function taskScore(task) {
-  const w = weightToPoints(task.weight);
-  const q = qualityToQ(task.quality);
+  const w = weightToPoints(task?.weight);
+  const q = qualityToQ(task?.quality);
   const t = taskToT(task);
   return w * q * t;
+}
+
+/** Trả về { w, q, t, score } để hiển thị công thức (vd. khi điểm = 0). */
+export function taskScoreBreakdown(task) {
+  const w = weightToPoints(task?.weight);
+  const q = qualityToQ(task?.quality);
+  const t = taskToT(task);
+  return { w, q, t, score: w * q * t };
 }
 
 /**
