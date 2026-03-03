@@ -1347,7 +1347,8 @@ const App = () => {
           <div className="max-w-5xl mx-auto pb-4">
             {/* Bảng điều khiển với 3 tab nội bộ: Điểm & Xếp hạng / Theo dõi Nhiệm vụ / Chuyên cần */}
             {activeTab === 'dash' && (() => {
-              const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
+              // Điểm tổng (W×Q×T) là số điểm tuyệt đối, KHÔNG phải % → chỉ cần format số, không nhân 100.
+              const score100 = (v) => (v != null ? Number(v).toFixed(1) : '—');
               const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
               const filterName = (r) => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
