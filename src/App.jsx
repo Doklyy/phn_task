@@ -1320,20 +1320,30 @@ const App = () => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               };
-              // Xếp hạng theo THÁNG: luôn tính từ nhiệm vụ hoàn thành trong tháng đang chọn.
-              // Hiển thị TẤT CẢ nhân viên (từ users): có điểm thì hiện điểm, không thì 0 — Tháng 3 mới sẽ thấy toàn bộ với 0.
+              // Điểm theo tháng: thuật toán W×Q×T (đã áp dụng trong computeRankingFromTasks + taskScore).
               const scoreByUserId = {};
               (computedRanking || []).forEach((r) => { scoreByUserId[String(r.userId)] = Number(r.totalScore) || 0; });
-              const allStaffForRanking = (users || []).filter((u) => {
-                const name = String(u?.name ?? u?.fullName ?? u?.username ?? '').toLowerCase();
-                return name && filterName({ name, userName: name });
+              // TẤT CẢ thành viên phòng: gộp từ users VÀ từ assignee trong tasks — để staff/role không quản lý vẫn thấy cả phòng.
+              const assigneeMap = {};
+              (tasks || []).forEach((t) => {
+                const id = t.assigneeId ?? t.assignee_id;
+                if (id == null) return;
+                const sid = String(id);
+                if (!assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: t.assigneeName ?? t.assignee_name ?? sid };
               });
+              (users || []).forEach((u) => {
+                const sid = String(u.id ?? u.userId ?? '');
+                if (!sid) return;
+                if (!assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: u.name ?? u.fullName ?? u.username ?? sid };
+                else assigneeMap[sid].name = u.name ?? u.fullName ?? u.username ?? assigneeMap[sid].name;
+              });
+              const allStaffForRanking = Object.values(assigneeMap).filter((r) => filterName(r));
               const displayRanking = allStaffForRanking.length > 0
                 ? allStaffForRanking
-                    .map((u) => ({
-                      userId: u.id ?? u.userId,
-                      name: u.name ?? u.fullName ?? u.username ?? '—',
-                      totalScore: scoreByUserId[String(u.id ?? u.userId)] ?? 0,
+                    .map((r) => ({
+                      userId: r.userId,
+                      name: r.name ?? '—',
+                      totalScore: scoreByUserId[String(r.userId)] ?? 0,
                     }))
                     .sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0))
                 : (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
@@ -1415,7 +1425,7 @@ const App = () => {
                     <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
                       <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
                         <h3 className="text-sm font-bold text-slate-800">Bảng đánh giá điểm mọi người (theo tháng)</h3>
-                        <p className="text-xs text-slate-500 mt-0.5">Tất cả nhân viên — tháng {dashMonth || '—'}</p>
+                        <p className="text-xs text-slate-500 mt-0.5">Tất cả nhân viên — tháng {dashMonth || '—'}. Điểm = W×Q×T (chỉ tính nhiệm vụ Hoàn thành đúng hạn, Chất lượng Đạt chuẩn trở lên).</p>
                       </div>
                       <div className="overflow-x-auto max-h-[20rem] overflow-y-auto">
                         <table className="w-full text-sm">
