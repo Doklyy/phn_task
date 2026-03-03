@@ -1367,6 +1367,40 @@ const App = () => {
                         </tbody>
                       </table>
                     </div>
+                    <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
+                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
+                        <h3 className="text-sm font-bold text-slate-800">Bảng đánh giá điểm mọi người (theo tháng)</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">Tất cả nhân viên — tháng {dashMonth || '—'}</p>
+                      </div>
+                      <div className="overflow-x-auto max-h-[20rem] overflow-y-auto">
+                        <table className="w-full text-sm">
+                          <thead className="bg-slate-50 sticky top-0">
+                            <tr className="border-b border-slate-200">
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700 w-12">STT</th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Tên</th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chuyên cần (40%)</th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chất lượng (60%)</th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Tổng điểm</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {displayRanking.length === 0 ? (
+                              <tr><td colSpan={5} className="py-4 px-3 text-slate-500 text-center">Chưa có dữ liệu đánh giá tháng này.</td></tr>
+                            ) : (
+                              displayRanking.map((r, idx) => (
+                                <tr key={r.userId ?? idx} className={`border-b border-slate-100 ${String(r.userId) === String(currentUser?.id) ? 'bg-violet-50/60' : ''}`}>
+                                  <td className="py-2 px-3 text-slate-600">{idx + 1}</td>
+                                  <td className="py-2 px-3 font-medium text-slate-800">{r.name ?? r.userName ?? '—'}</td>
+                                  <td className="py-2 px-3">{formatPct(r.attendanceScore)}</td>
+                                  <td className="py-2 px-3">{formatPct(r.qualityScore)}</td>
+                                  <td className="py-2 px-3 font-semibold text-slate-900">{score100(r.totalScore)}đ</td>
+                                </tr>
+                              ))
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </section>
               );
 
