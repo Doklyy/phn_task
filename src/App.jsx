@@ -1286,13 +1286,11 @@ const App = () => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               };
-              const apiRanking = (ranking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
+              // Xếp hạng theo THÁNG: luôn tính từ danh sách nhiệm vụ hoàn thành trong tháng đang chọn,
+              // tránh trường hợp API trả tổng điểm cả năm làm cho việc đổi tháng không thay đổi kết quả.
               const computedSorted = (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
-              // Backend trả điểm theo tháng (month=...) → dùng API cho tháng đó (vd. Tháng 2 có điểm). Tháng mới (vd. Tháng 3) API trả rỗng → dùng computed (0 điểm).
-              const hasApiScoresForMonth = apiRanking.some((r) => (Number(r.totalScore) ?? 0) > 0);
-              const useApiForDisplay = hasApiScoresForMonth;
-              const displayRanking = useApiForDisplay ? apiRanking : computedSorted;
-              const myScoreForDisplay = useApiForDisplay ? (scoringUser?.totalScore ?? 0) : (myComputedScore ?? 0);
+              const displayRanking = computedSorted;
+              const myScoreForDisplay = myComputedScore ?? 0;
               const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
               const totalRanked = displayRanking.length;
               const scoreDisplay = (v) => (v != null && v !== '' ? (Number(v) < 1 && Number(v) > 0 ? (Number(v) * 100).toFixed(1) : String(Number(v))) : '—');
