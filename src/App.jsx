@@ -451,11 +451,8 @@ const App = () => {
         if (!Number.isFinite(day)) return;
         recordByDay[day] = r;
       });
-      // Chỉ tính các nhiệm vụ của nhân sự này trong đúng tháng đang xem (dashMonth),
-      // để tránh cộng dồn cả các nhiệm vụ của tháng/đợt khác.
-      const tasksForUser = (tasks || []).filter(
-        (t) => String(t.assigneeId) === sid && taskInPeriod(t, 'month', dashMonth),
-      );
+      // Danh sách tất cả nhiệm vụ của nhân sự này
+      const tasksForUser = (tasks || []).filter((t) => String(t.assigneeId) === sid);
       const days = {};
       for (let day = 1; day <= lastDay; day += 1) {
         const dateObj = new Date(y, m - 1, day);
