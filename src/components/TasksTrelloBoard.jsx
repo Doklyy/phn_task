@@ -75,7 +75,7 @@ export function TasksTrelloBoard({ tasks = [], onTaskClick, taskIdsWithProgressR
 
   return (
     <div>
-      <p className="text-sm text-slate-500 mb-3">Xem nhiệm vụ theo trạng thái (dạng Trello). Bấm vào thẻ để xem chi tiết.</p>
+      <p className="text-sm text-slate-500 mb-3">Bấm vào thẻ để xem chi tiết.</p>
       <div className="flex gap-4 overflow-x-auto pb-4 min-h-[400px]">
       {allColumns.map((col) => {
         const columnTasks = col.id === 'overdue' ? overdueTasks : getTasksByStatus(col.status, ['new', 'accepted', 'paused'].includes(col.status));

@@ -389,13 +389,28 @@ const App = () => {
   const taskActiveOnDay = useCallback((task, y, m, day) => {
     const dStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const status = (task.status || '').toLowerCase();
-    const createdStr = task.createdAt ? String(task.createdAt).slice(0, 10) : '';
+
+    // Ngày tạo (ngày giao nhiệm vụ)
+    const createdStr = task.createdAt
+      ? String(task.createdAt).slice(0, 10)
+      : (task.created_at ? String(task.created_at).slice(0, 10) : '');
+
+    // Ngày gửi phê duyệt / hoàn thành (từ BE: completedAt hoặc completed_at)
+    const submittedStr = task.completedAt
+      ? String(task.completedAt).slice(0, 10)
+      : (task.completed_at ? String(task.completed_at).slice(0, 10) : '');
 
     // Chưa giao thì không cần báo cáo
     if (createdStr && dStr < createdStr) return false;
 
-    // Task đã hoàn thành, đợi duyệt hoặc tạm dừng: không tính vào báo cáo tiến độ theo ngày
-    if (status === 'completed' || status === 'pending_approval' || status === 'paused') return false;
+    // Tạm dừng: không bao giờ yêu cầu báo cáo
+    if (status === 'paused') return false;
+
+    // Đã gửi phê duyệt / hoàn thành: chỉ dừng yêu cầu báo cáo từ NGÀY gửi trở đi.
+    // Các ngày trước đó vẫn phải tính là có nhiệm vụ phải báo cáo.
+    if ((status === 'completed' || status === 'pending_approval') && submittedStr) {
+      if (dStr >= submittedStr) return false;
+    }
 
     return true;
   }, []);
