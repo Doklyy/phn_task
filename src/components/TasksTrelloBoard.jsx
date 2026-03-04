@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect } from 'react';
 import { ClipboardList, User, CheckCircle2, Clock, TrendingUp, AlertCircle } from 'lucide-react';
 
 const OVERDUE_COLUMN = { id: 'overdue', status: null, title: 'Quá hạn', color: 'bg-red-50 border-red-200', headerBg: 'bg-red-100 text-red-900' };
@@ -52,7 +52,17 @@ function isOverdue(task) {
   return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
 }
 
-export function TasksTrelloBoard({ tasks = [], onTaskClick, taskIdsWithProgressReport }) {
+export function TasksTrelloBoard({ tasks = [], onTaskClick, taskIdsWithProgressReport, scrollToColumnId }) {
+  const columnRefs = useRef({});
+
+  useEffect(() => {
+    if (!scrollToColumnId) return;
+    const el = columnRefs.current[scrollToColumnId];
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+    }
+  }, [scrollToColumnId]);
+
   const reportedSet = taskIdsWithProgressReport instanceof Set
     ? taskIdsWithProgressReport
     : new Set(Array.isArray(taskIdsWithProgressReport) ? taskIdsWithProgressReport : []);
@@ -82,6 +92,7 @@ export function TasksTrelloBoard({ tasks = [], onTaskClick, taskIdsWithProgressR
         return (
           <div
             key={col.id}
+            ref={(el) => { if (el) columnRefs.current[col.id] = el; }}
             className={`flex-shrink-0 w-72 rounded-xl border-2 ${col.color} flex flex-col overflow-hidden`}
           >
             <div className={`px-4 py-3 font-semibold text-sm flex items-center gap-2 ${col.headerBg}`}>

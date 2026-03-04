@@ -1765,6 +1765,7 @@ const App = () => {
                       tasks={filteredTasks}
                       onTaskClick={(id) => setSelectedTaskId(id)}
                       taskIdsWithProgressReport={taskIdsWithProgressReport}
+                      scrollToColumnId={listFilter === 'paused' ? 'paused' : undefined}
                     />
                   )}
                 </div>
@@ -2492,7 +2493,13 @@ const App = () => {
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onReject={(reason) => rejectCompletion(selectedTaskId, currentUser.id, reason).then(refreshTasks).then(() => setSelectedTaskId(null))}
             currentUserId={currentUser?.id}
-            onSaveEdit={(payload) => updateTaskDetails(selectedTaskId, currentUser.id, payload).then(refreshTasks)}
+            onSaveEdit={(payload) =>
+              updateTaskDetails(selectedTaskId, currentUser.id, payload)
+                .then(refreshTasks)
+                .then(() => {
+                  if ((payload?.status || '').toUpperCase() === 'PAUSED') setListFilter('paused');
+                })
+            }
           />
         );
       })()}
