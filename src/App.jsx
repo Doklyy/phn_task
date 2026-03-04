@@ -395,10 +395,16 @@ const App = () => {
       ? String(task.createdAt).slice(0, 10)
       : (task.created_at ? String(task.created_at).slice(0, 10) : '');
 
-    // Ngày gửi phê duyệt / hoàn thành (từ BE: completedAt hoặc completed_at)
-    const submittedStr = task.completedAt
-      ? String(task.completedAt).slice(0, 10)
-      : (task.completed_at ? String(task.completed_at).slice(0, 10) : '');
+    // Ngày gửi phê duyệt / hoàn thành:
+    // - PENDING_APPROVAL: dùng submittedAt (ngày gửi báo cáo hoàn thành)
+    // - COMPLETED: dùng completedAt
+    const submittedBase = task.submittedAt
+      || task.submitted_at
+      || task.submitted_for_approval_at
+      || task.completedAt
+      || task.completed_at
+      || null;
+    const submittedStr = submittedBase ? String(submittedBase).slice(0, 10) : '';
 
     // Chưa giao thì không cần báo cáo
     if (createdStr && dStr < createdStr) return false;
