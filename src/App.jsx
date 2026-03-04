@@ -395,28 +395,12 @@ const App = () => {
       ? String(task.createdAt).slice(0, 10)
       : (task.created_at ? String(task.created_at).slice(0, 10) : '');
 
-    // Ngày gửi phê duyệt / hoàn thành:
-    // - PENDING_APPROVAL: dùng submittedAt (ngày gửi báo cáo hoàn thành)
-    // - COMPLETED: dùng completedAt
-    const submittedBase = task.submittedAt
-      || task.submitted_at
-      || task.submitted_for_approval_at
-      || task.completedAt
-      || task.completed_at
-      || null;
-    const submittedStr = submittedBase ? String(submittedBase).slice(0, 10) : '';
-
     // Chưa giao thì không cần báo cáo
     if (createdStr && dStr < createdStr) return false;
 
-    // Tạm dừng: không bao giờ yêu cầu báo cáo
-    if (status === 'paused') return false;
-
-    // Đã gửi phê duyệt / hoàn thành: chỉ dừng yêu cầu báo cáo từ NGÀY gửi trở đi.
-    // Các ngày trước đó vẫn phải tính là có nhiệm vụ phải báo cáo.
-    if ((status === 'completed' || status === 'pending_approval') && submittedStr) {
-      if (dStr >= submittedStr) return false;
-    }
+    // Nhiệm vụ đã hoàn thành, chờ duyệt hoặc tạm dừng (trạng thái hiện tại)
+    // thì không yêu cầu báo cáo tiến độ nữa, cho mọi ngày.
+    if (status === 'completed' || status === 'pending_approval' || status === 'paused') return false;
 
     return true;
   }, []);
