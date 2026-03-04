@@ -2495,9 +2495,24 @@ const App = () => {
             currentUserId={currentUser?.id}
             onSaveEdit={(payload) =>
               updateTaskDetails(selectedTaskId, currentUser.id, payload)
-                .then(refreshTasks)
+                .then((updatedTask) => {
+                  const sid = String(selectedTaskId);
+                  const isPaused = (payload?.status || '').toUpperCase() === 'PAUSED';
+                  const status = isPaused ? 'paused' : (updatedTask?.status || '').toLowerCase();
+                  setTasks((prev) =>
+                    prev.map((t) =>
+                      String(t.id) === sid
+                        ? { ...t, ...updatedTask, status: status || t.status }
+                        : t
+                    )
+                  );
+                  return refreshTasks();
+                })
                 .then(() => {
-                  if ((payload?.status || '').toUpperCase() === 'PAUSED') setListFilter('paused');
+                  if ((payload?.status || '').toUpperCase() === 'PAUSED') {
+                    setListFilter('paused');
+                    setSelectedTaskId(null);
+                  }
                 })
             }
           />
