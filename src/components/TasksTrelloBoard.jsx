@@ -45,7 +45,8 @@ function qualityLabel(quality) {
 
 function isOverdue(task) {
   const status = (task?.status || '').toLowerCase();
-  if (status === 'completed' || status === 'pending_approval') return false;
+  // Không coi nhiệm vụ Tạm dừng là quá hạn
+  if (status === 'completed' || status === 'pending_approval' || status === 'paused') return false;
   const deadline = task?.deadline;
   if (!deadline) return false;
   const d = new Date(String(deadline).replace(' ', 'T'));
