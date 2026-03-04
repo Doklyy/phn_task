@@ -140,17 +140,22 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                 let totalWorkDays = 0;
                 let totalLeaveDays = 0;
                 let totalLateDays = 0;
-                let totalTasks = 0;
-                let reportedTasks = 0;
+                // Tổng số NGÀY có nhiệm vụ và số NGÀY đã báo cáo đủ (tất cả task trong ngày đó đều có báo cáo)
+                let totalTaskDays = 0;
+                let fullReportedDays = 0;
                 const daysObj = person.days || {};
                 Object.values(daysObj).forEach((d) => {
                   if (d.isLeave) totalLeaveDays += 1;
                   if (d.isLate) totalLateDays += 1;
                   if (d.workDay) totalWorkDays += d.workDay;
-                  if (d.totalTasks) totalTasks += d.totalTasks;
-                  if (d.reportedTasks) reportedTasks += d.reportedTasks;
+                  if (d.totalTasks && d.totalTasks > 0) {
+                    totalTaskDays += 1;
+                    if (d.reportedTasks === d.totalTasks) {
+                      fullReportedDays += 1;
+                    }
+                  }
                 });
-                const reportRate = totalTasks > 0 ? Math.round((reportedTasks / totalTasks) * 100) : 0;
+                const reportRate = totalTaskDays > 0 ? Math.round((fullReportedDays / totalTaskDays) * 100) : 0;
 
                 return (
                   <tr key={person.id} className="group transition-colors">
@@ -168,8 +173,14 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                     </td>
                     <td className="sticky left-[400px] z-20 w-[100px] min-w-[100px] max-w-[100px] p-4 bg-white group-hover:bg-gray-50 text-center border-b border-r border-gray-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.1)]">
                       <div className="flex flex-col items-center justify-center">
-                        <span className="font-bold text-gray-700">{reportedTasks}<span className="text-xs font-normal text-gray-500">/{totalTasks}</span></span>
-                        {totalTasks > 0 && (
+                        <span className="font-bold text-gray-700">
+                          {fullReportedDays}
+                          <span className="text-xs font-normal text-gray-500">
+                            /
+                            {totalTaskDays}
+                          </span>
+                        </span>
+                        {totalTaskDays > 0 && (
                           <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 ${reportRate === 100 ? 'bg-emerald-100 text-emerald-800' : reportRate >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>
                             {reportRate}%
                           </span>
