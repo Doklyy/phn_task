@@ -493,7 +493,7 @@ const App = () => {
         days,
       };
     });
-  }, [adminAttendanceMap, allReportsList, dashMonth, staffListForDashboard, tasks, taskActiveOnDay]);
+  }, [adminAttendanceMap, allReportsList, dashMonth, staffListForDashboard, allTasksForDashboard, taskActiveOnDay]);
 
   useEffect(() => {
     if (
@@ -507,7 +507,9 @@ const App = () => {
     const [y, m] = dashMonth.split('-').map(Number);
     if (!y || !m) return;
     setAdminAttendanceLoading(true);
-    const uid = Number(currentUser.id) || currentUser.id;
+    // Để bảng Chuyên cần hiển thị giống hệt admin cho mọi người,
+    // luôn gọi API chấm công với currentUserId = 1 (tài khoản admin mặc định).
+    const uid = 1;
     Promise.all(
       staffListForDashboard.map((s) => getAttendanceRecordsForMonth(uid, y, m, Number(s.id ?? s.userId))),
     )
