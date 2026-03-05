@@ -71,6 +71,28 @@ export async function fetchTasksForCurrentUser(userId) {
 }
 
 /**
+ * Lấy danh sách nhiệm vụ cho dashboard/chuyên cần & xếp hạng.
+ * - Luôn dùng forRanking=true để backend trả về như ADMIN (tất cả nhiệm vụ),
+ *   giúp mọi role xem Bảng đánh giá điểm & Chuyên cần giống admin, nhưng FE chỉ dùng để tổng hợp, không cho chỉnh sửa.
+ */
+export async function fetchTasksForDashboard(userId) {
+  if (!isApiConfigured()) {
+    return getMockTasks(userId || 'user-1');
+  }
+  try {
+    const path = userId
+      ? `tasks?userId=${encodeURIComponent(userId)}&forRanking=true`
+      : 'tasks';
+    const data = await request(path);
+    const list = Array.isArray(data) ? data : (data.content ?? data.items ?? data.tasks ?? []);
+    return list.map(normalizeTask);
+  } catch (err) {
+    console.warn('API tasks for dashboard chưa sẵn sàng, dùng dữ liệu mẫu:', err.message);
+    return getMockTasks(userId || 'user-1');
+  }
+}
+
+/**
  * Tiếp nhận công việc. Backend: PATCH /api/tasks/{taskId}/accept?userId=...
  * Bắt buộc gửi userId (assignee) để backend ghi nhận và lưu trạng thái ACCEPTED.
  */

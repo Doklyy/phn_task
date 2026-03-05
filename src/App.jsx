@@ -27,7 +27,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { utils, writeFileXLSX } from 'xlsx';
 import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
-import { fetchTasksForCurrentUser, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
+import { fetchTasksForCurrentUser, fetchTasksForDashboard, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
 import { getScoringUser, getRanking } from './api/scoring.js';
 import { computeRankingFromTasks, taskScore, taskScoreBreakdown, isCompletedOnTime } from './utils/scoringFormula.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
@@ -280,6 +280,8 @@ const App = () => {
   }, [allReportsList, dashMonth]);
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
+  // Danh sách nhiệm vụ đầy đủ (như admin) phục vụ Bảng điểm & Chuyên cần, không dùng cho bảng Nhiệm vụ cá nhân.
+  const [allTasksForDashboard, setAllTasksForDashboard] = useState([]);
   const [users, setUsers] = useState([]);
   // Danh sách toàn bộ nhân sự (cho Bảng đánh giá điểm & Chuyên cần): mọi role đều thấy như admin (forRanking=true).
   const [allUsersForRanking, setAllUsersForRanking] = useState([]);
@@ -454,7 +456,8 @@ const App = () => {
         recordByDay[day] = r;
       });
       // Danh sách tất cả nhiệm vụ của nhân sự này
-      const tasksForUser = (tasks || []).filter((t) => String(t.assigneeId) === sid);
+      const sourceTasks = (allTasksForDashboard && allTasksForDashboard.length > 0) ? allTasksForDashboard : (tasks || []);
+      const tasksForUser = sourceTasks.filter((t) => String(t.assigneeId) === sid);
       const days = {};
       for (let day = 1; day <= lastDay; day += 1) {
         const dateObj = new Date(y, m - 1, day);
@@ -540,6 +543,7 @@ const App = () => {
   useEffect(() => {
     if (!currentUser?.id) {
       setTasks([]);
+      setAllTasksForDashboard([]);
       return;
     }
     setTasksLoading(true);
@@ -547,6 +551,11 @@ const App = () => {
       .then(setTasks)
       .catch(() => setTasks([]))
       .finally(() => setTasksLoading(false));
+
+    // Nhiệm vụ cho dashboard & chuyên cần: luôn lấy như admin (forRanking=true) để mọi role thấy bảng giống admin.
+    fetchTasksForDashboard(currentUser.id)
+      .then((list) => setAllTasksForDashboard(Array.isArray(list) ? list : []))
+      .catch(() => setAllTasksForDashboard([]));
   }, [currentUser?.id]);
 
   // Danh sách nhân sự (không bao gồm admin): mọi vai trò đều xem được bảng chuyên cần tổng
