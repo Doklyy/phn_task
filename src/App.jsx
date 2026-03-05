@@ -430,6 +430,9 @@ const App = () => {
     if (!y || !m || !staffListForDashboard?.length) return [];
     const lastDay = new Date(y, m, 0).getDate();
     const monthPrefix = `${y}-${String(m).padStart(2, '0')}`;
+    const today = new Date();
+    const isCurrentMonth =
+      today.getFullYear() === y && today.getMonth() + 1 === m;
     const reportsByUserAndDay = {};
     (allReportsList || []).forEach((r) => {
       const d = (r.date || r.reportDate || '').slice(0, 10);
@@ -461,6 +464,20 @@ const App = () => {
       const days = {};
       for (let day = 1; day <= lastDay; day += 1) {
         const dateObj = new Date(y, m - 1, day);
+        const isFutureCurrentMonth = isCurrentMonth && dateObj > today;
+        if (isFutureCurrentMonth) {
+          // Các ngày tương lai trong tháng hiện tại: chưa diễn ra → không tính vào C.Tổng / Tiến độ.
+          days[String(day)] = {
+            workDay: 0,
+            totalTasks: 0,
+            reportedTasks: 0,
+            isLate: false,
+            isLeave: false,
+          };
+          // Bỏ qua phần còn lại của vòng lặp cho ngày này.
+          // eslint-disable-next-line no-continue
+          continue;
+        }
         const isWeekend = dateObj.getDay() === 0 || dateObj.getDay() === 6;
         const rec = recordByDay[day];
         const rawCode = rec ? String(rec.attendanceCode ?? rec.attendance_code ?? '').trim().toUpperCase() : '';
