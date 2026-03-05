@@ -281,6 +281,17 @@ const App = () => {
   const [tasks, setTasks] = useState([]);
   const [tasksLoading, setTasksLoading] = useState(false);
   const [users, setUsers] = useState([]);
+  // Danh sách toàn bộ nhân sự (cho Bảng đánh giá điểm & Chuyên cần): mọi role đều thấy như admin (forRanking=true).
+  const [allUsersForRanking, setAllUsersForRanking] = useState([]);
+  useEffect(() => {
+    if (!currentUser?.id) {
+      setAllUsersForRanking([]);
+      return;
+    }
+    fetchUsers(currentUser.id, { forRanking: true })
+      .then((data) => setAllUsersForRanking(Array.isArray(data) ? data : []))
+      .catch(() => setAllUsersForRanking([]));
+  }, [currentUser?.id]);
   const staffList = useMemo(
     () => (users || []).filter((u) => String(u.role || '').toLowerCase() !== 'admin'),
     [users],
@@ -555,18 +566,6 @@ const App = () => {
         setUsersError('Không tải được danh sách nhân sự. Vui lòng thử lại sau.');
       })
       .finally(() => setUsersLoading(false));
-  }, [currentUser?.id]);
-
-  // Danh sách toàn bộ nhân sự (cho Bảng đánh giá điểm & Chuyên cần): mọi role đều thấy như admin (forRanking=true).
-  const [allUsersForRanking, setAllUsersForRanking] = useState([]);
-  useEffect(() => {
-    if (!currentUser?.id) {
-      setAllUsersForRanking([]);
-      return;
-    }
-    fetchUsers(currentUser.id, { forRanking: true })
-      .then((data) => setAllUsersForRanking(Array.isArray(data) ? data : []))
-      .catch(() => setAllUsersForRanking([]));
   }, [currentUser?.id]);
 
   // Khôi phục scroll sau khi cập nhật danh sách nhân sự (tránh list bị đẩy lên đầu)
