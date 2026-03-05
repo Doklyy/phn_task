@@ -140,7 +140,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                 let totalWorkDays = 0;
                 let totalLeaveDays = 0;
                 let totalLateDays = 0;
-                // Tổng số NGÀY có nhiệm vụ và số NGÀY đã báo cáo đủ (tất cả task trong ngày đó đều có báo cáo)
+                // Tổng số NGÀY có nhiệm vụ và số NGÀY đã có ÍT NHẤT MỘT báo cáo
                 let totalTaskDays = 0;
                 let fullReportedDays = 0;
                 const daysObj = person.days || {};
@@ -150,7 +150,10 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                   if (d.workDay) totalWorkDays += d.workDay;
                   if (d.totalTasks && d.totalTasks > 0) {
                     totalTaskDays += 1;
-                    if (d.reportedTasks === d.totalTasks) {
+                    // Quan điểm tính điểm chuyên cần theo ngày:
+                    // nếu trong ngày có ít nhất 1 đầu việc được báo cáo thì coi là "đã báo cáo ngày đó",
+                    // không bắt buộc phải báo cáo đủ 100% tất cả đầu việc đang active.
+                    if (d.reportedTasks > 0) {
                       fullReportedDays += 1;
                     }
                   }
