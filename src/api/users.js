@@ -6,10 +6,14 @@ import { request } from './client.js';
 /**
  * Lấy danh sách user theo quyền.
  * GET /api/users?currentUserId=...
+ * @param {Object} options - forRanking: true → lấy tất cả nhân sự (trừ admin) để hiển thị Bảng đánh giá điểm & Chuyên cần như admin.
  */
-export async function fetchUsers(currentUserId) {
-  const url = currentUserId != null ? `users?currentUserId=${encodeURIComponent(currentUserId)}` : 'users';
-  const data = await request(url);
+export async function fetchUsers(currentUserId, options = {}) {
+  if (currentUserId == null) return [];
+  const params = new URLSearchParams();
+  params.set('currentUserId', String(currentUserId));
+  if (options.forRanking) params.set('forRanking', 'true');
+  const data = await request(`users?${params.toString()}`);
   return Array.isArray(data) ? data : [];
 }
 

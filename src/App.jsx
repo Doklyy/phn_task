@@ -285,6 +285,13 @@ const App = () => {
     () => (users || []).filter((u) => String(u.role || '').toLowerCase() !== 'admin'),
     [users],
   );
+  // Bảng Chuyên cần & dữ liệu điểm: dùng danh sách đầy đủ (như admin) khi có allUsersForRanking.
+  const staffListForDashboard = useMemo(
+    () => (allUsersForRanking && allUsersForRanking.length > 0)
+      ? allUsersForRanking.filter((u) => String(u.role || '').toLowerCase() !== 'admin')
+      : staffList,
+    [allUsersForRanking, staffList],
+  );
   const adminAttendanceMatrixData = useMemo(() => {
     const [y, m] = dashMonth.split('-').map(Number);
     if (!y || !m) return [];
@@ -305,7 +312,7 @@ const App = () => {
       reportsByUserAndDay[uid][day].push(r);
     });
 
-    return (staffList || []).map((s) => {
+    return (staffListForDashboard || []).map((s) => {
       const sid = String(s.id ?? s.userId);
       const records = adminAttendanceMap[sid] || [];
       const recordByDay = {};
@@ -384,7 +391,7 @@ const App = () => {
         totals: { present, complete, partial },
       };
     });
-  }, [adminAttendanceMap, allReportsList, dashMonth, staffList]);
+  }, [adminAttendanceMap, allReportsList, dashMonth, staffListForDashboard]);
 
   const taskActiveOnDay = useCallback((task, y, m, day) => {
     const dStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -407,7 +414,7 @@ const App = () => {
 
   const chuyenCanBoardData = useMemo(() => {
     const [y, m] = dashMonth.split('-').map(Number);
-    if (!y || !m || !staffList?.length) return [];
+    if (!y || !m || !staffListForDashboard?.length) return [];
     const lastDay = new Date(y, m, 0).getDate();
     const monthPrefix = `${y}-${String(m).padStart(2, '0')}`;
     const reportsByUserAndDay = {};
@@ -424,7 +431,7 @@ const App = () => {
       if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = new Set();
       reportsByUserAndDay[uid][day].add(taskId);
     });
-    return (staffList || []).map((s) => {
+    return (staffListForDashboard || []).map((s) => {
       const sid = String(s.id ?? s.userId);
       const records = adminAttendanceMap[sid] || [];
       const recordByDay = {};
@@ -472,14 +479,14 @@ const App = () => {
         days,
       };
     });
-  }, [adminAttendanceMap, allReportsList, dashMonth, staffList, tasks, taskActiveOnDay]);
+  }, [adminAttendanceMap, allReportsList, dashMonth, staffListForDashboard, tasks, taskActiveOnDay]);
 
   useEffect(() => {
     if (
       activeTab !== 'dash'
       || dashView !== 'attendance'
       || !currentUser?.id
-      || staffList.length === 0
+      || staffListForDashboard.length === 0
     ) {
       return;
     }
@@ -488,11 +495,11 @@ const App = () => {
     setAdminAttendanceLoading(true);
     const uid = Number(currentUser.id) || currentUser.id;
     Promise.all(
-      staffList.map((s) => getAttendanceRecordsForMonth(uid, y, m, Number(s.id ?? s.userId))),
+      staffListForDashboard.map((s) => getAttendanceRecordsForMonth(uid, y, m, Number(s.id ?? s.userId))),
     )
       .then((results) => {
         const next = {};
-        staffList.forEach((s, i) => {
+        staffListForDashboard.forEach((s, i) => {
           const id = String(s.id ?? s.userId);
           next[id] = Array.isArray(results[i]) ? results[i] : [];
         });
@@ -500,7 +507,7 @@ const App = () => {
       })
       .catch(() => setAdminAttendanceMap({}))
       .finally(() => setAdminAttendanceLoading(false));
-  }, [activeTab, dashView, currentUser?.id, dashMonth, staffList.length]);
+  }, [activeTab, dashView, currentUser?.id, dashMonth, staffListForDashboard.length]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState('');
   const [attendanceUpdateMsg, setAttendanceUpdateMsg] = useState({ id: null, text: '' });
@@ -550,14 +557,14 @@ const App = () => {
       .finally(() => setUsersLoading(false));
   }, [currentUser?.id]);
 
-  // Danh sách toàn bộ user (cho bảng vinh danh): mọi role đều thấy cả phòng, không chỉ người có quyền chấm công/leader
+  // Danh sách toàn bộ nhân sự (cho Bảng đánh giá điểm & Chuyên cần): mọi role đều thấy như admin (forRanking=true).
   const [allUsersForRanking, setAllUsersForRanking] = useState([]);
   useEffect(() => {
     if (!currentUser?.id) {
       setAllUsersForRanking([]);
       return;
     }
-    fetchUsers(currentUser.id)
+    fetchUsers(currentUser.id, { forRanking: true })
       .then((data) => setAllUsersForRanking(Array.isArray(data) ? data : []))
       .catch(() => setAllUsersForRanking([]));
   }, [currentUser?.id]);
@@ -1338,34 +1345,48 @@ const App = () => {
                 const name = String(r.name ?? r.userName ?? '').toLowerCase();
                 return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
               };
-              // Điểm theo tháng: thuật toán W×Q×T (đã áp dụng trong computeRankingFromTasks + taskScore).
+              // Danh sách người: luôn lấy từ allUsersForRanking (toàn bộ phòng) để mọi role đều thấy tất cả mọi người như admin.
               const scoreByUserId = {};
               (computedRanking || []).forEach((r) => { scoreByUserId[String(r.userId)] = Number(r.totalScore) || 0; });
-              // TẤT CẢ thành viên phòng: ưu tiên allUsersForRanking (fetchUsers — trả full phòng cho mọi role), fallback users + assignees từ tasks.
               const baseList = (allUsersForRanking && allUsersForRanking.length > 0) ? allUsersForRanking : (users || []);
-              const assigneeMap = {};
-              (tasks || []).forEach((t) => {
-                const id = t.assigneeId ?? t.assignee_id;
-                if (id == null) return;
-                const sid = String(id);
-                if (!assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: t.assigneeName ?? t.assignee_name ?? sid };
+              const nameByUserId = {};
+              (baseList || []).forEach((u) => {
+                const sid = String(u.id ?? u.userId ?? '');
+                if (sid) nameByUserId[sid] = u.name ?? u.fullName ?? u.username ?? sid;
               });
+              (tasks || []).forEach((t) => {
+                const sid = String(t.assigneeId ?? t.assignee_id ?? '');
+                if (sid && !nameByUserId[sid]) nameByUserId[sid] = t.assigneeName ?? t.assignee_name ?? sid;
+              });
+              const rankingByUserId = {};
+              (ranking || []).forEach((r) => {
+                const sid = String(r.userId ?? r.id ?? '');
+                if (sid) rankingByUserId[sid] = r;
+              });
+              const assigneeMap = {};
               (baseList || []).forEach((u) => {
                 const sid = String(u.id ?? u.userId ?? '');
                 if (!sid) return;
-                if (!assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: u.name ?? u.fullName ?? u.username ?? sid };
-                else assigneeMap[sid].name = u.name ?? u.fullName ?? u.username ?? assigneeMap[sid].name;
+                assigneeMap[sid] = { userId: sid, name: nameByUserId[sid] ?? u.name ?? u.fullName ?? u.username ?? sid };
+              });
+              (tasks || []).forEach((t) => {
+                const sid = String(t.assigneeId ?? t.assignee_id ?? '');
+                if (sid && !assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: nameByUserId[sid] ?? t.assigneeName ?? t.assignee_name ?? sid };
               });
               const allStaffForRanking = Object.values(assigneeMap).filter((r) => filterName(r));
-              const displayRanking = allStaffForRanking.length > 0
-                ? allStaffForRanking
-                    .map((r) => ({
-                      userId: r.userId,
-                      name: r.name ?? '—',
-                      totalScore: scoreByUserId[String(r.userId)] ?? 0,
-                    }))
-                    .sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0))
-                : (computedRanking || []).filter(filterName).sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
+              const displayRanking = allStaffForRanking
+                .map((r) => {
+                  const sid = String(r.userId);
+                  const fromApi = rankingByUserId[sid];
+                  return {
+                    userId: r.userId,
+                    name: r.name ?? '—',
+                    totalScore: fromApi?.totalScore ?? scoreByUserId[sid] ?? 0,
+                    attendanceScore: fromApi?.attendanceScore,
+                    qualityScore: fromApi?.qualityScore,
+                  };
+                })
+                .sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
               const myScoreForDisplay = myComputedScore ?? 0;
               const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
               const totalRanked = displayRanking.length;
