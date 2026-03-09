@@ -20,8 +20,13 @@ import {
   Calendar,
   Link as LinkIcon,
   CheckCircle2,
+  CheckCircle,
   AlertCircle,
   Info,
+  MessageSquare,
+  BarChart3,
+  Activity,
+  RotateCcw,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { utils, writeFileXLSX } from 'xlsx';
@@ -2664,7 +2669,6 @@ const TaskDetailModal = ({
   const [approveSubmitting, setApproveSubmitting] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [rejectReasonError, setRejectReasonError] = useState('');
-  const [editOpen, setEditOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
   useEffect(() => {
@@ -2675,6 +2679,19 @@ const TaskDetailModal = ({
     setReportAttachmentPaths([]);
     setReportError('');
   }, [task?.id, task?.weight, defaultReportDate]);
+  useEffect(() => {
+    if (!task) return;
+    setEditTitle(task.title || '');
+    setEditContent(task.content || '');
+    setEditObjective(task.objective || '');
+    setEditDeadline(toDatetimeLocal(task.deadline));
+    setEditWeight(task.weight != null ? String(task.weight) : '0.5');
+    setEditStatus((task.status || 'NEW').toUpperCase());
+    setEditQuality(task.quality != null ? String(task.quality) : '');
+    setApproveQuality(task.quality != null ? String(task.quality) : '');
+    setRejectReason('');
+    setRejectReasonError('');
+  }, [task?.id]);
   const toDatetimeLocal = (v) => {
     if (!v) return '';
     const d = new Date(String(v).replace(' ', 'T'));
@@ -2696,6 +2713,9 @@ const TaskDetailModal = ({
   }, []);
   const [editPausedFrom, setEditPausedFrom] = useState(yesterdayStr);
   const [editPausedTo, setEditPausedTo] = useState(`${new Date().getFullYear()}-03-15`);
+  const canReview = (role === 'leader' || role === 'admin') && onApprove && onReject && (String(currentUserId) === String(task.leaderId) || String(currentUserId) === String(task.assignerId) || role === 'admin');
+  const showAdminTabs = (canEdit && onSaveEdit) || (task.status === 'pending_approval' && canReview);
+  const [activeTab, setActiveTab] = useState(() => (task.status === 'pending_approval' && canReview ? 'review' : 'edit'));
 
   const formatDeadline = (v) => {
     if (!v) return '—';
@@ -2707,14 +2727,39 @@ const TaskDetailModal = ({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="px-6 py-4 border-b border-slate-200 flex items-center justify-between shrink-0">
-          <h3 className="text-lg font-bold text-slate-900">Chi tiết công việc</h3>
-          <button type="button" onClick={onClose} className="p-2 rounded-lg hover:bg-slate-100 text-slate-500">
-            <X size={20} />
-          </button>
+        <div className="bg-white border-b border-slate-100 sticky top-0 z-20 shrink-0">
+          <div className="flex justify-between items-center px-6 py-4">
+            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+              <ClipboardList className="text-blue-600" size={24} />
+              Chi tiết công việc
+            </h2>
+            <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+              <X size={20} className="text-slate-400" />
+            </button>
+          </div>
+          {showAdminTabs && (
+            <div className="flex px-6 gap-8">
+              <button
+                type="button"
+                onClick={() => setActiveTab('review')}
+                className={`pb-3 text-sm font-semibold transition-all relative ${activeTab === 'review' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                ĐÁNH GIÁ KẾT QUẢ
+                {activeTab === 'review' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full" />}
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('edit')}
+                className={`pb-3 text-sm font-semibold transition-all relative ${activeTab === 'edit' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+              >
+                CHỈNH SỬA NỘI DUNG
+                {activeTab === 'edit' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full" />}
+              </button>
+            </div>
+          )}
         </div>
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div>
@@ -2982,13 +3027,13 @@ const TaskDetailModal = ({
               </div>
           )}
 
-          {(task.status === 'pending_approval' || (role === 'admin' || role === 'leader')) && (
+          {(task.status === 'pending_approval' || (role === 'admin' || role === 'leader')) && !showAdminTabs && (
             <div className="pt-4 border-t border-slate-100 space-y-4">
               {task.status === 'pending_approval' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
-                <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4">
+                  <p className="font-bold text-amber-800">Đang đợi người phân công duyệt</p>
                   <p className="text-amber-700 text-sm mt-1">Báo cáo hoàn thành đã gửi</p>
-              </div>
+                </div>
               )}
               {task.status === 'pending_approval' && (task.completionNote || task.completionLink) && (
                 <div>
@@ -3001,99 +3046,126 @@ const TaskDetailModal = ({
                   )}
                 </div>
               )}
-              {(role === 'leader' || role === 'admin') && onApprove && onReject && (String(currentUserId) === String(task.leaderId) || String(currentUserId) === String(task.assignerId) || role === 'admin') && (
-                <div className="bg-slate-50 border-2 border-slate-200 rounded-xl p-5 space-y-4">
-                  <h4 className="text-base font-bold text-slate-800 border-b border-slate-200 pb-2">Kết quả đánh giá</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số công việc</label>
+            </div>
+          )}
+
+          {showAdminTabs && (
+            <div className="pt-4 border-t border-slate-200 space-y-6">
+              {activeTab === 'review' ? (
+                <div className="space-y-6">
+                  {(task.completionNote || task.completionLink) && (
+                    <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-3 text-blue-800">
+                        <MessageSquare size={18} />
+                        <span className="font-bold text-sm">Nội dung báo cáo hoàn thành:</span>
+                      </div>
+                      <div className="text-sm text-slate-700 leading-relaxed bg-white/50 p-3 rounded-lg border border-blue-50 whitespace-pre-wrap">
+                        {task.completionNote && <p className="mb-1">{task.completionNote}</p>}
+                        {task.completionLink && (
+                          <a href={task.completionLink} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{task.completionLink}</a>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                        <BarChart3 size={14} /> Trọng số CV
+                      </label>
                       <select
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         value={editWeight}
                         onChange={(e) => setEditWeight(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
                       >
                         <option value="">Chưa chọn</option>
                         {WEIGHT_LEVELS.map((lvl) => (
-                          <option key={lvl.code} value={lvl.value}>
-                            {lvl.label}
-                          </option>
+                          <option key={lvl.code} value={lvl.value}>{lvl.label}</option>
                         ))}
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trạng thái công việc</label>
-                      <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white">
-                        <option value="COMPLETED">Hoàn thành</option>
-                        <option value="PAUSED">Tạm dừng</option>
-                        <option value="ACCEPTED">Trả về (tiếp tục làm)</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá chất lượng</label>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                        <Star size={14} /> Chất lượng (0–1)
+                      </label>
                       <select
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                         value={approveQuality}
                         onChange={(e) => setApproveQuality(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
                       >
                         <option value="">Chưa chọn</option>
                         {QUALITY_LEVELS.map((lvl) => (
-                          <option key={lvl.code} value={lvl.value}>
-                            {lvl.label}
-                          </option>
+                          <option key={lvl.code} value={lvl.value}>{lvl.label}</option>
                         ))}
                       </select>
                     </div>
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Đánh giá của chỉ huy <span className="text-amber-600"></span></label>
-                      <textarea value={rejectReason} onChange={(e) => { setRejectReason(e.target.value); setRejectReasonError(''); }} placeholder="Nhận xét, góp ý cho người thực hiện..." rows={2} className={`w-full border rounded-lg px-3 py-2 text-sm ${rejectReasonError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`} />
-                      {rejectReasonError && <p className="text-red-600 text-xs mt-1">{rejectReasonError}</p>}
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                        <Activity size={14} /> Trạng thái CV
+                      </label>
+                      <select
+                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-emerald-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                        value={editStatus}
+                        onChange={(e) => setEditStatus(e.target.value)}
+                      >
+                        <option value="ACCEPTED">Trả về (tiếp tục làm)</option>
+                        <option value="COMPLETED">Hoàn thành</option>
+                        <option value="PAUSED">Tạm dừng</option>
+                      </select>
                     </div>
                   </div>
-                  <div className="flex flex-wrap gap-3 pt-2">
-                    <button
-                      type="button"
-                      disabled={approveSubmitting}
-                      onClick={() => {
-                        setRejectReasonError('');
-                        setApproveSubmitting(true);
-                        const q = approveQuality !== '' ? Number(approveQuality) : undefined;
-                        const payload = {
-                          weight: editWeight !== '' ? Number(editWeight) : undefined,
-                          status: editStatus,
-                          quality: q,
-                          leaderComment: rejectReason.trim() || undefined,
-                        };
-                        (onSaveEdit ? onSaveEdit(payload) : Promise.resolve())
-                          .then(() => {
-                            if (task.status === 'pending_approval' && editStatus === 'COMPLETED' && onApprove) {
-                              return onApprove(q);
-                            }
-                            return undefined;
-                          })
-                          .catch(() => {})
-                          .finally(() => setApproveSubmitting(false));
-                      }}
-                      className="bg-emerald-600 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-emerald-700 disabled:opacity-50"
-                    >
-                      {approveSubmitting ? 'Đang duyệt...' : 'Duyệt hoàn thành'}
-                    </button>
-                    <button
-                      type="button"
-                      disabled={approveSubmitting}
-                      onClick={() => {
-                        setRejectReasonError('');
-                        const comment = rejectReason.trim();
-                        if (!comment) {
-                          setRejectReasonError('Bắt buộc nhập đánh giá của chỉ huy khi trả về tồn đọng.');
-                          return;
-                        }
-                        setApproveSubmitting(true);
-                        onReject(comment).catch(() => {}).finally(() => setApproveSubmitting(false));
-                      }}
-                      className="bg-slate-500 text-white px-5 py-2.5 rounded-xl text-sm font-bold hover:bg-slate-600 disabled:opacity-50"
-                    >
-                      Trả về tồn đọng
-                    </button>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                      <MessageSquare size={14} /> Đánh giá của chỉ huy
+                    </label>
+                    <textarea
+                      placeholder="Ghi nhận xét, góp ý cho nhân viên tại đây..."
+                      className={`w-full p-4 bg-slate-50 border rounded-xl text-sm min-h-[150px] focus:ring-2 focus:ring-blue-500 outline-none transition-all ${rejectReasonError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+                      value={rejectReason}
+                      onChange={(e) => { setRejectReason(e.target.value); setRejectReasonError(''); }}
+                    />
+                    {rejectReasonError && <p className="text-red-600 text-xs mt-1">{rejectReasonError}</p>}
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-5">
+                  {editError && <p className="text-red-600 text-sm">{editError}</p>}
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Tiêu đề công việc</label>
+                    <input
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={editTitle}
+                      onChange={(e) => setEditTitle(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Nội dung công việc</label>
+                    <textarea
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      rows={4}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Mục tiêu</label>
+                    <input
+                      type="text"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={editObjective}
+                      onChange={(e) => setEditObjective(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                      <Calendar size={14} /> Thời hạn (Deadline)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={editDeadline}
+                      onChange={(e) => setEditDeadline(e.target.value)}
+                    />
                   </div>
                 </div>
               )}
@@ -3137,139 +3209,127 @@ const TaskDetailModal = ({
             </div>
           )}
 
-          {canEdit && onSaveEdit && (
-            <div className="pt-4 border-t border-slate-100 space-y-4">
-              {!editOpen ? (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setEditTitle(task.title || '');
-                    setEditContent(task.content || '');
-                    setEditObjective(task.objective || '');
-                    setEditDeadline(toDatetimeLocal(task.deadline));
-                    setEditWeight(task.weight != null ? String(task.weight) : '0.5');
-                    setEditStatus((task.status || 'NEW').toUpperCase());
-                    setEditQuality(task.quality != null ? String(task.quality) : '');
-                    const d = new Date();
-                    d.setDate(d.getDate() - 1);
-                    setEditPausedFrom(d.toISOString().slice(0, 10));
-                    setEditPausedTo(`${new Date().getFullYear()}-03-15`);
-                    setEditError('');
-                    setEditOpen(true);
-                  }}
-                  className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 text-slate-700 text-sm font-medium hover:bg-slate-50"
-                >
-                  Chỉnh sửa nội dung, thời hạn, trọng số
-                </button>
-              ) : (
-                <div className="bg-slate-50 rounded-xl p-4 space-y-3">
-                  <h4 className="text-sm font-bold text-slate-800">Chỉnh sửa công việc (Admin/Leader)</h4>
-                  {editError && <p className="text-red-600 text-sm">{editError}</p>}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tiêu đề</label>
-                    <input value={editTitle} onChange={(e) => setEditTitle(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nội dung công việc</label>
-                    <textarea value={editContent} onChange={(e) => setEditContent(e.target.value)} rows={3} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Mục tiêu</label>
-                    <input value={editObjective} onChange={(e) => setEditObjective(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Thời hạn</label>
-                    <input type="datetime-local" value={editDeadline} onChange={(e) => setEditDeadline(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số</label>
-                      <select
-                        value={editWeight}
-                        onChange={(e) => setEditWeight(e.target.value)}
-                        className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm bg-white"
-                      >
-                        {WEIGHT_LEVELS.map((lvl) => (
-                          <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trạng thái</label>
-                      <select value={editStatus} onChange={(e) => setEditStatus(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm">
-                        <option value="NEW">Mới</option>
-                        <option value="ACCEPTED">Đang thực hiện</option>
-                        <option value="PENDING_APPROVAL">Đợi duyệt</option>
-                        <option value="COMPLETED">Hoàn thành</option>
-                        <option value="PAUSED">Tạm dừng</option>
-                      </select>
-                    </div>
-                  </div>
-                  {editStatus === 'PAUSED' && (
-                    <div className="space-y-2">
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tạm dừng từ ngày</label>
-                          <input type="date" value={editPausedFrom} onChange={(e) => setEditPausedFrom(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tạm dừng đến ngày</label>
-                          <input type="date" value={editPausedTo} onChange={(e) => setEditPausedTo(e.target.value)} className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                        </div>
-                      </div>
-                      <p className="text-xs text-slate-500">Khoảng thời gian sẽ được ghi vào Mục tiêu. Nếu lưu bị lỗi <em>tasks_status_check</em>, cần chạy script PostgreSQL (xem backend/scripts/add_tasks_status_paused_postgres.sql).</p>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Chất lượng (0–1, tùy chọn)</label>
-                    <input type="number" step="0.01" min="0" max="1" value={editQuality} onChange={(e) => setEditQuality(e.target.value)} placeholder="Để trống nếu chưa đánh giá" className="w-24 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
-                  </div>
-                  <div className="flex gap-2">
+        </div>
+
+        {showAdminTabs && (
+          <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4 shrink-0">
+            <div className="text-xs text-slate-400 flex items-center gap-1 italic">
+              <AlertCircle size={14} />
+              Mọi thay đổi sẽ được lưu vào lịch sử hệ thống
+            </div>
+            <div className="flex gap-3 w-full sm:w-auto">
+              {activeTab === 'review' ? (
+                task.status === 'pending_approval' && onReject && onApprove ? (
+                  <>
                     <button
                       type="button"
-                      disabled={editSaving}
+                      disabled={approveSubmitting}
                       onClick={() => {
-                        setEditError('');
-                        setEditSaving(true);
-                        let objective = editObjective.trim();
-                        if (editStatus === 'PAUSED' && editPausedFrom && editPausedTo) {
-                          const fmt = (ymd) => {
-                            if (!ymd) return '';
-                            const [y, m, d] = ymd.split('-');
-                            return `${d}/${m}/${y}`;
-                          };
-                          const line = `Tạm dừng từ ${fmt(editPausedFrom)} đến ${fmt(editPausedTo)}.`;
-                          objective = objective.replace(/\n?Tạm dừng từ \d{1,2}\/\d{1,2}\/\d{4} đến \d{1,2}\/\d{1,2}\/\d{4}\.?/g, '').trim();
-                          objective = objective ? `${objective}\n${line}` : line;
+                        setRejectReasonError('');
+                        const comment = rejectReason.trim();
+                        if (!comment) {
+                          setRejectReasonError('Bắt buộc nhập đánh giá của chỉ huy khi trả về.');
+                          return;
                         }
-                        const payload = {
-                          title: editTitle.trim() || undefined,
-                          content: editContent.trim() || undefined,
-                          objective: objective || undefined,
-                          deadline: editDeadline ? `${editDeadline}:00` : undefined,
-                          weight: editWeight !== '' ? Number(editWeight) : undefined,
-                          status: editStatus || undefined,
-                          quality: editQuality !== '' ? Number(editQuality) : undefined,
-                        };
-                        onSaveEdit(payload)
-                          .then(() => setEditOpen(false))
-                          .catch((err) => { setEditError(err?.message || 'Lỗi lưu.'); })
-                          .finally(() => setEditSaving(false));
+                        setApproveSubmitting(true);
+                        onReject(comment).catch(() => {}).finally(() => setApproveSubmitting(false));
                       }}
-                      className="px-4 py-2 rounded-xl text-sm font-bold text-white disabled:opacity-50"
-                      style={{ backgroundColor: VIETTEL_RED }}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 border border-red-200 text-red-600 bg-white hover:bg-red-50 rounded-xl font-bold text-sm transition-all shadow-sm"
                     >
-                      {editSaving ? 'Đang lưu...' : 'Lưu thay đổi'}
+                      <RotateCcw size={18} />
+                      TRẢ VỀ SỬA
                     </button>
-                    <button type="button" onClick={() => setEditOpen(false)} className="px-4 py-2 rounded-xl text-sm font-medium border border-slate-200 text-slate-700 hover:bg-slate-100">
-                      Hủy
+                    <button
+                      type="button"
+                      disabled={approveSubmitting}
+                      onClick={() => {
+                        setRejectReasonError('');
+                        setApproveSubmitting(true);
+                        const q = approveQuality !== '' ? Number(approveQuality) : undefined;
+                        const payload = {
+                          weight: editWeight !== '' ? Number(editWeight) : undefined,
+                          status: editStatus,
+                          quality: q,
+                          leaderComment: rejectReason.trim() || undefined,
+                        };
+                        (onSaveEdit ? onSaveEdit(payload) : Promise.resolve())
+                          .then(() => {
+                            if (task.status === 'pending_approval' && editStatus === 'COMPLETED' && onApprove) {
+                              return onApprove(q);
+                            }
+                            return undefined;
+                          })
+                          .catch(() => {})
+                          .finally(() => setApproveSubmitting(false));
+                      }}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-emerald-200"
+                    >
+                      <CheckCircle size={18} />
+                      {approveSubmitting ? 'Đang duyệt...' : 'DUYỆT & ĐÓNG'}
                     </button>
-                  </div>
-                </div>
+                  </>
+                ) : onSaveEdit ? (
+                  <button
+                    type="button"
+                    disabled={approveSubmitting}
+                    onClick={() => {
+                      setRejectReasonError('');
+                      setApproveSubmitting(true);
+                      const q = approveQuality !== '' ? Number(approveQuality) : undefined;
+                      const payload = {
+                        weight: editWeight !== '' ? Number(editWeight) : undefined,
+                        status: editStatus,
+                        quality: q,
+                        leaderComment: rejectReason.trim() || undefined,
+                      };
+                      onSaveEdit(payload).catch(() => {}).finally(() => setApproveSubmitting(false));
+                    }}
+                    className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm"
+                  >
+                    {approveSubmitting ? 'Đang lưu...' : 'Cập nhật đánh giá'}
+                  </button>
+                ) : null
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setEditTitle(task.title || '');
+                      setEditContent(task.content || '');
+                      setEditObjective(task.objective || '');
+                      setEditDeadline(toDatetimeLocal(task.deadline));
+                      setEditError('');
+                    }}
+                    className="flex-1 sm:flex-none px-8 py-2.5 border border-slate-300 text-slate-600 bg-white hover:bg-slate-50 rounded-xl font-bold text-sm transition-all"
+                  >
+                    HỦY
+                  </button>
+                  <button
+                    type="button"
+                    disabled={editSaving}
+                    onClick={() => {
+                      setEditError('');
+                      setEditSaving(true);
+                      const payload = {
+                        title: editTitle.trim() || undefined,
+                        content: editContent.trim() || undefined,
+                        objective: editObjective.trim() || undefined,
+                        deadline: editDeadline ? `${editDeadline}:00` : undefined,
+                      };
+                      onSaveEdit(payload)
+                        .then(() => onClose?.())
+                        .catch((err) => { setEditError(err?.message || 'Lỗi lưu.'); })
+                        .finally(() => setEditSaving(false));
+                    }}
+                    className="flex-1 sm:flex-none px-8 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold text-sm transition-all shadow-lg shadow-blue-200"
+                  >
+                    {editSaving ? 'Đang lưu...' : 'LƯU THAY ĐỔI'}
+                  </button>
+                </>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </div>
   );
