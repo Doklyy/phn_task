@@ -1571,7 +1571,7 @@ const App = () => {
                         <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
                           <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
                             <h3 className="text-sm font-bold text-slate-800">Đánh giá của chỉ huy theo nhiệm vụ</h3>
-                            <p className="text-xs text-slate-500 mt-0.5"></p>
+                            <p className="text-xs text-slate-500 mt-0.5">Trọng số CV, Chất lượng CV, Trạng thái CV và Chấm điểm nhiệm vụ (W×Q×T). {role !== 'admin' ? 'Chỉ nhiệm vụ bạn tham gia.' : ''}</p>
                           </div>
                           <div className="overflow-x-auto max-h-[24rem] overflow-y-auto">
                             <table className="w-full text-sm">
@@ -2207,7 +2207,7 @@ const App = () => {
               });
               const myReportDays = Object.keys(myReportsByDate).sort((a, b) => b.localeCompare(a));
               const myCompletionFeedbackTasks = (tasks || []).filter(
-                (t) => String(t.assigneeId) === String(currentUser?.id) && (t.leaderComment || t.lastRejectReason),
+                (t) => String(t.assigneeId) === String(currentUser?.id) && (t.leaderComment || t.lastRejectReason || t.weight != null || t.quality != null),
               );
               return (
                 <section className="min-h-screen bg-slate-100 py-6 px-4 sm:px-6 lg:px-8 -mx-4 sm:-mx-6 md:-mx-0">
@@ -2264,14 +2264,36 @@ const App = () => {
                                   Xem chi tiết
                                 </button>
                               </div>
-                              {(t.lastRejectAt || t.leaderComment) && (
-                                <div className="mt-2 pt-2 border-t border-slate-100">
-                                  <p className="text-xs text-slate-500">
-                                    {t.lastRejectAt
-                                      ? new Date(String(t.lastRejectAt).replace(' ', 'T')).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-                                      : ''}
-                                  </p>
-                                  <p className="text-slate-700 text-sm mt-1 whitespace-pre-wrap">{t.lastRejectReason || t.leaderComment || '—'}</p>
+                              {/* Điểm số và đánh giá: Trọng số CV, Chất lượng CV, Trạng thái CV, CHẤM ĐIỂM NHIỆM VỤ */}
+                              {(t.weight != null || t.quality != null || t.leaderComment || t.lastRejectReason) && (
+                                <div className="mt-3 pt-3 border-t border-slate-100 space-y-2">
+                                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
+                                    {t.weight != null && (
+                                      <span className="text-slate-600"><span className="font-semibold text-slate-500">Trọng số CV:</span> {weightLabel(t.weight)}</span>
+                                    )}
+                                    {t.quality != null && (
+                                      <span className="text-slate-600"><span className="font-semibold text-slate-500">Chất lượng CV:</span> {qualityLabel(t.quality)}</span>
+                                    )}
+                                    <span className="text-slate-600"><span className="font-semibold text-slate-500">Trạng thái CV:</span> {statusCVLabel(t)}</span>
+                                    {(t.weight != null || t.quality != null) && (
+                                      <span className="font-bold text-slate-800">
+                                        <span className="font-semibold text-slate-500">Chấm điểm nhiệm vụ:</span> {taskScore(t)} điểm
+                                      </span>
+                                    )}
+                                  </div>
+                                  {(t.lastRejectAt || t.leaderComment || t.lastRejectReason) && (
+                                    <>
+                                      {t.lastRejectAt && (
+                                        <p className="text-xs text-slate-500">
+                                          {new Date(String(t.lastRejectAt).replace(' ', 'T')).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                        </p>
+                                      )}
+                                      <p className="text-slate-700 text-sm mt-0.5 whitespace-pre-wrap">
+                                        <span className="font-semibold text-slate-600">Đánh giá của chỉ huy: </span>
+                                        {t.lastRejectReason || t.leaderComment || '—'}
+                                      </p>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </li>
