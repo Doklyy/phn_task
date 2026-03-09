@@ -1708,7 +1708,8 @@ const App = () => {
                           Chuyên cần
                         </button>
                     </div>
-                      <div className="flex-1 flex justify-end min-w-0">
+                      <div className="flex-1 flex justify-end items-center gap-2 min-w-0 flex-wrap">
+                        <span className="text-xs text-slate-500">Điểm &amp; xếp hạng theo tháng:</span>
                         <select value={dashMonth} onChange={(e) => setDashMonth(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                           {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => {
                             const y = dashMonth ? parseInt(dashMonth.split('-')[0], 10) : new Date().getFullYear();
@@ -1716,6 +1717,7 @@ const App = () => {
                             return <option key={v} value={v}>Tháng {m}/{y}</option>;
                           })}
                         </select>
+                        <p className="text-[10px] text-slate-400 w-full sm:w-auto">Dữ liệu import (CSV) tính theo ngày hoàn thành — chọn đúng tháng để xem điểm tháng đó (vd. Tháng 2/2026).</p>
                       </div>
                     </div>
                   </div>
