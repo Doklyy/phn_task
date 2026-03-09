@@ -1030,19 +1030,47 @@ const App = () => {
       });
   };
 
-  // Xuất Excel
+  // Xuất Excel: sheet "Theo doi Nhiem vu" (theo file CSV PHN) + sheet "Diem NV" (CHẤM ĐIỂM NHIỆM VỤ)
   const handleExportExcel = () => {
-    const rows = filteredTasks.map((t) => ({
-      'Mã': t.id,
-      'Tiêu đề': t.title,
-      'Trạng thái': t.status === 'new' ? 'Mới' : t.status === 'accepted' ? 'Đang làm' : t.status,
-      'Hạn chót': t.deadline || '',
-      'Trọng số W': t.weight,
-      'WQT': t.wqt || '',
+    const userList = (allUsersForRanking && allUsersForRanking.length > 0 ? allUsersForRanking : users || []);
+    const userNameById = {};
+    (userList || []).forEach((u) => {
+      const id = String(u.id ?? u.userId ?? '');
+      if (id && !userNameById[id]) userNameById[id] = u.name || u.fullName || u.username || id;
+    });
+    const formatDateDDMMYYYY = (v) => {
+      if (!v) return '';
+      const d = new Date(String(v).replace(' ', 'T'));
+      if (Number.isNaN(d.getTime())) return String(v);
+      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const year = d.getFullYear();
+      return `${day}/${month}/${year}`;
+    };
+
+    // Sheet "Theo doi Nhiem vu": Ngày giao, Người giao, Tên công việc, Đánh giá của chỉ huy, Trọng số CV, Chất lượng CV, Trạng thái CV
+    const sheetTheoDoi = filteredTasks.map((t) => ({
+      'Ngày giao': formatDateDDMMYYYY(t.createdAt || t.created_at),
+      'Người giao': userNameById[String(t.leaderId ?? t.leader_id ?? '')] || '',
+      'Tên công việc': t.title || '',
+      'Đánh giá của chỉ huy': t.leaderComment || t.leader_comment || '',
+      'Trọng số CV': weightLabel(t.weight),
+      'Chất lượng CV': qualityLabel(t.quality),
+      'Trạng thái CV': statusCVLabel(t),
     }));
-    const ws = utils.json_to_sheet(rows);
+
+    // Sheet "Diem NV": Mã/Tên + CHẤM ĐIỂM NHIỆM VỤ (W×Q×T)
+    const sheetDiemNV = filteredTasks.map((t) => ({
+      'Mã': t.id,
+      'Tên công việc': t.title || '',
+      'CHẤM ĐIỂM NHIỆM VỤ': taskScore(t),
+    }));
+
+    const wsTheoDoi = utils.json_to_sheet(sheetTheoDoi);
+    const wsDiemNV = utils.json_to_sheet(sheetDiemNV);
     const wb = utils.book_new();
-    utils.book_append_sheet(wb, ws, 'Nhiệm vụ');
+    utils.book_append_sheet(wb, wsTheoDoi, 'Theo doi Nhiem vu');
+    utils.book_append_sheet(wb, wsDiemNV, 'Diem NV');
     writeFileXLSX(wb, 'danh-sach-nhiem-vu.xlsx');
   };
 
