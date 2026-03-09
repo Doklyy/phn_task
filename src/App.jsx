@@ -1717,7 +1717,7 @@ const App = () => {
                             return <option key={v} value={v}>Tháng {m}/{y}</option>;
                           })}
                         </select>
-                        <p className="text-[10px] text-slate-400 w-full sm:w-auto">Dữ liệu import (CSV) tính theo ngày hoàn thành — chọn đúng tháng để xem điểm tháng đó (vd. Tháng 2/2026).</p>
+                        <p className="text-[10px] text-slate-400 w-full sm:w-auto"></p>
                       </div>
                     </div>
                   </div>
