@@ -89,6 +89,8 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
   const [timeScore, setTimeScore] = useState(null);
 
   const [personnel, setPersonnel] = useState([]);
+  /** Ngày chấm công cho bảng: mặc định hôm nay; đổi ngày để chấm công bù hoặc sửa ngày khác. */
+  const [tableDate, setTableDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [todayRecordsByUser, setTodayRecordsByUser] = useState({});
   const [tableLoading, setTableLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -174,7 +176,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
     if (!canManage || personnel.length === 0) return;
     setRowDrafts((prev) => {
       const next = { ...prev };
-      const isSunday = new Date(todayStr).getDay() === 0;
+      const isSunday = new Date(tableDate).getDay() === 0;
       const codeDefault = isSunday ? 'CN' : 'L';
       personnel.forEach((emp) => {
         const id = String(emp.id ?? emp.userId);
@@ -191,21 +193,21 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       });
       return next;
     });
-  }, [canManage, todayRecordsByUser, personnel.length, todayStr]);
+  }, [canManage, todayRecordsByUser, personnel.length, tableDate]);
 
   useEffect(() => {
     if (!canManage || !uid || personnel.length === 0) {
       setTodayRecordsByUser({});
       return;
     }
-    const loadTodayForAll = async () => {
+    const loadForDate = async () => {
       const byUser = {};
       await Promise.all(
         personnel.map(async (u) => {
           const userId = u.id ?? u.userId;
           if (!userId) return;
           try {
-            const recs = await getAttendanceRecords(uid, userId, todayStr, todayStr);
+            const recs = await getAttendanceRecords(uid, userId, tableDate, tableDate);
             const rec = recs && recs[0] ? recs[0] : null;
             byUser[String(userId)] = rec;
           } catch {
@@ -215,8 +217,8 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       );
       setTodayRecordsByUser(byUser);
     };
-    loadTodayForAll();
-  }, [canManage, uid, personnel, todayStr]);
+    loadForDate();
+  }, [canManage, uid, personnel, tableDate]);
 
   useEffect(() => {
     if (leaveSubTab === 'my' && uid) {
@@ -301,9 +303,9 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       if (rec?.id) {
         await updateAttendanceRecord(rec.id, uid, { checkInAt, checkOutAt, attendanceCode });
       } else {
-        await createAttendanceRecord(uid, Number(empId), todayStr, { checkInAt, checkOutAt, attendanceCode });
+        await createAttendanceRecord(uid, Number(empId), tableDate, { checkInAt, checkOutAt, attendanceCode });
       }
-      const recs = await getAttendanceRecords(uid, Number(empId), todayStr, todayStr);
+      const recs = await getAttendanceRecords(uid, Number(empId), tableDate, tableDate);
       setTodayRecordsByUser((prev) => ({ ...prev, [empId]: recs?.[0] || null }));
     } catch (e) {
       console.error(e);
@@ -321,7 +323,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
     setSelectedIds([]);
   };
 
-  /** Đặt tất cả nhân viên chưa có bản ghi hôm nay thành "Làm cả ngày" (L) 08:00–17:00; đã có bản ghi giữ nguyên. Sau khi lưu, mỗi người sẽ thấy trạng thái/điểm của mình. */
+  /** Đặt tất cả nhân viên chưa có bản ghi ngày đang chọn thành "Làm cả ngày" (L) 08:00–17:00; đã có bản ghi giữ nguyên. */
   const handleSetAllFullDay = async () => {
     if (!uid || personnel.length === 0) return;
     setSettingAllFullDay(true);
@@ -330,12 +332,12 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
         const id = String(p.id ?? p.userId);
         return !todayRecordsByUser[id];
       });
-      const isSunday = new Date(todayStr).getDay() === 0;
+      const isSunday = new Date(tableDate).getDay() === 0;
       const codeDefault = isSunday ? 'CN' : 'L';
       for (const emp of toCreate) {
         const empId = Number(emp.id ?? emp.userId);
         try {
-          await createAttendanceRecord(uid, empId, todayStr, {
+          await createAttendanceRecord(uid, empId, tableDate, {
             checkInAt: '08:00',
             checkOutAt: '17:00',
             attendanceCode: codeDefault,
@@ -350,7 +352,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
           const userId = u.id ?? u.userId;
           if (!userId) return;
           try {
-            const recs = await getAttendanceRecords(uid, userId, todayStr, todayStr);
+            const recs = await getAttendanceRecords(uid, userId, tableDate, tableDate);
             byUser[String(userId)] = recs?.[0] || null;
           } catch {
             byUser[String(userId)] = null;
@@ -472,15 +474,27 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
         {canManage ? (
           <>
             <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="relative w-full sm:w-80">
-                <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Tìm tên nhân viên hoặc mã số..."
-                  className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E] transition-all"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 shrink-0">
+                  <span>Ngày chấm:</span>
+                  <input
+                    type="date"
+                    value={tableDate}
+                    onChange={(e) => setTableDate(e.target.value ? e.target.value.slice(0, 10) : new Date().toISOString().slice(0, 10))}
+                    className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E]"
+                    title="Chọn ngày để chấm công bù hoặc sửa"
+                  />
+                </label>
+                <div className="relative w-full sm:w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="Tìm tên nhân viên..."
+                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E] transition-all"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
               </div>
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <button
@@ -490,7 +504,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                   className="flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                 >
                   <CheckCircle2 className="w-4 h-4 mr-2" />
-                  {settingAllFullDay ? 'Đang đặt...' : todayDayOfWeek === 0 ? 'Đặt tất cả: Chủ nhật (CN)' : 'Đặt tất cả: Làm cả ngày'}
+                  {settingAllFullDay ? 'Đang đặt...' : new Date(tableDate).getDay() === 0 ? 'Đặt tất cả: Chủ nhật (CN)' : 'Đặt tất cả: Làm cả ngày'}
                 </button>
               </div>
             </div>
@@ -516,7 +530,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                     filteredPersonnel.map((emp) => {
                       const empId = String(emp.id ?? emp.userId);
                       const rec = todayRecordsByUser[empId];
-                      const isSun = new Date(todayStr).getDay() === 0;
+                      const isSun = new Date(tableDate).getDay() === 0;
                       const draft = rowDrafts[empId] || { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: isSun ? 'CN' : 'L' };
                       const name = emp.name || emp.fullName || emp.username || '—';
                       const saving = savingRecordId === empId;
@@ -562,7 +576,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
               </table>
             </div>
             <div className="p-4 border-t border-slate-200 text-xs text-slate-500 bg-slate-50">
-              Tổng: {filteredPersonnel.length} nhân viên. Mặc định đi làm cả ngày (trừ Chủ nhật). Chỉnh trạng thái và bấm Lưu.
+              Tổng: {filteredPersonnel.length} nhân viên. Chọn ngày phía trên để chấm công bù hoặc sửa ngày khác. Chỉnh trạng thái và bấm Lưu.
             </div>
           </>
         ) : (
