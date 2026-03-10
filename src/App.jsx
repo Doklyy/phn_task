@@ -503,7 +503,8 @@ const App = () => {
         const isHalf = rawCode === 'N_HALF' || (rawCode || '').includes('HALF');
         // Theo DB: TT7 = đi làm thứ 7 (0.5 công), T7 = nghỉ thứ 7 (N, không công)
         const isSaturdayOff = isWeekend && rawCode === 'T7';
-        const isFullLeave = (rawCode.startsWith('N_') && !isHalf) || rawCode === 'CN' || !!isSaturdayOff;
+        // Nghỉ phép trọn ngày chỉ tính cho N_FULL (và các mã nghỉ CN/T7); N_LATE/N_EARLY KHÔNG tính là nghỉ.
+        const isFullLeave = (rawCode === 'N_FULL') || rawCode === 'CN' || !!isSaturdayOff;
         let workDay = 0;
         if (isHalf) {
           workDay = 0.5;
