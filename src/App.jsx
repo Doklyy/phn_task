@@ -475,6 +475,25 @@ const App = () => {
       if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = new Set();
       reportsByUserAndDay[uid][day].add(taskId);
     });
+    // Bổ sung: coi ngày gửi báo cáo kết thúc / ngày hoàn thành như một báo cáo ngày (để ô hiển thị 1/1 thay vì 0/1).
+    const sourceTasksForReports = (allTasksForDashboard && allTasksForDashboard.length > 0)
+      ? allTasksForDashboard
+      : (tasks || []);
+    (sourceTasksForReports || []).forEach((t) => {
+      const uid = String(t.assigneeId ?? t.assignee_id ?? '');
+      if (!uid) return;
+      const completionDateRaw = t.submittedAt || t.submitted_at || t.completedAt || t.completed_at;
+      if (!completionDateRaw) return;
+      const d = String(completionDateRaw).slice(0, 10);
+      if (!d.startsWith(monthPrefix)) return;
+      const day = parseInt(d.slice(8, 10), 10);
+      if (!Number.isFinite(day)) return;
+      const taskId = String(t.id ?? t.taskId ?? '');
+      if (!taskId) return;
+      if (!reportsByUserAndDay[uid]) reportsByUserAndDay[uid] = {};
+      if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = new Set();
+      reportsByUserAndDay[uid][day].add(taskId);
+    });
     return (staffListForDashboard || []).map((s) => {
       const sid = String(s.id ?? s.userId);
       const records = adminAttendanceMap[sid] || [];
