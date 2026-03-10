@@ -180,7 +180,18 @@ function statusCVLabel(task) {
   if (s === 'pending_approval') return 'Đợi duyệt';
   if (s === 'accepted') return 'Đang thực hiện';
   if (s === 'paused') return 'Tạm dừng';
-  if (s === 'new') return 'Chưa đến hạn';
+  if (s === 'new') {
+    const deadlineStr = task.deadline || task.deadline_at || null;
+    if (deadlineStr) {
+      const d = new Date(String(deadlineStr).replace(' ', 'T'));
+      if (!Number.isNaN(d.getTime())) {
+        const today = new Date();
+        // Nếu đã quá hạn mà vẫn NEW → coi là Không hoàn thành (đúng với file CSV cũ)
+        if (d < today) return 'Không hoàn thành';
+      }
+    }
+    return 'Chưa đến hạn';
+  }
   return '—';
 }
 
