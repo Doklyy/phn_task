@@ -374,7 +374,10 @@ const App = () => {
         } else if (rec) {
           const rawCode = String(rec.attendanceCode ?? rec.attendance_code ?? '').trim();
           const code = rawCode.toUpperCase();
-          const isLeave = code.startsWith('N_');
+          // Chỉ coi là nghỉ khi là các mã nghỉ chính thức (N_FULL/N_HALF), không tính xin đến muộn/xin về sớm là nghỉ.
+          const isLeave =
+            code === 'N_FULL' ||
+            code === 'N_HALF';
 
           if (isLeave) {
             status = 'leave';
