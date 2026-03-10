@@ -437,9 +437,17 @@ const App = () => {
     // Chưa giao thì không cần báo cáo
     if (createdStr && dStr < createdStr) return false;
 
-    // Nhiệm vụ đã hoàn thành, chờ duyệt hoặc tạm dừng (trạng thái hiện tại)
-    // thì không yêu cầu báo cáo tiến độ nữa, cho mọi ngày.
-    if (status === 'completed' || status === 'pending_approval' || status === 'paused') return false;
+    // Nếu nhiệm vụ đã hoàn thành: chỉ yêu cầu báo cáo tới NGÀY HOÀN THÀNH.
+    // Sau ngày hoàn thành (completedAt/submittedAt) thì không còn tính nhiệm vụ cho bảng chuyên cần.
+    if (status === 'completed') {
+      const completedStr = (task.completedAt || task.completed_at || task.submittedAt || task.submitted_at)
+        ? String(task.completedAt || task.completed_at || task.submittedAt || task.submitted_at).slice(0, 10)
+        : null;
+      if (completedStr && dStr > completedStr) return false;
+    }
+
+    // Nhiệm vụ đang ở trạng thái Đợi duyệt hoặc Tạm dừng: không yêu cầu báo cáo (không tính công việc cho các ngày này).
+    if (status === 'pending_approval' || status === 'paused') return false;
 
     return true;
   }, []);
