@@ -446,8 +446,9 @@ const App = () => {
       if (completedStr && dStr > completedStr) return false;
     }
 
-    // Nhiệm vụ đang ở trạng thái Đợi duyệt hoặc Tạm dừng: không yêu cầu báo cáo (không tính công việc cho các ngày này).
-    if (status === 'pending_approval' || status === 'paused') return false;
+    // Nhiệm vụ Tạm dừng: không yêu cầu báo cáo (không tính công việc cho các ngày này).
+    // Trạng thái ĐỢI DUYỆT (pending_approval) vẫn được tính là có nhiệm vụ trong ngày gửi báo cáo kết thúc.
+    if (status === 'paused') return false;
 
     return true;
   }, []);
