@@ -437,17 +437,17 @@ const App = () => {
     // Chưa giao thì không cần báo cáo
     if (createdStr && dStr < createdStr) return false;
 
-    // Nếu nhiệm vụ đã hoàn thành: chỉ yêu cầu báo cáo tới NGÀY HOÀN THÀNH.
-    // Sau ngày hoàn thành (completedAt/submittedAt) thì không còn tính nhiệm vụ cho bảng chuyên cần.
-    if (status === 'completed') {
-      const completedStr = (task.completedAt || task.completed_at || task.submittedAt || task.submitted_at)
+    // Nếu nhiệm vụ đã hoàn thành HOẶC đang ĐỢI DUYỆT:
+    // - Chỉ yêu cầu báo cáo tới NGÀY HOÀN THÀNH / NGÀY GỬI BÁO CÁO KẾT THÚC.
+    // - Sau ngày đó thì không còn tính nhiệm vụ cho bảng chuyên cần.
+    if (status === 'completed' || status === 'pending_approval') {
+      const doneStr = (task.completedAt || task.completed_at || task.submittedAt || task.submitted_at)
         ? String(task.completedAt || task.completed_at || task.submittedAt || task.submitted_at).slice(0, 10)
         : null;
-      if (completedStr && dStr > completedStr) return false;
+      if (doneStr && dStr > doneStr) return false;
     }
 
     // Nhiệm vụ Tạm dừng: không yêu cầu báo cáo (không tính công việc cho các ngày này).
-    // Trạng thái ĐỢI DUYỆT (pending_approval) vẫn được tính là có nhiệm vụ trong ngày gửi báo cáo kết thúc.
     if (status === 'paused') return false;
 
     return true;

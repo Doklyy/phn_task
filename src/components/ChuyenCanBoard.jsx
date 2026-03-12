@@ -124,7 +124,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                 <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] p-4 font-semibold text-gray-600 bg-gray-50 border-b border-r border-gray-200">
                   Nhân sự
                 </th>
-                <th className="sticky left-[160px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-blue-700 bg-gray-50 border-b border-r border-gray-200">
+                <th className="sticky left-[160px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-blue-700 bg-gray-50 border-b border-r border-gray-200" title="Khi có API: điểm chuyên cần (TG làm việc 5đ + Báo cáo 5đ). Khi chưa có: số ngày công.">
                   C.Tổng
                 </th>
                 <th className="sticky left-[240px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-rose-700 bg-gray-50 border-b border-r border-gray-200">
@@ -179,7 +179,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                     <td className="sticky left-0 z-20 w-[160px] min-w-[160px] max-w-[160px] p-4 bg-white group-hover:bg-gray-50 border-b border-r border-gray-200 font-medium text-gray-800">
                       {person.name}
                     </td>
-                    <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-blue-600 border-b border-r border-gray-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : undefined}>
+                    <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-blue-600 border-b border-r border-gray-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : 'Điểm từ API chưa có; đang hiển thị số ngày công.'}>
                       {hasScore ? (totalScore % 1 !== 0 ? totalScore.toFixed(1) : totalScore) : (typeof totalWorkDays === 'number' && totalWorkDays % 1 !== 0 ? totalWorkDays.toFixed(1) : totalWorkDays)}
                     </td>
                     <td className="sticky left-[240px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-rose-500 border-b border-r border-gray-200">
@@ -219,6 +219,9 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
 
       <div className="p-4 bg-blue-50/50 border-t border-gray-200 flex items-start gap-2 text-sm text-blue-700">
         <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
+        <span>
+          C.Tổng: nếu backend chạy và API trả về điểm chuyên cần (timeWorkScore5, dailyReportScore5) thì hiển thị tổng tối đa 10đ; nếu chưa thì hiển thị số ngày công. Ô ngày: cần API báo cáo (reports/admin) và nhiệm vụ có ngày gửi để hiện đủ/thiếu.
+        </span>
       </div>
     </div>
   );

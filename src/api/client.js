@@ -74,6 +74,23 @@ export function isApiConfigured() {
 }
 
 /**
+ * Kiểm tra backend có chạy không (không ném lỗi).
+ * Trả về { ok: boolean, message: string }.
+ */
+export async function checkBackendHealth() {
+  if (!BASE) return { ok: false, message: 'Chưa cấu hình VITE_API_URL trong .env' };
+  const url = `${BASE.replace(/\/$/, '')}/health`;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return { ok: false, message: `HTTP ${res.status}` };
+    const data = await res.json().catch(() => ({}));
+    return { ok: true, message: data.message || 'Backend đang chạy' };
+  } catch (e) {
+    return { ok: false, message: e?.message || 'Không kết nối được' };
+  }
+}
+
+/**
  * Upload file (multipart/form-data). Trả về path để gửi kèm báo cáo.
  * Không gửi Content-Type để trình duyệt tự set multipart/form-data; boundary.
  */
