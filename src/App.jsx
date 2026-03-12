@@ -2668,7 +2668,15 @@ const App = () => {
             acceptNewLocked={acceptNewLocked}
             yesterday={yesterday}
             defaultReportDate={forcedReportDate}
-            onComplete={(payload) => submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload).then(refreshTasks).then(() => setSelectedTaskId(null))}
+            onComplete={(payload) =>
+              submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload)
+                .then(refreshTasks)
+                .then(() => {
+                  if (currentUser?.id && (role === 'admin' || activeTab === 'dash')) {
+                    return getAllReportsForAdmin(Number(currentUser.id) || currentUser.id).then((l) => setAllReportsList(l || []));
+                  }
+                })
+                .then(() => setSelectedTaskId(null))}
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onReject={(reason) => rejectCompletion(selectedTaskId, currentUser.id, reason).then(refreshTasks).then(() => setSelectedTaskId(null))}
             currentUserId={currentUser?.id}
