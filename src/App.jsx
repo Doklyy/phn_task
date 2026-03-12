@@ -541,7 +541,21 @@ const App = () => {
           else if (rec) workDay = 0.5;
         }
         const hadWork = workDay > 0;
-        const totalTasks = hadWork ? tasksForUser.filter((t) => taskActiveOnDay(t, y, m, day)).length : 0;
+        const totalTasks = hadWork
+          ? tasksForUser.filter((t) => {
+              const status = (t.status || '').toLowerCase();
+              const taskId = String(t.id ?? t.taskId ?? '');
+              if (!taskId) return false;
+              if (status === 'paused') return false;
+              // Với nhiệm vụ ĐỢI DUYỆT: chỉ tính là "có nhiệm vụ trong ngày"
+              // đúng vào các ngày có báo cáo (tức là ngày gửi báo cáo hoàn thành).
+              if (status === 'pending_approval') {
+                const reportedSetForDay = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || null;
+                return !!(reportedSetForDay && reportedSetForDay.has(taskId));
+              }
+              return taskActiveOnDay(t, y, m, day);
+            }).length
+          : 0;
         const reportedSet = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || null;
         const reportedTasks = reportedSet ? reportedSet.size : 0;
         days[String(day)] = {
