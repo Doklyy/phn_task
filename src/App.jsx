@@ -1821,6 +1821,7 @@ const App = () => {
                           data={chuyenCanBoardData}
                           displayDays={displayDays}
                           loading={adminAttendanceLoading}
+                          ranking={ranking}
                         />
                       </section>
                     );
@@ -2672,9 +2673,14 @@ const App = () => {
               submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload)
                 .then(refreshTasks)
                 .then(() => {
-                  if (currentUser?.id && (role === 'admin' || activeTab === 'dash')) {
-                    return getAllReportsForAdmin(Number(currentUser.id) || currentUser.id).then((l) => setAllReportsList(l || []));
+                  if (!currentUser?.id) return;
+                  const promises = [];
+                  if (role === 'admin' || activeTab === 'dash') {
+                    promises.push(getAllReportsForAdmin(Number(currentUser.id) || currentUser.id).then((l) => setAllReportsList(l || [])));
+                    promises.push(fetchTasksForDashboard(currentUser.id).then((list) => setAllTasksForDashboard(Array.isArray(list) ? list : [])));
+                    promises.push(getRanking({ month: dashMonth }).then((r) => setRanking(Array.isArray(r) ? r : [])));
                   }
+                  return Promise.all(promises);
                 })
                 .then(() => setSelectedTaskId(null))}
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}

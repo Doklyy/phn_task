@@ -76,8 +76,16 @@ function renderCell(dayData, day) {
   );
 }
 
-export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, displayDays, loading }) {
+export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, displayDays, loading, ranking }) {
   const daysList = displayDays && displayDays.length > 0 ? displayDays : Array.from({ length: 31 }, (_, i) => i + 1);
+  const rankingByUserId = React.useMemo(() => {
+    const m = {};
+    (ranking || []).forEach((r) => {
+      const uid = String(r.userId ?? r.user_id ?? '');
+      if (uid) m[uid] = r;
+    });
+    return m;
+  }, [ranking]);
 
   return (
     <div className="max-w-[1400px] mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -159,14 +167,20 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                   }
                 });
                 const reportRate = totalTaskDays > 0 ? Math.round((fullReportedDays / totalTaskDays) * 100) : 0;
+                const sid = String(person.id ?? '');
+                const scoreRow = rankingByUserId[sid];
+                const tw = scoreRow?.timeWorkScore5;
+                const dr = scoreRow?.dailyReportScore5;
+                const hasScore = typeof tw === 'number' || typeof dr === 'number';
+                const totalScore = (typeof tw === 'number' ? tw : 0) + (typeof dr === 'number' ? dr : 0);
 
                 return (
                   <tr key={person.id} className="group transition-colors">
                     <td className="sticky left-0 z-20 w-[160px] min-w-[160px] max-w-[160px] p-4 bg-white group-hover:bg-gray-50 border-b border-r border-gray-200 font-medium text-gray-800">
                       {person.name}
                     </td>
-                    <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-blue-600 border-b border-r border-gray-200">
-                      {typeof totalWorkDays === 'number' && totalWorkDays % 1 !== 0 ? totalWorkDays.toFixed(1) : totalWorkDays}
+                    <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-blue-600 border-b border-r border-gray-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : undefined}>
+                      {hasScore ? (totalScore % 1 !== 0 ? totalScore.toFixed(1) : totalScore) : (typeof totalWorkDays === 'number' && totalWorkDays % 1 !== 0 ? totalWorkDays.toFixed(1) : totalWorkDays)}
                     </td>
                     <td className="sticky left-[240px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-rose-500 border-b border-r border-gray-200">
                       {totalLeaveDays}
