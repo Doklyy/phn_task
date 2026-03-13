@@ -437,17 +437,17 @@ const App = () => {
     // Chưa giao thì không cần báo cáo
     if (createdStr && dStr < createdStr) return false;
 
-    // Nếu nhiệm vụ đã hoàn thành HOẶC đang ĐỢI DUYỆT:
-    // - Chỉ yêu cầu báo cáo tới NGÀY HOÀN THÀNH / NGÀY GỬI BÁO CÁO KẾT THÚC.
-    // - Sau ngày đó thì không còn tính nhiệm vụ cho bảng chuyên cần.
-    if (status === 'completed' || status === 'pending_approval') {
-      const doneStr = (task.completedAt || task.completed_at || task.submittedAt || task.submitted_at)
+    // Nếu nhiệm vụ đã hoàn thành: chỉ yêu cầu báo cáo tới NGÀY HOÀN THÀNH.
+    // Sau ngày hoàn thành (completedAt/submittedAt) thì không còn tính nhiệm vụ cho bảng chuyên cần.
+    if (status === 'completed') {
+      const completedStr = (task.completedAt || task.completed_at || task.submittedAt || task.submitted_at)
         ? String(task.completedAt || task.completed_at || task.submittedAt || task.submitted_at).slice(0, 10)
         : null;
-      if (doneStr && dStr > doneStr) return false;
+      if (completedStr && dStr > completedStr) return false;
     }
 
     // Nhiệm vụ Tạm dừng: không yêu cầu báo cáo (không tính công việc cho các ngày này).
+    // Trạng thái ĐỢI DUYỆT (pending_approval) vẫn được tính là có nhiệm vụ trong ngày gửi báo cáo kết thúc.
     if (status === 'paused') return false;
 
     return true;
@@ -541,21 +541,7 @@ const App = () => {
           else if (rec) workDay = 0.5;
         }
         const hadWork = workDay > 0;
-        const totalTasks = hadWork
-          ? tasksForUser.filter((t) => {
-              const status = (t.status || '').toLowerCase();
-              const taskId = String(t.id ?? t.taskId ?? '');
-              if (!taskId) return false;
-              if (status === 'paused') return false;
-              // Với nhiệm vụ ĐỢI DUYỆT: chỉ tính là "có nhiệm vụ trong ngày"
-              // đúng vào các ngày có báo cáo (tức là ngày gửi báo cáo hoàn thành).
-              if (status === 'pending_approval') {
-                const reportedSetForDay = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || null;
-                return !!(reportedSetForDay && reportedSetForDay.has(taskId));
-              }
-              return taskActiveOnDay(t, y, m, day);
-            }).length
-          : 0;
+        const totalTasks = hadWork ? tasksForUser.filter((t) => taskActiveOnDay(t, y, m, day)).length : 0;
         const reportedSet = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || null;
         const reportedTasks = reportedSet ? reportedSet.size : 0;
         days[String(day)] = {
@@ -1501,9 +1487,6 @@ const App = () => {
                     totalScore: fromApi?.totalScore ?? scoreByUserId[sid] ?? 0,
                     attendanceScore: fromApi?.attendanceScore,
                     qualityScore: fromApi?.qualityScore,
-                    timeWorkScore5: fromApi?.timeWorkScore5,
-                    dailyReportScore5: fromApi?.dailyReportScore5,
-                    reportedDays: fromApi?.reportedDays,
                   };
                 })
                 .sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
@@ -1549,7 +1532,7 @@ const App = () => {
                     </div>
                     <div className="border border-slate-200 rounded-xl overflow-hidden">
                       <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá (tháng này)</h3>
+                        <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá</h3>
                       </div>
                       <table className="w-full text-sm">
                         <thead>
@@ -1562,42 +1545,20 @@ const App = () => {
                         </thead>
                         <tbody>
                           <tr className="border-b border-slate-100">
-                            <td className="py-2 px-3 text-slate-700">Thời gian làm việc (chuyên cần)</td>
-                            <td className="py-2 px-3">5 điểm</td>
-                            <td className="py-2 px-3">{scoringUser?.timeWorkScore5 != null ? scoringUser.timeWorkScore5.toFixed(2) : '—'}</td>
-                            <td className="py-2 px-3 text-slate-500">
-                              {scoringUser?.attendanceScore != null
-                                ? `Tỷ lệ chuyên cần: ${formatPct(scoringUser.attendanceScore)}`
-                                : '—'}
-                            </td>
+                          <td className="py-2 px-3 text-slate-700">Chuyên cần</td>
+                            <td className="py-2 px-3">40%</td>
+                            <td className="py-2 px-3">{formatPct(scoringUser?.attendanceScore)}</td>
+                            <td className="py-2 px-3 text-slate-500">{scoringUser?.reportedDays != null ? `Số ngày báo cáo: ${scoringUser.reportedDays}` : '—'}</td>
                           </tr>
                           <tr className="border-b border-slate-100">
-                            <td className="py-2 px-3 text-slate-700">Báo cáo công việc hàng ngày</td>
-                            <td className="py-2 px-3">5 điểm</td>
-                            <td className="py-2 px-3">
-                              {scoringUser?.dailyReportScore5 != null ? scoringUser.dailyReportScore5.toFixed(2) : '—'}
-                            </td>
-                            <td className="py-2 px-3 text-slate-500">
-                              {scoringUser?.reportedDays != null
-                                ? `Số ngày báo cáo trong kỳ: ${scoringUser.reportedDays} (mỗi ngày 1 điểm, tối đa 5)`
-                                : '—'}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-slate-100">
-                            <td className="py-2 px-3 text-slate-700">Chất lượng nhiệm vụ (W×Q×T)</td>
-                            <td className="py-2 px-3">15 điểm</td>
-                            <td className="py-2 px-3">
-                              {scoringUser?.qualityScoreMax != null ? scoringUser.qualityScoreMax.toFixed(2) : '—'}
-                            </td>
-                            <td className="py-2 px-3 text-slate-500">
-                              {scoringUser?.completedTasks != null
-                                ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ`
-                                : '—'}
-                            </td>
+                          <td className="py-2 px-3 text-slate-700">Chất lượng công việc</td>
+                            <td className="py-2 px-3">60%</td>
+                            <td className="py-2 px-3">{formatPct(scoringUser?.qualityScore)}</td>
+                            <td className="py-2 px-3 text-slate-500">{scoringUser?.completedTasks != null ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ` : '—'}</td>
                           </tr>
                           <tr className="bg-slate-50 font-bold">
-                            <td className="py-2 px-3">Tổng cộng (quy đổi 0–100)</td>
-                            <td className="py-2 px-3">—</td>
+                            <td className="py-2 px-3">Tổng cộng</td>
+                            <td className="py-2 px-3">100%</td>
                             <td className="py-2 px-3">{score100(myScoreForDisplay)}</td>
                             <td className="py-2 px-3 text-slate-500 text-xs"></td>
                           </tr>
@@ -1606,11 +1567,8 @@ const App = () => {
                     </div>
                     <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
                       <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-800">Bảng đánh giá điểm mọi người (theo tháng)</h3>
-                        <p className="text-xs text-slate-500 mt-0.5">
-                          Tất cả nhân viên — tháng {dashMonth || '—'}. Gồm 3 phần:
-                          Thời gian làm việc (tối đa 5đ) + Báo cáo hàng ngày (tối đa 5đ) + Điểm nhiệm vụ W×Q×T (tối đa 15đ, đang quy đổi về thang 0–100 để xếp hạng).
-                        </p>
+                        <h3 className="text-sm font-bold text-slate-800">Bảng đánh giá điểm mọi người</h3>
+                        <p className="text-xs text-slate-500 mt-0.5">Tất cả nhân viên — tháng {dashMonth || '—'}. </p>
                       </div>
                       <div className="overflow-x-auto max-h-[20rem] overflow-y-auto">
                         <table className="w-full text-sm">
@@ -1618,10 +1576,9 @@ const App = () => {
                             <tr className="border-b border-slate-200">
                               <th className="text-left py-2 px-3 font-semibold text-slate-700 w-12">STT</th>
                               <th className="text-left py-2 px-3 font-semibold text-slate-700">Tên</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Thời gian làm việc<br />(max 5đ)</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Báo cáo hàng ngày<br />(max 5đ)</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm nhiệm vụ<br />(W×Q×T, max 15đ)</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Tổng điểm (0–100)</th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chuyên cần </th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chất lượng</th>
+                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Tổng điểm</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -1632,19 +1589,8 @@ const App = () => {
                                 <tr key={r.userId ?? idx} className={`border-b border-slate-100 ${String(r.userId) === String(currentUser?.id) ? 'bg-violet-50/60' : ''}`}>
                                   <td className="py-2 px-3 text-slate-600">{idx + 1}</td>
                                   <td className="py-2 px-3 font-medium text-slate-800">{r.name ?? r.userName ?? '—'}</td>
-                                  <td className="py-2 px-3">
-                                    {r.timeWorkScore5 != null ? r.timeWorkScore5.toFixed(2) : '—'}
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    {r.dailyReportScore5 != null
-                                      ? `${r.dailyReportScore5.toFixed(2)} (ngày báo cáo: ${r.reportedDays ?? '—'})`
-                                      : '—'}
-                                  </td>
-                                  <td className="py-2 px-3">
-                                    {r.qualityScore != null && scoringUser?.qualityScoreMax != null
-                                      ? scoringUser.qualityScoreMax.toFixed(2)
-                                      : '—'}
-                                  </td>
+                                  <td className="py-2 px-3">{formatPct(r.attendanceScore)}</td>
+                                  <td className="py-2 px-3">{formatPct(r.qualityScore)}</td>
                                   <td className="py-2 px-3 font-semibold text-slate-900">{score100(r.totalScore)}đ</td>
                                 </tr>
                               ))
@@ -1835,7 +1781,6 @@ const App = () => {
                           data={chuyenCanBoardData}
                           displayDays={displayDays}
                           loading={adminAttendanceLoading}
-                          ranking={ranking}
                         />
                       </section>
                     );
@@ -2349,7 +2294,7 @@ const App = () => {
                         <CheckCircle2 size={20} /> Kết quả trả nhiệm vụ hoàn thành
                       </h2>
                       {myCompletionFeedbackTasks.length === 0 ? (
-                        <p className="text-slate-400 text-sm py-4">Chưa có kết quả trả về từ leader/admin.</p>
+                        <p className="text-slate-400 text-sm py-4">Chưa có kết quả trả về từ chỉ huy.</p>
                       ) : (
                         <ul className="space-y-4">
                           {myCompletionFeedbackTasks.map((t) => (
@@ -2683,20 +2628,7 @@ const App = () => {
             acceptNewLocked={acceptNewLocked}
             yesterday={yesterday}
             defaultReportDate={forcedReportDate}
-            onComplete={(payload) =>
-              submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload)
-                .then(refreshTasks)
-                .then(() => {
-                  if (!currentUser?.id) return;
-                  const promises = [];
-                  if (role === 'admin' || activeTab === 'dash') {
-                    promises.push(getAllReportsForAdmin(Number(currentUser.id) || currentUser.id).then((l) => setAllReportsList(l || [])));
-                    promises.push(fetchTasksForDashboard(currentUser.id).then((list) => setAllTasksForDashboard(Array.isArray(list) ? list : [])));
-                    promises.push(getRanking({ month: dashMonth }).then((r) => setRanking(Array.isArray(r) ? r : [])));
-                  }
-                  return Promise.all(promises);
-                })
-                .then(() => setSelectedTaskId(null))}
+            onComplete={(payload) => submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onReject={(reason) => rejectCompletion(selectedTaskId, currentUser.id, reason).then(refreshTasks).then(() => setSelectedTaskId(null))}
             currentUserId={currentUser?.id}
