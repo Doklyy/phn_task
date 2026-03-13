@@ -216,13 +216,6 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
           </table>
         </div>
       )}
-
-      <div className="p-4 bg-blue-50/50 border-t border-gray-200 flex items-start gap-2 text-sm text-blue-700">
-        <Info className="w-5 h-5 flex-shrink-0 mt-0.5" />
-        <span>
-          C.Tổng: nếu backend chạy và API trả về điểm chuyên cần (timeWorkScore5, dailyReportScore5) thì hiển thị tổng tối đa 10đ; nếu chưa thì hiển thị số ngày công. Ô ngày: cần API báo cáo (reports/admin) và nhiệm vụ có ngày gửi để hiện đủ/thiếu.
-        </span>
-      </div>
     </div>
   );
 }
