@@ -271,6 +271,15 @@ const App = () => {
       .finally(() => setAllReportsLoading(false));
   }, [activeTab, role, currentUser?.id, dashView, reportDateFilter]);
 
+  // Mỗi khi mở tab Chuyên cần, refetch danh sách nhiệm vụ để có trạng thái mới (pending_approval/completed).
+  // Tránh hiển thị sai: nhiệm vụ đã gửi hoàn thành ngày 10 vẫn hiện 0/1 ở ngày 11.
+  useEffect(() => {
+    if (activeTab !== 'dash' || dashView !== 'attendance' || !currentUser?.id) return;
+    fetchTasksForDashboard(currentUser.id)
+      .then((list) => setAllTasksForDashboard(Array.isArray(list) ? list : []))
+      .catch(() => setAllTasksForDashboard([]));
+  }, [activeTab, dashView, currentUser?.id]);
+
   useEffect(() => {
     if ((activeTab !== 'reports' && activeTab !== 'tasks') || !currentUser?.id || role === 'admin') return;
     setMyReportsLoading(true);
