@@ -99,6 +99,8 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
   const [rowDrafts, setRowDrafts] = useState({});
   const [savingRecordId, setSavingRecordId] = useState(null);
   const [settingAllFullDay, setSettingAllFullDay] = useState(false);
+  const [tableSaveError, setTableSaveError] = useState('');
+  const [tableSaveSuccess, setTableSaveSuccess] = useState('');
 
   const [leaveSubTab, setLeaveSubTab] = useState('my');
   const [myLeaves, setMyLeaves] = useState([]);
@@ -294,6 +296,8 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
 
   const handleSaveRecord = async (empId, rec) => {
     if (!uid) return;
+    setTableSaveError('');
+    setTableSaveSuccess('');
     const draft = rowDrafts[empId] || {};
     const checkInAt = draft.checkInAt || null;
     const checkOutAt = draft.checkOutAt || null;
@@ -307,8 +311,12 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       }
       const recs = await getAttendanceRecords(uid, Number(empId), tableDate, tableDate);
       setTodayRecordsByUser((prev) => ({ ...prev, [empId]: recs?.[0] || null }));
+      setTableSaveSuccess('Đã lưu.');
+      setTimeout(() => setTableSaveSuccess(''), 3000);
+      if (attMonth === tableDate.slice(0, 7)) loadTodayAndRecords();
     } catch (e) {
-      console.error(e);
+      const msg = e?.message || 'Không lưu được. Kiểm tra quyền chấm công hoặc đã tồn tại bản ghi ngày này.';
+      setTableSaveError(msg);
     } finally {
       setSavingRecordId(null);
     }
@@ -326,6 +334,8 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
   /** Đặt tất cả nhân viên chưa có bản ghi ngày đang chọn thành "Làm cả ngày" (L) 08:00–17:00; đã có bản ghi giữ nguyên. */
   const handleSetAllFullDay = async () => {
     if (!uid || personnel.length === 0) return;
+    setTableSaveError('');
+    setTableSaveSuccess('');
     setSettingAllFullDay(true);
     try {
       const toCreate = personnel.filter((p) => {
@@ -334,6 +344,8 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       });
       const isSunday = new Date(tableDate).getDay() === 0;
       const codeDefault = isSunday ? 'CN' : 'L';
+      let ok = 0;
+      let fail = 0;
       for (const emp of toCreate) {
         const empId = Number(emp.id ?? emp.userId);
         try {
@@ -342,8 +354,9 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
             checkOutAt: '17:00',
             attendanceCode: codeDefault,
           });
+          ok += 1;
         } catch (e) {
-          console.warn('createAttendanceRecord', empId, e);
+          fail += 1;
         }
       }
       const byUser = {};
@@ -360,6 +373,12 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
         })
       );
       setTodayRecordsByUser(byUser);
+      if (fail > 0) setTableSaveError(`Đặt tất cả: ${ok} thành công, ${fail} lỗi (có thể do quyền hoặc đã tồn tại bản ghi).`);
+      else if (ok > 0) {
+        setTableSaveSuccess(`Đã đặt ${ok} nhân viên.`);
+        setTimeout(() => setTableSaveSuccess(''), 3000);
+        if (attMonth === tableDate.slice(0, 7)) loadTodayAndRecords();
+      }
     } finally {
       setSettingAllFullDay(false);
     }
@@ -508,6 +527,16 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                 </button>
               </div>
             </div>
+            {tableSaveError && (
+              <div className="mx-4 mt-2 px-4 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                {tableSaveError}
+              </div>
+            )}
+            {tableSaveSuccess && (
+              <div className="mx-4 mt-2 px-4 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
+                {tableSaveSuccess}
+              </div>
+            )}
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm text-slate-600">
                 <thead className="bg-slate-50 text-slate-700 font-medium border-b border-slate-200">
