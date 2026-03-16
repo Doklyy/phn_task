@@ -437,8 +437,11 @@ const App = () => {
     // Chưa giao thì không cần báo cáo
     if (createdStr && dStr < createdStr) return false;
 
+    // Đã gửi cho chỉ huy đợi duyệt: từ ngày hôm sau không còn phải báo cáo.
+    // (Ngày gửi vẫn tính 1/1 nhờ bản ghi daily_report; từ ngày sau không tính vào totalTasks.)
+    if (status === 'pending_approval') return false;
+
     // Nếu nhiệm vụ đã hoàn thành: chỉ yêu cầu báo cáo tới NGÀY HOÀN THÀNH.
-    // Sau ngày hoàn thành (completedAt/submittedAt) thì không còn tính nhiệm vụ cho bảng chuyên cần.
     if (status === 'completed') {
       const completedStr = (task.completedAt || task.completed_at || task.submittedAt || task.submitted_at)
         ? String(task.completedAt || task.completed_at || task.submittedAt || task.submitted_at).slice(0, 10)
@@ -446,8 +449,7 @@ const App = () => {
       if (completedStr && dStr > completedStr) return false;
     }
 
-    // Nhiệm vụ Tạm dừng: không yêu cầu báo cáo (không tính công việc cho các ngày này).
-    // Trạng thái ĐỢI DUYỆT (pending_approval) vẫn được tính là có nhiệm vụ trong ngày gửi báo cáo kết thúc.
+    // Nhiệm vụ Tạm dừng: không yêu cầu báo cáo.
     if (status === 'paused') return false;
 
     return true;
@@ -541,8 +543,20 @@ const App = () => {
           else if (rec) workDay = 0.5;
         }
         const hadWork = workDay > 0;
-        const totalTasks = hadWork ? tasksForUser.filter((t) => taskActiveOnDay(t, y, m, day)).length : 0;
         const reportedSet = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || null;
+        const totalTasks = hadWork
+          ? tasksForUser.filter((t) => {
+              const status = (t.status || '').toLowerCase();
+              const taskId = String(t.id ?? t.taskId ?? '');
+              if (!taskId) return false;
+              if (status === 'paused') return false;
+              // Đã gửi đợi duyệt: chỉ tính là "có nhiệm vụ" đúng vào ngày đã có báo cáo (ngày gửi kết thúc).
+              if (status === 'pending_approval') {
+                return !!(reportedSet && reportedSet.has(taskId));
+              }
+              return taskActiveOnDay(t, y, m, day);
+            }).length
+          : 0;
         const reportedTasks = reportedSet ? reportedSet.size : 0;
         days[String(day)] = {
           workDay,
