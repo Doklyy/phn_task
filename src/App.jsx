@@ -1518,9 +1518,50 @@ const App = () => {
               const totalRanked = displayRanking.length;
               const scoreDisplay = (v) => (v != null && v !== '' ? (Number(v) < 1 && Number(v) > 0 ? (Number(v) * 100).toFixed(1) : String(Number(v))) : '—');
 
+              const handleExportEvaluationForms = async () => {
+                try {
+                  if (!dashMonth) return;
+                  const [y, m] = dashMonth.split('-');
+                  const monthParam = `${y}-${m}`;
+                  const base = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/$/, '');
+                  const url = `${base}/scoring/export-forms?month=${encodeURIComponent(monthParam)}`;
+                  const res = await fetch(url, {
+                    headers: {
+                      Authorization: localStorage.getItem('phn_token')
+                        ? `Bearer ${localStorage.getItem('phn_token')}`
+                        : undefined,
+                    },
+                  });
+                  if (!res.ok) {
+                    throw new Error(`Không xuất được phiếu đánh giá (HTTP ${res.status}).`);
+                  }
+                  const blob = await res.blob();
+                  const a = document.createElement('a');
+                  const fileUrl = window.URL.createObjectURL(blob);
+                  a.href = fileUrl;
+                  a.download = `PHIEU_DANH_GIA_${monthParam}.xlsx`;
+                  document.body.appendChild(a);
+                  a.click();
+                  a.remove();
+                  window.URL.revokeObjectURL(fileUrl);
+                } catch (e) {
+                  // eslint-disable-next-line no-alert
+                  alert(e?.message || 'Không xuất được phiếu đánh giá.');
+                }
+              };
+
               const renderPerformance = () => (
                   <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
-                    <h2 className="text-xl font-bold text-slate-900 mb-4">Hoàn thành cá nhân</h2>
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                      <h2 className="text-xl font-bold text-slate-900">Hoàn thành cá nhân</h2>
+                      <button
+                        type="button"
+                        onClick={handleExportEvaluationForms}
+                        className="inline-flex items-center gap-2 bg-white border border-slate-300 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
+                      >
+                        Xuất phiếu đánh giá (Excel)
+                      </button>
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                       <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
                       <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm</p>
