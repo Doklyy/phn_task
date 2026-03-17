@@ -1523,8 +1523,11 @@ const App = () => {
                   if (!dashMonth) return;
                   const [y, m] = dashMonth.split('-');
                   const monthParam = `${y}-${m}`;
-                  const base = (import.meta.env.VITE_API_URL || 'http://localhost:8080/api').replace(/\/$/, '');
-                  const url = `${base}/scoring/export-forms?month=${encodeURIComponent(monthParam)}`;
+                  const rawBase = import.meta.env.VITE_API_URL || '';
+                  const base = rawBase
+                    ? rawBase.replace(/\/$/, '').replace(/\/(api)?$/, '') + '/api'
+                    : 'http://localhost:8080/api';
+                  const url = `${base.replace(/\/$/, '')}/scoring/export-forms?month=${encodeURIComponent(monthParam)}`;
                   const res = await fetch(url, {
                     headers: {
                       Authorization: localStorage.getItem('phn_token')
