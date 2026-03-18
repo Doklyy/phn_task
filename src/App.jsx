@@ -2372,9 +2372,7 @@ const App = () => {
                                     <div className="text-base sm:text-lg font-extrabold text-slate-900">
                                       {viWeekday(d) ? `${viWeekday(d)}, ` : ''}{viDate(d)}
                                     </div>
-                                    <div className="text-xs text-slate-500 mt-1">
-                                      Gợi ý: Nếu “ngày gửi” khác “ngày báo cáo” thì đây là <span className="font-semibold text-amber-700">báo cáo bù</span>.
-                                    </div>
+                                    {/* Ngày gửi hiển thị ở từng mục báo cáo để tránh nhầm lẫn. */}
                                   </div>
                                 </div>
 
@@ -3102,6 +3100,18 @@ const TaskDetailModal = ({
                       <button type="button" onClick={() => { setReportChoice(null); setReportError(''); }} className="text-sm text-slate-500 hover:underline">← Chọn lại</button>
                     </p>
                     <h5 className="text-sm font-bold text-slate-700 mb-2">Báo cáo tiến độ</h5>
+                    {defaultReportDate ? (
+                      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-amber-900 text-sm mb-3">
+                        <p className="font-bold mb-1">Bạn đang báo cáo bù</p>
+                        <p>
+                          Ngày báo cáo được <span className="font-semibold">khóa cứng</span> là{' '}
+                          <span className="font-semibold">
+                            {defaultReportDate.slice(8, 10)}/{defaultReportDate.slice(5, 7)}/{defaultReportDate.slice(0, 4)}
+                          </span>
+                          . Sau khi gửi xong, bạn mới có thể báo cáo cho ngày hôm nay.
+                        </p>
+                      </div>
+                    ) : null}
                     <form
                       onSubmit={(e) => {
                         e.preventDefault();
@@ -3135,7 +3145,14 @@ const TaskDetailModal = ({
                     >
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Ngày báo cáo</label>
-                        <input type="date" value={reportDate} onChange={(e) => setReportDate(e.target.value)} required className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                        <input
+                          type="date"
+                          value={reportDate}
+                          onChange={(e) => setReportDate(e.target.value)}
+                          disabled={!!defaultReportDate}
+                          required
+                          className={`w-full border border-slate-200 rounded-lg px-3 py-2 text-sm ${defaultReportDate ? 'bg-slate-50 text-slate-500 cursor-not-allowed' : ''}`}
+                        />
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Kết quả / Tiến độ </label>
