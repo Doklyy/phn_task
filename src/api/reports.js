@@ -114,6 +114,7 @@ function normalizeReport(r) {
     taskId: r.taskId ?? r.task_id,
     taskTitle: r.taskTitle ?? r.task_title,
     date: date ? String(date).slice(0, 10) : '',
+    submittedAt: r.submittedAt ?? r.submitted_at ?? null,
     result: r.result ?? r.content ?? '',
     weight: r.weight != null ? Number(r.weight) : null,
     attachmentPath: r.attachmentPath ?? r.attachment_path ?? null,

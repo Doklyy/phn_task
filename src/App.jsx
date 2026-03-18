@@ -2318,6 +2318,31 @@ const App = () => {
                 myReportsByDate[d].push(r);
               });
               const myReportDays = Object.keys(myReportsByDate).sort((a, b) => b.localeCompare(a));
+              const tasksById = {};
+              (tasks || []).forEach((t) => {
+                const tid = String(t.id ?? t.taskId ?? '');
+                if (tid) tasksById[tid] = t;
+              });
+
+              const viWeekday = (dStr) => {
+                if (!dStr) return '';
+                const dt = new Date(`${dStr}T00:00:00`);
+                if (Number.isNaN(dt.getTime())) return '';
+                const days = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+                return days[dt.getDay()] || '';
+              };
+              const viDate = (dStr) => (dStr ? `${dStr.slice(8, 10)}/${dStr.slice(5, 7)}/${dStr.slice(0, 4)}` : '—');
+              const viDateTime = (dtStr) => {
+                if (!dtStr) return '';
+                const dt = new Date(String(dtStr).replace(' ', 'T'));
+                if (Number.isNaN(dt.getTime())) return '';
+                return dt.toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+              };
+              const isBackfill = (reportDateStr, submittedAtStr) => {
+                const s = toYYYYMMDD(submittedAtStr);
+                return !!(reportDateStr && s && s !== reportDateStr);
+              };
+
               const myCompletionFeedbackTasks = (tasks || []).filter(
                 (t) => String(t.assigneeId) === String(currentUser?.id) && (t.leaderComment || t.lastRejectReason || t.weight != null || t.quality != null),
               );
@@ -2339,18 +2364,74 @@ const App = () => {
                       ) : (
                         <div className="space-y-4">
                           {myReportDays.slice(0, 30).map((d) => (
-                            <div key={d} className="border border-slate-200 rounded-lg p-4">
-                              <p className="text-sm font-semibold text-slate-600 mb-2">
-                                Ngày {d.slice(8, 10)}/{d.slice(5, 7)}/{d.slice(0, 4)}
-                              </p>
-                              <ul className="space-y-3">
-                                {(myReportsByDate[d] || []).map((r) => (
-                                  <li key={r.id}>
-                                    <p className="text-base font-bold text-slate-800 mb-1">{r.taskTitle || 'Nhiệm vụ'}</p>
-                                    <p className="text-slate-600 text-sm whitespace-pre-line pl-2 border-l-2 border-slate-200">{r.result || '—'}</p>
-                                  </li>
-                                ))}
-                              </ul>
+                            <div key={d} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                              <div className="p-5">
+                                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2 mb-4">
+                                  <div>
+                                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Ngày báo cáo</div>
+                                    <div className="text-base sm:text-lg font-extrabold text-slate-900">
+                                      {viWeekday(d) ? `${viWeekday(d)}, ` : ''}{viDate(d)}
+                                    </div>
+                                    <div className="text-xs text-slate-500 mt-1">
+                                      Gợi ý: Nếu “ngày gửi” khác “ngày báo cáo” thì đây là <span className="font-semibold text-amber-700">báo cáo bù</span>.
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                  {(myReportsByDate[d] || []).map((r) => {
+                                    const tid = String(r.taskId ?? '');
+                                    const t = tasksById[tid];
+                                    const status = String(t?.status || '').toLowerCase();
+                                    const content = String(r.result || '');
+                                    const isFinal = status === 'pending_approval' || status === 'completed' || content.toLowerCase().includes('hoàn thành');
+                                    const backfill = isBackfill(d, r.submittedAt);
+                                    return (
+                                      <div key={r.id ?? `${tid}-${content.slice(0, 16)}`} className="group">
+                                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-2">
+                                          <h3 className="font-bold text-slate-900 leading-snug flex-1">
+                                            {r.taskTitle || t?.title || 'Nhiệm vụ'}
+                                          </h3>
+                                          <div className="shrink-0 mt-1 sm:mt-0 flex flex-wrap items-center gap-2 justify-start sm:justify-end">
+                                            {isFinal ? (
+                                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-sm">
+                                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                                Báo cáo kết thúc
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200 shadow-sm">
+                                                <Clock className="w-3.5 h-3.5" />
+                                                Báo cáo tiến độ
+                                              </span>
+                                            )}
+                                            {backfill && (
+                                              <span
+                                                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-amber-50 text-amber-800 border border-amber-200 shadow-sm"
+                                                title={`Ngày báo cáo: ${viDate(d)} | Ngày gửi: ${viDateTime(r.submittedAt) || '—'}`}
+                                              >
+                                                <AlertCircle className="w-3.5 h-3.5" />
+                                                Báo cáo bù (gửi {toYYYYMMDD(r.submittedAt) ? viDate(toYYYYMMDD(r.submittedAt)) : '—'})
+                                              </span>
+                                            )}
+                                          </div>
+                                        </div>
+
+                                        {r.submittedAt && (
+                                          <div className="text-xs text-slate-500 mb-2">
+                                            Ngày gửi: <span className="font-semibold text-slate-700">{viDateTime(r.submittedAt) || '—'}</span>
+                                          </div>
+                                        )}
+
+                                        <div className="pl-3.5 border-l-2 border-slate-200 mt-2">
+                                          <div className="text-sm text-slate-700 whitespace-pre-line leading-relaxed">
+                                            {content || '—'}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
                             </div>
                           ))}
                         </div>
