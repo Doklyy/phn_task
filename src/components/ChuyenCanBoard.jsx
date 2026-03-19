@@ -99,6 +99,9 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
     let reportedToday = 0;
     let missingToday = 0;
     let leaveToday = 0;
+    const reportedNames = [];
+    const missingNames = [];
+    const leaveNames = [];
 
     (data || []).forEach((person) => {
       totalStaff += 1;
@@ -106,16 +109,22 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       if (!d) return;
       if (d.isLeave) {
         leaveToday += 1;
+        leaveNames.push(person?.name || `ID ${person?.id ?? '—'}`);
         return;
       }
       if ((d.totalTasks || 0) > 0) {
-        if ((d.reportedTasks || 0) > 0) reportedToday += 1;
-        else missingToday += 1;
+        if ((d.reportedTasks || 0) > 0) {
+          reportedToday += 1;
+          reportedNames.push(person?.name || `ID ${person?.id ?? '—'}`);
+        } else {
+          missingToday += 1;
+          missingNames.push(person?.name || `ID ${person?.id ?? '—'}`);
+        }
       }
     });
 
     const dayLabel = `${String(focusDay).padStart(2, '0')}/${monthValue?.slice(5, 7) || '—'}/${monthValue?.slice(0, 4) || '—'}`;
-    return { totalStaff, reportedToday, missingToday, leaveToday, focusDay, dayLabel };
+    return { totalStaff, reportedToday, missingToday, leaveToday, reportedNames, missingNames, leaveNames, focusDay, dayLabel };
   }, [data, daysList, monthValue]);
 
   return (
@@ -167,6 +176,32 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
         <div className="text-sm text-slate-600">
           <span className="font-semibold">Luồng theo dõi ngày {dashboardSummary.dayLabel}:</span>{' '}
           Tô màu theo trạng thái báo cáo giúp nhìn nhanh ai đã báo cáo, ai còn thiếu.
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
+          <div className="bg-white border border-emerald-200 rounded-lg p-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1">Đã báo cáo</p>
+            {dashboardSummary.reportedNames.length === 0 ? (
+              <p className="text-sm text-slate-400">Không có</p>
+            ) : (
+              <p className="text-sm text-slate-700">{dashboardSummary.reportedNames.join(', ')}</p>
+            )}
+          </div>
+          <div className="bg-white border border-rose-200 rounded-lg p-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-rose-700 mb-1">Chưa báo cáo</p>
+            {dashboardSummary.missingNames.length === 0 ? (
+              <p className="text-sm text-slate-400">Không có</p>
+            ) : (
+              <p className="text-sm text-slate-700">{dashboardSummary.missingNames.join(', ')}</p>
+            )}
+          </div>
+          <div className="bg-white border border-slate-200 rounded-lg p-3">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nghỉ phép</p>
+            {dashboardSummary.leaveNames.length === 0 ? (
+              <p className="text-sm text-slate-400">Không có</p>
+            ) : (
+              <p className="text-sm text-slate-700">{dashboardSummary.leaveNames.join(', ')}</p>
+            )}
+          </div>
         </div>
       </div>
 

@@ -224,7 +224,7 @@ const App = () => {
   const role = currentUser?.role || 'staff';
 
   const [activeTab, setActiveTab] = useState('dash');
-  const [dashView, setDashView] = useState('performance'); // 'performance' | 'tasks' | 'attendance'
+  const [dashView, setDashView] = useState('attendance'); // 'performance' | 'tasks' | 'attendance'
   const [showAllRanking, setShowAllRanking] = useState(false);
   const [userCardOpen, setUserCardOpen] = useState(false);
   const [listFilter, setListFilter] = useState('all');
