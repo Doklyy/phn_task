@@ -193,8 +193,8 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
           </div>
         </div>
         <div className="text-sm text-slate-600">
-          <span className="font-semibold">Luồng theo dõi ngày {dashboardSummary.dayLabel}:</span>{' '}
-          Tô màu theo trạng thái báo cáo giúp nhìn nhanh ai đã báo cáo, ai còn thiếu.
+          <span className="font-semibold">Báo cáo tiến độ ngày {dashboardSummary.dayLabel}:</span>{' '}
+        
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
           <div className="bg-white border border-emerald-200 rounded-lg p-3">
