@@ -87,6 +87,37 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
     return m;
   }, [ranking]);
 
+  const dashboardSummary = React.useMemo(() => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const selectedMonth = (monthValue || '').slice(0, 7);
+    const fallbackDay = daysList.length > 0 ? Math.max(...daysList) : 1;
+    const focusDay = selectedMonth === currentMonth ? Math.min(now.getDate(), fallbackDay) : fallbackDay;
+    const focusKey = String(focusDay);
+
+    let totalStaff = 0;
+    let reportedToday = 0;
+    let missingToday = 0;
+    let leaveToday = 0;
+
+    (data || []).forEach((person) => {
+      totalStaff += 1;
+      const d = person?.days?.[focusKey];
+      if (!d) return;
+      if (d.isLeave) {
+        leaveToday += 1;
+        return;
+      }
+      if ((d.totalTasks || 0) > 0) {
+        if ((d.reportedTasks || 0) > 0) reportedToday += 1;
+        else missingToday += 1;
+      }
+    });
+
+    const dayLabel = `${String(focusDay).padStart(2, '0')}/${monthValue?.slice(5, 7) || '—'}/${monthValue?.slice(0, 4) || '—'}`;
+    return { totalStaff, reportedToday, missingToday, leaveToday, focusDay, dayLabel };
+  }, [data, daysList, monthValue]);
+
   return (
     <div className="max-w-[1400px] mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -111,6 +142,31 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-500 block" /><span className="text-gray-600">Đi muộn</span></span>
             <span className="flex items-center gap-1.5"><span className="w-4 h-4 text-center text-gray-400 font-bold text-xs">N</span><span className="text-gray-600">Nghỉ phép</span></span>
           </div>
+        </div>
+      </div>
+
+      <div className="p-5 border-b border-gray-200 bg-slate-50/50">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
+          <div className="bg-white border border-slate-200 rounded-xl p-3">
+            <p className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">Tổng nhân sự</p>
+            <p className="text-2xl font-black text-slate-900 mt-1">{dashboardSummary.totalStaff}</p>
+          </div>
+          <div className="bg-white border border-emerald-200 rounded-xl p-3">
+            <p className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">Đã báo cáo ({dashboardSummary.dayLabel})</p>
+            <p className="text-2xl font-black text-emerald-700 mt-1">{dashboardSummary.reportedToday}</p>
+          </div>
+          <div className="bg-white border border-rose-200 rounded-xl p-3">
+            <p className="text-[11px] font-bold tracking-wider text-rose-700 uppercase">Chưa báo cáo ({dashboardSummary.dayLabel})</p>
+            <p className="text-2xl font-black text-rose-700 mt-1">{dashboardSummary.missingToday}</p>
+          </div>
+          <div className="bg-white border border-slate-200 rounded-xl p-3">
+            <p className="text-[11px] font-bold tracking-wider text-slate-600 uppercase">Nghỉ phép ({dashboardSummary.dayLabel})</p>
+            <p className="text-2xl font-black text-slate-700 mt-1">{dashboardSummary.leaveToday}</p>
+          </div>
+        </div>
+        <div className="text-sm text-slate-600">
+          <span className="font-semibold">Luồng theo dõi ngày {dashboardSummary.dayLabel}:</span>{' '}
+          Tô màu theo trạng thái báo cáo giúp nhìn nhanh ai đã báo cáo, ai còn thiếu.
         </div>
       </div>
 
