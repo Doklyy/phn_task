@@ -488,34 +488,35 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
         </div>
       </div>
 
-      {/* Nội dung chính: Bảng nhiều người (Admin/quyền chấm) hoặc 1 card (Nhân viên) — không hiện bảng tổng, không giờ vào/ra */}
+      {/* Nội dung chính: Bảng nhiều người (Admin/quyền chấm) hoặc 1 card (Nhân viên) */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {canManage ? (
           <>
-            <div className="p-4 border-b border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row justify-between items-center gap-4">
-              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                <label className="flex items-center gap-2 text-sm font-medium text-slate-700 shrink-0">
-                  <span>Ngày chấm:</span>
-                  <input
-                    type="date"
-                    value={tableDate}
-                    onChange={(e) => setTableDate(e.target.value ? e.target.value.slice(0, 10) : new Date().toISOString().slice(0, 10))}
-                    className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E]"
-                    title="Chọn ngày để chấm công bù hoặc sửa"
-                  />
-                </label>
-                <div className="relative w-full sm:w-64">
-                  <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                  <input
-                    type="text"
-                    placeholder="Tìm tên nhân viên..."
-                    className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E] transition-all"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
+            {/* Thanh điều khiển + tổng quan giống mock */}
+            <div className="p-4 border-b border-slate-200 bg-slate-50/50 space-y-4">
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700 shrink-0">
+                    <span>Ngày chấm:</span>
+                    <input
+                      type="date"
+                      value={tableDate}
+                      onChange={(e) => setTableDate(e.target.value ? e.target.value.slice(0, 10) : new Date().toISOString().slice(0, 10))}
+                      className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E]"
+                      title="Chọn ngày để chấm công bù hoặc sửa"
+                    />
+                  </label>
+                  <div className="relative w-full sm:w-64">
+                    <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      placeholder="Tìm tên nhân viên..."
+                      className="w-full pl-9 pr-4 py-2 bg-white border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D4384E]/20 focus:border-[#D4384E] transition-all"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                    />
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2 flex-wrap justify-end">
                 <button
                   type="button"
                   onClick={handleSetAllFullDay}
@@ -537,57 +538,72 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                 {tableSaveSuccess}
               </div>
             )}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm text-slate-600">
-                <thead className="bg-slate-50 text-slate-700 font-medium border-b border-slate-200">
-                  <tr>
-                    <th className="px-6 py-4">Họ và Tên</th>
-                    <th className="px-6 py-4">Trạng thái</th>
-                    <th className="px-6 py-4 text-right">Hành động</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {tableLoading ? (
-                    <tr>
-                      <td colSpan="3" className="px-6 py-12 text-center text-slate-500">Đang tải...</td>
-                    </tr>
-                  ) : filteredPersonnel.length === 0 ? (
-                    <tr>
-                      <td colSpan="3" className="px-6 py-12 text-center text-slate-500 italic">Không có dữ liệu nhân viên.</td>
-                    </tr>
-                  ) : (
-                    filteredPersonnel.map((emp) => {
-                      const empId = String(emp.id ?? emp.userId);
-                      const rec = todayRecordsByUser[empId];
-                      const isSun = new Date(tableDate).getDay() === 0;
-                      const draft = rowDrafts[empId] || { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: isSun ? 'CN' : 'L' };
-                      const name = emp.name || emp.fullName || emp.username || '—';
-                      const saving = savingRecordId === empId;
-                      return (
-                        <tr key={empId} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 font-bold text-xs">
-                                {(name || '?').charAt(0).toUpperCase()}
-                              </div>
-                              <div>
-                                <div className="font-semibold text-slate-900">{name}</div>
-                                <div className="text-xs text-slate-500">{emp.username || empId}</div>
-                              </div>
+            {/* Cards từng nhân sự – giao diện giống mock */}
+            <div className="p-4">
+              {tableLoading ? (
+                <p className="text-center text-slate-500 py-8 text-sm">Đang tải...</p>
+              ) : filteredPersonnel.length === 0 ? (
+                <p className="text-center text-slate-500 py-8 text-sm italic">Không có dữ liệu nhân viên.</p>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                  {filteredPersonnel.map((emp) => {
+                    const empId = String(emp.id ?? emp.userId);
+                    const rec = todayRecordsByUser[empId];
+                    const isSun = new Date(tableDate).getDay() === 0;
+                    const draft = rowDrafts[empId] || { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: isSun ? 'CN' : 'L' };
+                    const name = emp.name || emp.fullName || emp.username || '—';
+                    const saving = savingRecordId === empId;
+                    const code = draft.attendanceCode || rec?.attendanceCode || (isSun ? 'CN' : 'L');
+                    let statusLabel = 'Chưa rõ';
+                    let statusColor = 'text-slate-500';
+                    let statusBg = 'bg-slate-100';
+                    if (['L', 'T_HOLIDAY', 'TT7', 'TCN'].includes(code) && !rec?.isLate) {
+                      statusLabel = 'Đã chấm công';
+                      statusColor = 'text-emerald-700';
+                      statusBg = 'bg-emerald-50';
+                    } else if (code === 'V') {
+                      statusLabel = 'Chưa chấm';
+                      statusColor = 'text-red-700';
+                      statusBg = 'bg-red-50';
+                    } else if (rec?.isLate || code === 'M') {
+                      statusLabel = 'Đi muộn';
+                      statusColor = 'text-amber-700';
+                      statusBg = 'bg-amber-50';
+                    } else if (['N_FULL', 'N_HALF', 'N_LATE', 'N_EARLY', 'L_HOLIDAY', 'CN', 'T7'].includes(code)) {
+                      statusLabel = 'Nghỉ / phép';
+                      statusColor = 'text-slate-700';
+                      statusBg = 'bg-slate-100';
+                    }
+                    return (
+                      <div key={empId} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
+                        <div className="p-4 border-b border-slate-100 flex items-start justify-between bg-slate-50/60">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-sm">
+                              {(name || '?').charAt(0).toUpperCase()}
                             </div>
-                          </td>
-                          <td className="px-6 py-4">
+                            <div>
+                              <p className="font-semibold text-slate-900 text-sm">{name}</p>
+                              <p className="text-[11px] text-slate-500">{emp.username || empId}</p>
+                            </div>
+                          </div>
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider ${statusBg} ${statusColor}`}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                        <div className="p-4 flex-1 flex flex-col gap-3">
+                          <div>
+                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Trạng thái chấm công</p>
                             <select
                               value={draft.attendanceCode}
                               onChange={(e) => setDraft(empId, 'attendanceCode', e.target.value)}
-                              className="w-full min-w-[180px] border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+                              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
                             >
                               {codesForSelect.map((c) => (
                                 <option key={c.code} value={c.code}>{c.description}</option>
                               ))}
                             </select>
-                          </td>
-                          <td className="px-6 py-4 text-right">
+                          </div>
+                          <div className="mt-auto flex justify-end">
                             <button
                               type="button"
                               onClick={() => handleSaveRecord(empId, rec)}
@@ -596,16 +612,13 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                             >
                               {saving ? 'Đang lưu...' : rec?.id ? 'Cập nhật' : 'Lưu'}
                             </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <div className="p-4 border-t border-slate-200 text-xs text-slate-500 bg-slate-50">
-              Tổng: {filteredPersonnel.length} nhân viên. Chọn ngày phía trên để chấm công bù hoặc sửa ngày khác. Chỉnh trạng thái và bấm Lưu.
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           </>
         ) : (
