@@ -4,6 +4,14 @@ import {
   Search,
   CheckCircle2,
   XCircle,
+  AlertCircle,
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  User,
+  Briefcase,
+  ListTodo,
+  Filter,
   CheckSquare,
   Check,
   X,
@@ -101,6 +109,9 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
   const [settingAllFullDay, setSettingAllFullDay] = useState(false);
   const [tableSaveError, setTableSaveError] = useState('');
   const [tableSaveSuccess, setTableSaveSuccess] = useState('');
+  const [viewMode, setViewMode] = useState('daily'); // daily | monthly
+  const [monthlyRecordsByUser, setMonthlyRecordsByUser] = useState({});
+  const [monthlyLoading, setMonthlyLoading] = useState(false);
 
   const [leaveSubTab, setLeaveSubTab] = useState('my');
   const [myLeaves, setMyLeaves] = useState([]);
@@ -465,6 +476,81 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
   /** Mã trạng thái cho dropdown: ưu tiên từ API, không có thì dùng danh sách mặc định. */
   const codesForSelect = attendanceCodes.length > 0 ? attendanceCodes : ATTENDANCE_CODES_FALLBACK;
 
+  const getStatusInfo = (code, lateFlag = false) => {
+    if (lateFlag || code === 'M') {
+      return { color: 'text-orange-700', bg: 'bg-orange-100', icon: <Clock size={14} />, label: 'Báo cáo trễ' };
+    }
+    if (['N_FULL', 'N_HALF', 'N_LATE', 'N_EARLY', 'L_HOLIDAY', 'CN', 'T7'].includes(code)) {
+      return { color: 'text-slate-700', bg: 'bg-slate-200', icon: <User size={14} />, label: 'Nghỉ phép' };
+    }
+    if (code === 'V' || !code) {
+      return { color: 'text-red-700', bg: 'bg-red-100', icon: <XCircle size={14} />, label: 'Chưa báo cáo' };
+    }
+    return { color: 'text-emerald-700', bg: 'bg-emerald-100', icon: <CheckCircle2 size={14} />, label: 'Đã báo cáo' };
+  };
+
+  const getDayDotClass = (code, lateFlag = false) => {
+    if (lateFlag || code === 'M') return 'bg-orange-400';
+    if (['N_FULL', 'N_HALF', 'N_LATE', 'N_EARLY', 'L_HOLIDAY', 'CN', 'T7'].includes(code)) return 'bg-slate-400';
+    if (code === 'V' || !code) return 'bg-red-500';
+    return 'bg-emerald-500';
+  };
+
+  const monthDays = React.useMemo(() => {
+    const [y, m] = attMonth.split('-').map(Number);
+    const days = Number.isFinite(y) && Number.isFinite(m) ? new Date(y, m, 0).getDate() : 31;
+    return Array.from({ length: days }, (_, i) => i + 1);
+  }, [attMonth]);
+
+  useEffect(() => {
+    if (!canManage || !uid || personnel.length === 0) {
+      setMonthlyRecordsByUser({});
+      return;
+    }
+    const [y, m] = attMonth.split('-').map(Number);
+    if (!y || !m) return;
+    const from = `${y}-${String(m).padStart(2, '0')}-01`;
+    const to = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+    setMonthlyLoading(true);
+    Promise.all(
+      personnel.map(async (u) => {
+        const userId = u.id ?? u.userId;
+        if (!userId) return [String(userId), {}];
+        try {
+          const recs = await getAttendanceRecords(uid, userId, from, to);
+          const dayMap = {};
+          (recs || []).forEach((r) => {
+            const d = formatDate(r.recordDate);
+            if (d) dayMap[d] = r;
+          });
+          return [String(userId), dayMap];
+        } catch {
+          return [String(userId), {}];
+        }
+      })
+    )
+      .then((entries) => setMonthlyRecordsByUser(Object.fromEntries(entries)))
+      .finally(() => setMonthlyLoading(false));
+  }, [canManage, uid, personnel, attMonth]);
+
+  const overview = React.useMemo(() => {
+    let total = 0;
+    let reported = 0;
+    let missing = 0;
+    let leave = 0;
+    (filteredPersonnel || []).forEach((emp) => {
+      total += 1;
+      const id = String(emp.id ?? emp.userId);
+      const rec = todayRecordsByUser[id];
+      const code = rowDrafts[id]?.attendanceCode || rec?.attendanceCode || '';
+      if (['N_FULL', 'N_HALF', 'N_LATE', 'N_EARLY', 'L_HOLIDAY', 'CN', 'T7'].includes(code)) leave += 1;
+      else if (code === 'V' || !code) missing += 1;
+      else if (rec?.isLate || code === 'M') reported += 1;
+      else reported += 1;
+    });
+    return { total, reported, missing, leave };
+  }, [filteredPersonnel, todayRecordsByUser, rowDrafts]);
+
   return (
     <section className="space-y-6">
       {/* Header & Clock — giống mẫu Bảng Chấm công Nhân viên */}
@@ -492,7 +578,6 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         {canManage ? (
           <>
-            {/* Thanh điều khiển + tổng quan giống mock */}
             <div className="p-4 border-b border-slate-200 bg-slate-50/50 space-y-4">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
@@ -517,15 +602,33 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                     />
                   </div>
                 </div>
-                <button
-                  type="button"
-                  onClick={handleSetAllFullDay}
-                  disabled={settingAllFullDay || personnel.length === 0}
-                  className="flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  {settingAllFullDay ? 'Đang đặt...' : new Date(tableDate).getDay() === 0 ? 'Đặt tất cả: Chủ nhật (CN)' : 'Đặt tất cả: Làm cả ngày'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleSetAllFullDay}
+                    disabled={settingAllFullDay || personnel.length === 0}
+                    className="flex items-center px-4 py-2 rounded-lg text-sm font-medium border border-emerald-600 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-2" />
+                    {settingAllFullDay ? 'Đang đặt...' : new Date(tableDate).getDay() === 0 ? 'Đặt tất cả: Chủ nhật (CN)' : 'Đặt tất cả: Làm cả ngày'}
+                  </button>
+                  <div className="flex bg-slate-200 p-1 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('daily')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'daily' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      Công việc hôm nay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setViewMode('monthly')}
+                      className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${viewMode === 'monthly' ? 'bg-white text-blue-700 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      Lưới điểm danh tháng
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
             {tableSaveError && (
@@ -538,85 +641,229 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                 {tableSaveSuccess}
               </div>
             )}
-            {/* Cards từng nhân sự – giao diện giống mock */}
-            <div className="p-4">
-              {tableLoading ? (
-                <p className="text-center text-slate-500 py-8 text-sm">Đang tải...</p>
-              ) : filteredPersonnel.length === 0 ? (
-                <p className="text-center text-slate-500 py-8 text-sm italic">Không có dữ liệu nhân viên.</p>
+            <div className="p-4 space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Tổng nhân sự</p>
+                    <p className="text-2xl font-bold text-slate-800 mt-1">{overview.total}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center"><User size={20} /></div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Đã báo cáo hôm nay</p>
+                    <p className="text-2xl font-bold text-emerald-600 mt-1">{overview.reported}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center"><CheckCircle2 size={20} /></div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Chưa báo cáo</p>
+                    <p className="text-2xl font-bold text-red-600 mt-1">{overview.missing}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-red-100 text-red-600 rounded-full flex items-center justify-center"><XCircle size={20} /></div>
+                </div>
+                <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
+                  <div>
+                    <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider">Nghỉ phép</p>
+                    <p className="text-2xl font-bold text-slate-600 mt-1">{overview.leave}</p>
+                  </div>
+                  <div className="w-10 h-10 bg-slate-100 text-slate-600 rounded-full flex items-center justify-center"><Briefcase size={20} /></div>
+                </div>
+              </div>
+
+              {viewMode === 'daily' ? (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="font-semibold text-lg flex items-center"><ListTodo className="mr-2 text-blue-500" size={20} /> Luồng công việc ngày {new Date(`${tableDate}T00:00:00`).toLocaleDateString('vi-VN')}</h3>
+                    <button className="flex items-center text-sm text-slate-600 bg-white border border-slate-300 px-3 py-1.5 rounded-md hover:bg-slate-50">
+                      <Filter size={14} className="mr-2" /> Lọc phòng ban
+                    </button>
+                  </div>
+                  {tableLoading ? (
+                    <p className="text-center text-slate-500 py-8 text-sm">Đang tải...</p>
+                  ) : filteredPersonnel.length === 0 ? (
+                    <p className="text-center text-slate-500 py-8 text-sm italic">Không có dữ liệu nhân viên.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                      {filteredPersonnel.map((emp) => {
+                        const empId = String(emp.id ?? emp.userId);
+                        const rec = todayRecordsByUser[empId];
+                        const isSun = new Date(tableDate).getDay() === 0;
+                        const draft = rowDrafts[empId] || { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: isSun ? 'CN' : 'L' };
+                        const name = emp.name || emp.fullName || emp.username || '—';
+                        const saving = savingRecordId === empId;
+                        const code = draft.attendanceCode || rec?.attendanceCode || (isSun ? 'CN' : 'L');
+                        const status = getStatusInfo(code, !!rec?.isLate);
+                        return (
+                          <div key={empId} className="bg-white rounded-xl border border-slate-200 overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                            <div className="p-4 border-b border-slate-100 flex items-start justify-between bg-slate-50/50">
+                              <div className="flex items-center space-x-3">
+                                <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-sm">
+                                  {(name || '?').charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <h4 className="font-semibold text-slate-900 text-sm">{name}</h4>
+                                  <p className="text-xs text-slate-500">{emp.position || emp.role || emp.username || 'Nhân viên'}</p>
+                                </div>
+                              </div>
+                              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider ${status.bg} ${status.color}`}>
+                                {status.icon}
+                                <span className="ml-1">{status.label}</span>
+                              </span>
+                            </div>
+                            <div className="p-4 flex-1">
+                              {(code === 'V' || !code) ? (
+                                <div className="h-full flex flex-col items-center justify-center text-slate-400 py-6">
+                                  <XCircle size={30} className="text-red-300 mb-2" />
+                                  <p className="text-sm">Chưa cập nhật công việc</p>
+                                  <button className="mt-3 text-xs bg-red-50 text-red-600 px-3 py-1 rounded border border-red-200 hover:bg-red-100">Nhắc nhở</button>
+                                </div>
+                              ) : (
+                                <div className="space-y-3">
+                                  <div>
+                                    <h5 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Đang làm hôm nay</h5>
+                                    <ul className="space-y-1.5 text-sm text-slate-700">
+                                      <li className="flex items-start"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2 shrink-0" />Mã chấm công: {code}</li>
+                                      <li className="flex items-start"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2 shrink-0" />Giờ vào: {formatTimeShort(rec?.checkInAt)}</li>
+                                      <li className="flex items-start"><span className="w-1.5 h-1.5 rounded-full bg-blue-500 mt-1.5 mr-2 shrink-0" />Giờ ra: {formatTimeShort(rec?.checkOutAt)}</li>
+                                    </ul>
+                                  </div>
+                                  <div className="pt-3 border-t border-slate-100">
+                                    <h5 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Đã xong hôm qua</h5>
+                                    <p className="text-xs text-slate-500 line-through">{rec?.note || 'Đã cập nhật chấm công đầy đủ.'}</p>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                            <div className="p-4 border-t border-slate-100">
+                              <div className="space-y-2">
+                                <select
+                                  value={draft.attendanceCode}
+                                  onChange={(e) => setDraft(empId, 'attendanceCode', e.target.value)}
+                                  className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+                                >
+                                  {codesForSelect.map((c) => (
+                                    <option key={c.code} value={c.code}>{c.description}</option>
+                                  ))}
+                                </select>
+                                <div className="flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveRecord(empId, rec)}
+                                    disabled={saving}
+                                    className="inline-flex items-center px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                                  >
+                                    {saving ? 'Đang lưu...' : rec?.id ? 'Cập nhật' : 'Lưu'}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {filteredPersonnel.map((emp) => {
-                    const empId = String(emp.id ?? emp.userId);
-                    const rec = todayRecordsByUser[empId];
-                    const isSun = new Date(tableDate).getDay() === 0;
-                    const draft = rowDrafts[empId] || { checkInAt: '08:00', checkOutAt: '17:00', attendanceCode: isSun ? 'CN' : 'L' };
-                    const name = emp.name || emp.fullName || emp.username || '—';
-                    const saving = savingRecordId === empId;
-                    const code = draft.attendanceCode || rec?.attendanceCode || (isSun ? 'CN' : 'L');
-                    let statusLabel = 'Chưa rõ';
-                    let statusColor = 'text-slate-500';
-                    let statusBg = 'bg-slate-100';
-                    if (['L', 'T_HOLIDAY', 'TT7', 'TCN'].includes(code) && !rec?.isLate) {
-                      statusLabel = 'Đã chấm công';
-                      statusColor = 'text-emerald-700';
-                      statusBg = 'bg-emerald-50';
-                    } else if (code === 'V') {
-                      statusLabel = 'Chưa chấm';
-                      statusColor = 'text-red-700';
-                      statusBg = 'bg-red-50';
-                    } else if (rec?.isLate || code === 'M') {
-                      statusLabel = 'Đi muộn';
-                      statusColor = 'text-amber-700';
-                      statusBg = 'bg-amber-50';
-                    } else if (['N_FULL', 'N_HALF', 'N_LATE', 'N_EARLY', 'L_HOLIDAY', 'CN', 'T7'].includes(code)) {
-                      statusLabel = 'Nghỉ / phép';
-                      statusColor = 'text-slate-700';
-                      statusBg = 'bg-slate-100';
-                    }
-                    return (
-                      <div key={empId} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col">
-                        <div className="p-4 border-b border-slate-100 flex items-start justify-between bg-slate-50/60">
-                          <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-sm">
-                              {(name || '?').charAt(0).toUpperCase()}
-                            </div>
-                            <div>
-                              <p className="font-semibold text-slate-900 text-sm">{name}</p>
-                              <p className="text-[11px] text-slate-500">{emp.username || empId}</p>
-                            </div>
-                          </div>
-                          <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider ${statusBg} ${statusColor}`}>
-                            {statusLabel}
-                          </span>
-                        </div>
-                        <div className="p-4 flex-1 flex flex-col gap-3">
-                          <div>
-                            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Trạng thái chấm công</p>
-                            <select
-                              value={draft.attendanceCode}
-                              onChange={(e) => setDraft(empId, 'attendanceCode', e.target.value)}
-                              className="w-full border border-slate-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
-                            >
-                              {codesForSelect.map((c) => (
-                                <option key={c.code} value={c.code}>{c.description}</option>
-                              ))}
-                            </select>
-                          </div>
-                          <div className="mt-auto flex justify-end">
-                            <button
-                              type="button"
-                              onClick={() => handleSaveRecord(empId, rec)}
-                              disabled={saving}
-                              className="inline-flex items-center px-4 py-2 border border-slate-300 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-50"
-                            >
-                              {saving ? 'Đang lưu...' : rec?.id ? 'Cập nhật' : 'Lưu'}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+                <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 bg-slate-50/50">
+                    <div className="flex items-center space-x-2">
+                      <button className="p-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50"><ChevronLeft size={16} /></button>
+                      <span className="font-semibold text-sm px-2">Tháng {attMonth.slice(5, 7)} / {attMonth.slice(0, 4)}</span>
+                      <button className="p-1.5 rounded border border-slate-300 bg-white hover:bg-slate-50"><ChevronRight size={16} /></button>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-4 text-xs">
+                      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-emerald-500 mr-1.5" /> Đủ báo cáo</div>
+                      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-orange-400 mr-1.5" /> Báo cáo trễ</div>
+                      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-red-500 mr-1.5" /> Thiếu báo cáo</div>
+                      <div className="flex items-center"><div className="w-3 h-3 rounded-full bg-slate-400 mr-1.5" /> Nghỉ/Lễ</div>
+                    </div>
+                  </div>
+                  {monthlyLoading ? (
+                    <p className="text-center text-slate-500 py-8 text-sm">Đang tải dữ liệu tháng...</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm whitespace-nowrap">
+                        <thead className="bg-white border-b border-slate-200">
+                          <tr>
+                            <th className="p-4 font-semibold text-slate-700 sticky left-0 bg-white z-10 border-r border-slate-200 shadow-[2px_0_5px_-2px_rgba(0,0,0,0.1)] w-64">Nhân sự</th>
+                            <th className="p-4 font-semibold text-center text-slate-700 border-r border-slate-100">
+                              <div className="flex flex-col items-center"><span className="text-xs text-slate-400">Tỷ lệ</span><span className="text-emerald-600">Báo cáo</span></div>
+                            </th>
+                            <th className="p-4 font-semibold text-center text-slate-700 border-r border-slate-100">
+                              <div className="flex flex-col items-center"><span className="text-xs text-slate-400">Vi phạm</span><span className="text-red-500">Thiếu</span></div>
+                            </th>
+                            {monthDays.map((day) => (
+                              <th key={day} className="p-2 font-medium text-center text-slate-500 min-w-[36px] border-r border-slate-50 last:border-r-0">{day}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredPersonnel.map((emp) => {
+                            const empId = String(emp.id ?? emp.userId);
+                            const recMap = monthlyRecordsByUser[empId] || {};
+                            let totalWork = 0;
+                            let reported = 0;
+                            let missing = 0;
+                            return (
+                              <tr key={empId} className="hover:bg-blue-50/30 transition-colors">
+                                <td className="p-4 sticky left-0 bg-white z-10 border-r border-slate-200 w-64">
+                                  <div className="flex items-center space-x-3">
+                                    <div className="w-8 h-8 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 font-bold text-xs">
+                                      {(emp.name || emp.username || '?').charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="truncate">
+                                      <p className="font-medium text-slate-900 truncate">{emp.name || emp.username || '—'}</p>
+                                      <p className="text-[11px] text-slate-500 truncate">{emp.position || emp.role || emp.username || 'Nhân viên'}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                {(() => {
+                                  monthDays.forEach((d) => {
+                                    const dStr = `${attMonth}-${String(d).padStart(2, '0')}`;
+                                    const rec = recMap[dStr];
+                                    const code = rec?.attendanceCode || '';
+                                    if (!['CN', 'T7'].includes(code)) totalWork += 1;
+                                    if (code === 'V' || !code) missing += 1;
+                                    else if (!['N_FULL', 'N_HALF', 'N_LATE', 'N_EARLY', 'L_HOLIDAY', 'CN', 'T7'].includes(code)) reported += 1;
+                                  });
+                                  return null;
+                                })()}
+                                <td className="p-4 text-center border-r border-slate-100">
+                                  <span className="font-semibold text-emerald-600">{reported}</span>
+                                  <span className="text-xs text-slate-400">/{Math.max(totalWork, 1)}</span>
+                                </td>
+                                <td className="p-4 text-center border-r border-slate-100">
+                                  {missing > 0 ? <span className="font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded">{missing}</span> : <span className="text-slate-300">-</span>}
+                                </td>
+                                {monthDays.map((d) => {
+                                  const dStr = `${attMonth}-${String(d).padStart(2, '0')}`;
+                                  const rec = recMap[dStr];
+                                  const code = rec?.attendanceCode || '';
+                                  const dotClass = getDayDotClass(code, !!rec?.isLate);
+                                  return (
+                                    <td key={d} className="p-1 border-r border-slate-50 last:border-r-0 text-center relative group cursor-pointer">
+                                      <div className="flex justify-center items-center h-full w-full py-2">
+                                        <div className={`w-3.5 h-3.5 rounded-full ${dotClass} ${!rec ? 'opacity-40' : 'opacity-100'} group-hover:ring-4 ring-slate-200 transition-all`} />
+                                      </div>
+                                      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-44 bg-slate-900 text-white text-xs rounded p-2 opacity-0 group-hover:opacity-100 pointer-events-none z-20 shadow-lg transition-opacity text-left">
+                                        <p className="font-semibold border-b border-slate-700 pb-1 mb-1">Ngày {dStr.slice(8, 10)}/{dStr.slice(5, 7)}</p>
+                                        <p>Mã: {code || 'V'}</p>
+                                        <p>Giờ vào: {formatTimeShort(rec?.checkInAt)}</p>
+                                        <p>Giờ ra: {formatTimeShort(rec?.checkOutAt)}</p>
+                                      </div>
+                                    </td>
+                                  );
+                                })}
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
