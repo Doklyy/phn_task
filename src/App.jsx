@@ -32,7 +32,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsive
 import { utils, writeFileXLSX } from 'xlsx';
 import { useAuth } from './context/AuthContext.jsx';
 import LoginScreen from './components/LoginScreen.jsx';
-import { fetchTasksForCurrentUser, fetchTasksForDashboard, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails } from './api/tasks.js';
+import { fetchTasksForCurrentUser, fetchTasksForDashboard, getDashboardStats, acceptTask, createTask, submitCompletion, approveCompletion, rejectCompletion, updateTaskDetails, deleteTask } from './api/tasks.js';
 import { getScoringUser, getRanking } from './api/scoring.js';
 import { computeRankingFromTasks, taskScore, taskScoreBreakdown, isCompletedOnTime } from './utils/scoringFormula.js';
 import { getReportsByTask, submitReport, getReportsByUser, getMonthlyCompliance, getAllReportsForAdmin } from './api/reports.js';
@@ -2800,6 +2800,16 @@ const App = () => {
                   }
                 })
             }
+            onDelete={role === 'admin'
+              ? async () => {
+                  // eslint-disable-next-line no-alert
+                  if (!window.confirm('Bạn có chắc chắn muốn xóa nhiệm vụ này? Hành động không thể hoàn tác.')) return;
+                  await deleteTask(selectedTaskId, currentUser.id);
+                  setTasks((prev) => prev.filter((t) => String(t.id) !== String(selectedTaskId)));
+                  setSelectedTaskId(null);
+                  await refreshTasks();
+                }
+              : null}
           />
         );
       })()}
@@ -2890,6 +2900,7 @@ const TaskDetailModal = ({
   currentUserId,
   onSaveEdit,
   defaultReportDate,
+  onDelete,
 }) => {
   const todayStr = new Date().toISOString().slice(0, 10);
   const initialReportDate = defaultReportDate || todayStr;
@@ -2977,9 +2988,20 @@ const TaskDetailModal = ({
               <ClipboardList className="text-blue-600" size={24} />
               Chi tiết công việc
             </h2>
-            <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
-              <X size={20} className="text-slate-400" />
-            </button>
+            <div className="flex items-center gap-2">
+              {role === 'admin' && onDelete && (
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  className="px-3 py-1.5 rounded-lg text-xs font-semibold border border-red-200 text-red-700 hover:bg-red-50"
+                >
+                  Xóa nhiệm vụ
+                </button>
+              )}
+              <button type="button" onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
+                <X size={20} className="text-slate-400" />
+              </button>
+            </div>
           </div>
           {showAdminTabs && (
             <div className="flex px-6 gap-8">

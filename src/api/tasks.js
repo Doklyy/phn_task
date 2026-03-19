@@ -224,6 +224,21 @@ export async function rejectCompletion(taskId, userId, reason) {
   return normalizeTask(res);
 }
 
+/**
+ * Xóa nhiệm vụ – chỉ Admin được phép.
+ * Backend: DELETE /api/tasks/{taskId}?userId=...
+ */
+export async function deleteTask(taskId, userId) {
+  const tid = taskId != null ? Number(taskId) : NaN;
+  const uid = userId != null ? Number(userId) : NaN;
+  if (Number.isNaN(tid) || Number.isNaN(uid)) {
+    throw new Error('Không xác định được nhiệm vụ hoặc người dùng.');
+  }
+  await request(`tasks/${tid}?userId=${encodeURIComponent(uid)}`, {
+    method: 'DELETE',
+  });
+}
+
 /** Dữ liệu mẫu khi chưa có BE */
 function getMockTasks(userId) {
   const now = new Date();
