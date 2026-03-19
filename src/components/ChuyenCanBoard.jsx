@@ -76,7 +76,7 @@ function renderCell(dayData, day) {
   );
 }
 
-export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, displayDays, loading, ranking }) {
+export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, displayDays, loading, ranking, allReportsList }) {
   const daysList = displayDays && displayDays.length > 0 ? displayDays : Array.from({ length: 31 }, (_, i) => i + 1);
   const rankingByUserId = React.useMemo(() => {
     const m = {};
@@ -123,6 +123,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             name: personName,
             titles,
             ratio: `${d.reportedTasks}/${d.totalTasks}`,
+            userId: String(person?.id ?? person?.userId ?? ''),
           });
         } else {
           missingToday += 1;
@@ -145,6 +146,24 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       dayLabel,
     };
   }, [data, daysList, monthValue]);
+
+  const [reportDetailModal, setReportDetailModal] = React.useState(null); // { userId, name }
+  const focusMonth = (monthValue || '').slice(0, 7);
+  const focusDateStr = focusMonth && dashboardSummary?.focusDay
+    ? `${focusMonth}-${String(dashboardSummary.focusDay).padStart(2, '0')}`
+    : '';
+
+  const detailReports = React.useMemo(() => {
+    if (!reportDetailModal?.userId || !focusDateStr) return [];
+    const uid = String(reportDetailModal.userId);
+    return (allReportsList || [])
+      .filter((r) => {
+        const d = (r.date || r.reportDate || '').slice(0, 10);
+        const rUid = String(r.userId ?? r.user_id ?? '');
+        return d === focusDateStr && rUid === uid;
+      })
+      .sort((a, b) => String(a.taskTitle || '').localeCompare(String(b.taskTitle || '')));
+  }, [reportDetailModal, allReportsList, focusDateStr]);
 
   return (
     <div className="max-w-[1400px] mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -205,13 +224,22 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
               <ul className="space-y-2 text-sm text-slate-700">
                 {dashboardSummary.reportedDetails.map((item, idx) => (
                   <li key={`${item.name}-${idx}`} className="border-b border-emerald-100 pb-1 last:border-b-0 last:pb-0">
-                    <p className="font-semibold text-slate-800">
-                      {item.name}{' '}
-                      <span className="font-normal text-emerald-700">({item.ratio})</span>
-                    </p>
-                    <p className="text-xs text-slate-600">
-                      {item.titles.length > 0 ? item.titles.join('; ') : 'Đã nộp báo cáo nhưng chưa có tiêu đề nhiệm vụ.'}
-                    </p>
+                    <button
+                      type="button"
+                      className="w-full text-left rounded-md px-1 py-0.5 hover:bg-emerald-50/80 transition-colors"
+                      onClick={() => setReportDetailModal({ userId: item.userId, name: item.name })}
+                    >
+                      <p className="font-semibold text-slate-800">
+                        {item.name}{' '}
+                        <span className="font-normal text-emerald-700">({item.ratio})</span>
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        {item.titles.length > 0 ? item.titles.join('; ') : 'Đã nộp báo cáo nhưng chưa có tiêu đề nhiệm vụ.'}
+                      </p>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Bấm để xem chi tiết báo cáo
+                      </p>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -336,6 +364,55 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
               })}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {reportDetailModal && (
+        <div className="fixed inset-0 z-[100000] bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+              <div>
+                <div className="text-sm text-slate-500">Chi tiết báo cáo</div>
+                <div className="font-bold text-slate-900">
+                  {reportDetailModal.name} - Ngày {dashboardSummary.dayLabel}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setReportDetailModal(null)}
+                className="p-2 rounded-lg hover:bg-slate-50 border border-slate-200"
+              >
+                X
+              </button>
+            </div>
+
+            <div className="px-5 py-4 max-h-[70vh] overflow-auto">
+              {detailReports.length === 0 ? (
+                <p className="text-sm text-slate-500">Chưa có báo cáo chi tiết cho người này trong ngày được chọn.</p>
+              ) : (
+                <ul className="space-y-4">
+                  {detailReports.map((r, idx) => (
+                    <li key={`${r.taskId ?? r.task_id ?? idx}-${idx}`} className="border border-slate-200 rounded-xl p-4">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="font-bold text-slate-900">{r.taskTitle || 'Nhiệm vụ'}</div>
+                        <div className="text-xs text-slate-500">
+                          Ngày: {r.date ? String(r.date).slice(0, 10) : dashboardSummary.dayLabel}
+                        </div>
+                      </div>
+                      <div className="text-sm text-slate-700 whitespace-pre-wrap mt-2 leading-relaxed">
+                        {r.result || r.content || '—'}
+                      </div>
+                      {(r.submittedAt || r.submitted_at) && (
+                        <div className="text-xs text-slate-500 mt-2">
+                          Gửi lúc: {new Date(String(r.submittedAt || r.submitted_at).replace(' ', 'T')).toLocaleString('vi-VN')}
+                        </div>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </div>

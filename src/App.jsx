@@ -1869,6 +1869,7 @@ const App = () => {
                           data={chuyenCanBoardData}
                           displayDays={displayDays}
                           loading={adminAttendanceLoading}
+                          allReportsList={allReportsList}
                         />
                       </section>
                     );
