@@ -480,6 +480,16 @@ const App = () => {
     const isCurrentMonth =
       today.getFullYear() === y && today.getMonth() + 1 === m;
     const reportsByUserAndDay = {};
+    const ensureReportBucket = (uid, day) => {
+      if (!reportsByUserAndDay[uid]) reportsByUserAndDay[uid] = {};
+      if (!reportsByUserAndDay[uid][day]) {
+        reportsByUserAndDay[uid][day] = {
+          taskIds: new Set(),
+          taskTitles: new Set(),
+        };
+      }
+      return reportsByUserAndDay[uid][day];
+    };
     (allReportsList || []).forEach((r) => {
       const d = (r.date || r.reportDate || '').slice(0, 10);
       if (!d.startsWith(monthPrefix)) return;
