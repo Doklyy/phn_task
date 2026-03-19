@@ -102,6 +102,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
     const reportedNames = [];
     const missingNames = [];
     const leaveNames = [];
+    const reportedDetails = [];
 
     (data || []).forEach((person) => {
       totalStaff += 1;
@@ -115,7 +116,14 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       if ((d.totalTasks || 0) > 0) {
         if ((d.reportedTasks || 0) > 0) {
           reportedToday += 1;
-          reportedNames.push(person?.name || `ID ${person?.id ?? '—'}`);
+          const personName = person?.name || `ID ${person?.id ?? '—'}`;
+          reportedNames.push(personName);
+          const titles = Array.isArray(d.reportedTaskTitles) ? d.reportedTaskTitles : [];
+          reportedDetails.push({
+            name: personName,
+            titles,
+            ratio: `${d.reportedTasks}/${d.totalTasks}`,
+          });
         } else {
           missingToday += 1;
           missingNames.push(person?.name || `ID ${person?.id ?? '—'}`);
@@ -124,7 +132,18 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
     });
 
     const dayLabel = `${String(focusDay).padStart(2, '0')}/${monthValue?.slice(5, 7) || '—'}/${monthValue?.slice(0, 4) || '—'}`;
-    return { totalStaff, reportedToday, missingToday, leaveToday, reportedNames, missingNames, leaveNames, focusDay, dayLabel };
+    return {
+      totalStaff,
+      reportedToday,
+      missingToday,
+      leaveToday,
+      reportedNames,
+      missingNames,
+      leaveNames,
+      reportedDetails,
+      focusDay,
+      dayLabel,
+    };
   }, [data, daysList, monthValue]);
 
   return (
@@ -180,10 +199,22 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
           <div className="bg-white border border-emerald-200 rounded-lg p-3">
             <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1">Đã báo cáo</p>
-            {dashboardSummary.reportedNames.length === 0 ? (
+            {dashboardSummary.reportedDetails.length === 0 ? (
               <p className="text-sm text-slate-400">Không có</p>
             ) : (
-              <p className="text-sm text-slate-700">{dashboardSummary.reportedNames.join(', ')}</p>
+              <ul className="space-y-2 text-sm text-slate-700">
+                {dashboardSummary.reportedDetails.map((item, idx) => (
+                  <li key={`${item.name}-${idx}`} className="border-b border-emerald-100 pb-1 last:border-b-0 last:pb-0">
+                    <p className="font-semibold text-slate-800">
+                      {item.name}{' '}
+                      <span className="font-normal text-emerald-700">({item.ratio})</span>
+                    </p>
+                    <p className="text-xs text-slate-600">
+                      {item.titles.length > 0 ? item.titles.join('; ') : 'Đã nộp báo cáo nhưng chưa có tiêu đề nhiệm vụ.'}
+                    </p>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
           <div className="bg-white border border-rose-200 rounded-lg p-3">

@@ -338,6 +338,13 @@ const App = () => {
 
     // Gom báo cáo theo userId + ngày trong tháng
     const reportsByUserAndDay = {};
+    const ensureReportBucket = (uid, day) => {
+      if (!reportsByUserAndDay[uid]) reportsByUserAndDay[uid] = {};
+      if (!reportsByUserAndDay[uid][day]) {
+        reportsByUserAndDay[uid][day] = { taskIds: new Set(), taskTitles: new Set() };
+      }
+      return reportsByUserAndDay[uid][day];
+    };
     (allReportsList || []).forEach((r) => {
       const d = (r.date || r.reportDate || '').slice(0, 10);
       if (!d.startsWith(monthPrefix)) return;
@@ -480,11 +487,12 @@ const App = () => {
       if (!uid) return;
       const day = parseInt(d.slice(8, 10), 10);
       if (!Number.isFinite(day)) return;
-      if (!reportsByUserAndDay[uid]) reportsByUserAndDay[uid] = {};
       const taskId = String(r.taskId ?? r.task_id ?? '');
       if (!taskId) return;
-      if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = new Set();
-      reportsByUserAndDay[uid][day].add(taskId);
+      const bucket = ensureReportBucket(uid, day);
+      bucket.taskIds.add(taskId);
+      const title = String(r.taskTitle ?? r.task_title ?? '').trim();
+      if (title) bucket.taskTitles.add(title);
     });
     // Bổ sung: coi ngày gửi báo cáo kết thúc / ngày hoàn thành như một báo cáo ngày (để ô hiển thị 1/1 thay vì 0/1).
     const sourceTasksForReports = (allTasksForDashboard && allTasksForDashboard.length > 0)
@@ -501,9 +509,10 @@ const App = () => {
       if (!Number.isFinite(day)) return;
       const taskId = String(t.id ?? t.taskId ?? '');
       if (!taskId) return;
-      if (!reportsByUserAndDay[uid]) reportsByUserAndDay[uid] = {};
-      if (!reportsByUserAndDay[uid][day]) reportsByUserAndDay[uid][day] = new Set();
-      reportsByUserAndDay[uid][day].add(taskId);
+      const bucket = ensureReportBucket(uid, day);
+      bucket.taskIds.add(taskId);
+      const title = String(t.title ?? '').trim();
+      if (title) bucket.taskTitles.add(title);
     });
     return (staffListForDashboard || []).map((s) => {
       const sid = String(s.id ?? s.userId);
@@ -552,7 +561,8 @@ const App = () => {
           else if (rec) workDay = 0.5;
         }
         const hadWork = workDay > 0;
-        const reportedSet = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || null;
+        const reportBucket = (reportsByUserAndDay[sid] && reportsByUserAndDay[sid][day]) || null;
+        const reportedSet = reportBucket?.taskIds || null;
         const totalTasks = hadWork
           ? tasksForUser.filter((t) => {
               const status = (t.status || '').toLowerCase();
@@ -571,6 +581,7 @@ const App = () => {
           workDay,
           totalTasks,
           reportedTasks,
+          reportedTaskTitles: reportBucket ? Array.from(reportBucket.taskTitles) : [],
           isLate: rawCode === 'M' || rawCode === 'N_LATE',
           isLeave: !!isFullLeave,
         };
