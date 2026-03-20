@@ -1922,11 +1922,11 @@ const App = () => {
                 const statusTabs = [
                   { id: 'all', label: 'Tất cả', count: dashboardTasks.length, classes: 'bg-slate-50 border-slate-200 text-slate-900' },
                   { id: 'overdue', label: 'Quá hạn', count: overdueList.length, classes: 'bg-red-50 border-red-200 text-red-800' },
-                  { id: 'new', label: 'Nhiệm vụ mới', count: newList.length, classes: 'bg-amber-50 border-amber-200 text-amber-900' },
-                  { id: 'paused', label: 'Tạm dừng', count: pausedList.length, classes: 'bg-gray-50 border-gray-200 text-gray-700' },
-                  { id: 'completed', label: 'Hoàn thành', count: completedList.length, classes: 'bg-slate-50 border-slate-200 text-slate-700' },
-                  { id: 'pending_approval', label: 'Đợi duyệt', count: pendingList.length, classes: 'bg-violet-50 border-violet-200 text-violet-900' },
                   { id: 'in_progress', label: 'Đang thực hiện', count: inProgressList.length, classes: 'bg-emerald-50 border-emerald-200 text-emerald-900' },
+                  { id: 'pending_approval', label: 'Đợi duyệt', count: pendingList.length, classes: 'bg-violet-50 border-violet-200 text-violet-900' },
+                  { id: 'paused', label: 'Tạm dừng', count: pausedList.length, classes: 'bg-gray-50 border-gray-200 text-gray-700' },
+                  { id: 'new', label: 'Nhiệm vụ mới', count: newList.length, classes: 'bg-amber-50 border-amber-200 text-amber-900' },
+                  { id: 'completed', label: 'Hoàn thành', count: completedList.length, classes: 'bg-slate-50 border-slate-200 text-slate-700' },
                 ];
 
                 return (

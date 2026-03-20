@@ -4,11 +4,11 @@ import { ClipboardList, User, CheckCircle2, Clock, TrendingUp, AlertCircle } fro
 const OVERDUE_COLUMN = { id: 'overdue', status: null, title: 'Quá hạn', color: 'bg-red-50 border-red-200', headerBg: 'bg-red-100 text-red-900' };
 
 const STATUS_COLUMNS = [
-  { id: 'new', status: 'new', title: 'Nhiệm vụ mới', color: 'bg-amber-50 border-amber-200', headerBg: 'bg-amber-100 text-amber-900' },
   { id: 'accepted', status: 'accepted', title: 'Đang thực hiện', color: 'bg-emerald-50 border-emerald-200', headerBg: 'bg-emerald-100 text-emerald-900' },
   { id: 'pending_approval', status: 'pending_approval', title: 'Đợi duyệt', color: 'bg-violet-50 border-violet-200', headerBg: 'bg-violet-100 text-violet-900' },
-  { id: 'completed', status: 'completed', title: 'Hoàn thành', color: 'bg-slate-50 border-slate-200', headerBg: 'bg-slate-200 text-slate-800' },
   { id: 'paused', status: 'paused', title: 'Tạm dừng', color: 'bg-gray-50 border-gray-200', headerBg: 'bg-gray-200 text-gray-700' },
+  { id: 'new', status: 'new', title: 'Nhiệm vụ mới', color: 'bg-amber-50 border-amber-200', headerBg: 'bg-amber-100 text-amber-900' },
+  { id: 'completed', status: 'completed', title: 'Hoàn thành', color: 'bg-slate-50 border-slate-200', headerBg: 'bg-slate-200 text-slate-800' },
 ];
 
 function formatDate(str) {
