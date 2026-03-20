@@ -310,7 +310,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                 {dashboardSummary.reportedDetails.length === 0 ? (
                   <p className="text-sm text-slate-400">Không có</p>
                 ) : (
-                  <ul className="space-y-2 text-sm text-slate-700 pr-1 max-h-56 overflow-auto">
+                  <ul className="space-y-2 text-sm text-slate-700 pr-1">
                     {dashboardSummary.reportedDetails.map((item, idx) => (
                       <li key={`${item.name}-${idx}`} className="border-b border-emerald-100 pb-1 last:border-b-0 last:pb-0">
                         <button
