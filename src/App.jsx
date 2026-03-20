@@ -1983,7 +1983,7 @@ const App = () => {
                           onClick={() => setActiveTab('tasks')}
                           className="text-sm font-semibold text-amber-600 hover:text-amber-700"
                         >
-                          Xem bảng Trello (cột Đợi duyệt) →
+                          Xem danh sách Đợi duyệt →
                         </button>
                       </div>
                     )}
