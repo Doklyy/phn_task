@@ -2067,11 +2067,16 @@ const App = () => {
                                       ? (t.submittedAt || t.submitted_at)
                                       : null;
 
-                                  let progressLabel = 'Chưa báo';
-                                  if ((t.status || '').toLowerCase() === 'completed') progressLabel = 'Hoàn thành';
-                                  else if ((t.status || '').toLowerCase() === 'pending_approval') progressLabel = 'Đợi duyệt';
-                                  else if ((t.status || '').toLowerCase() === 'paused') progressLabel = 'Tạm dừng';
-                                  else if (reported) progressLabel = 'Đã báo tiến độ';
+                                  const statusLower = (t.status || '').toLowerCase();
+                                  const progressMeta = statusLower === 'completed'
+                                    ? { label: 'Hoàn thành', className: 'bg-emerald-100 text-emerald-800 border border-emerald-200' }
+                                    : statusLower === 'pending_approval'
+                                      ? { label: 'Đợi duyệt', className: 'bg-violet-100 text-violet-800 border border-violet-200' }
+                                      : statusLower === 'paused'
+                                        ? { label: 'Tạm dừng', className: 'bg-slate-100 text-slate-700 border border-slate-200' }
+                                        : statusLower === 'accepted'
+                                          ? { label: 'Đang thực hiện', className: 'bg-amber-100 text-amber-800 border border-amber-200' }
+                                          : { label: reported ? 'Đã báo tiến độ' : 'Chưa thực hiện', className: reported ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-red-100 text-red-700 border border-red-200' };
 
                                   const weightTxt = t.weight != null ? weightLabel(t.weight) : '—';
                                   const qualityTxt = t.quality != null ? qualityLabel(t.quality) : '';
@@ -2105,7 +2110,9 @@ const App = () => {
                                         {assigneeName}
                                       </td>
                                       <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                        {progressLabel}
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${progressMeta.className}`}>
+                                          {progressMeta.label}
+                                        </span>
                                       </td>
                                       <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
                                         {cvSelfTxt}
@@ -3766,11 +3773,23 @@ const TaskDetailModal = ({
                         <Activity size={14} /> Trạng thái CV
                       </label>
                       <select
-                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-base font-medium text-emerald-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                        className={`w-full p-3 rounded-lg text-base font-semibold focus:ring-2 focus:ring-blue-500 outline-none ${
+                          editStatus === 'COMPLETED'
+                            ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                            : editStatus === 'PENDING_APPROVAL'
+                              ? 'bg-violet-50 text-violet-800 border border-violet-200'
+                              : editStatus === 'PAUSED'
+                                ? 'bg-slate-50 text-slate-700 border border-slate-200'
+                                : editStatus === 'ACCEPTED'
+                                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                                  : 'bg-red-50 text-red-700 border border-red-200'
+                        }`}
                         value={editStatus}
                         onChange={(e) => setEditStatus(e.target.value)}
                       >
+                        <option value="NEW">Chưa thực hiện</option>
                         <option value="ACCEPTED">Trả về (tiếp tục làm)</option>
+                        <option value="PENDING_APPROVAL">Đợi duyệt</option>
                         <option value="COMPLETED">Hoàn thành</option>
                         <option value="PAUSED">Tạm dừng</option>
                       </select>
