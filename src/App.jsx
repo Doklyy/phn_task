@@ -2044,7 +2044,11 @@ const App = () => {
                                   const qualityTxt = t.quality != null ? qualityLabel(t.quality) : '—';
                                   const statusCvTxt = statusCVLabel(t);
                                   const scoreTxt = t.quality != null || t.weight != null ? taskScore(t) : '—';
-                                  const leaderCommentTxt = t.leaderComment || t.lastRejectReason || '—';
+                                  const rawLeaderComment = String(t.leaderComment || t.lastRejectReason || '').trim();
+                                  const leaderCommentTxt = ['tra ve', 'trả về', 'tra ve sua', 'trả về sửa']
+                                    .includes(rawLeaderComment.toLowerCase())
+                                    ? '—'
+                                    : (rawLeaderComment || '—');
 
                                   return (
                                     <tr
