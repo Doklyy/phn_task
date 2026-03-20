@@ -2064,6 +2064,7 @@ const App = () => {
                                 <th className="py-3 px-3 w-[130px]">Trọng số CV</th>
                                 <th className="py-3 px-3 w-[130px]">Chất lượng CV</th>
                                 <th className="py-3 px-3 w-[170px]">Trạng thái CV</th>
+                                <th className="py-3 px-3 w-[120px]">Điểm đạt được</th>
                                 <th className="py-3 px-3 w-[220px]">Đánh giá của chỉ huy</th>
                               </tr>
                             </thead>
@@ -2101,6 +2102,7 @@ const App = () => {
                                   const weightTxt = t.weight != null ? weightLabel(t.weight) : '—';
                                   const qualityTxt = t.quality != null ? qualityLabel(t.quality) : '—';
                                   const statusCvTxt = statusCVLabel(t);
+                                  const scoreTxt = t.quality != null || t.weight != null ? taskScore(t) : '—';
                                   const leaderCommentTxt = t.leaderComment || t.lastRejectReason || '—';
 
                                   return (
@@ -2147,6 +2149,9 @@ const App = () => {
                                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusCVBadgeClass(statusCvTxt)}`}>
                                           {statusCvTxt}
                                         </span>
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis font-semibold text-slate-800">
+                                        {scoreTxt}
                                       </td>
                                       <td className="py-2 px-3 overflow-hidden text-ellipsis" title={leaderCommentTxt}>
                                         {leaderCommentTxt}
@@ -3822,7 +3827,7 @@ const TaskDetailModal = ({
                         onChange={(e) => setEditStatus(e.target.value)}
                       >
                         <option value="NEW">Chưa thực hiện</option>
-                        <option value="ACCEPTED">Trả về (tiếp tục làm)</option>
+                        <option value="ACCEPTED">Tiếp tục làm</option>
                         <option value="PENDING_APPROVAL">Đợi duyệt</option>
                         <option value="COMPLETED">Hoàn thành</option>
                         <option value="PAUSED">Tạm dừng</option>
@@ -3957,7 +3962,7 @@ const TaskDetailModal = ({
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-6 py-2.5 border border-red-200 text-red-600 bg-white hover:bg-red-50 rounded-xl font-bold text-sm transition-all shadow-sm"
                     >
                       <RotateCcw size={18} />
-                      TRẢ VỀ SỬA
+                      YÊU CẦU SỬA
                     </button>
                     <button
                       type="button"
