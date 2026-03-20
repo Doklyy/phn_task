@@ -204,6 +204,26 @@ const qualityLabel = (quality) => {
   return best.label;
 };
 
+const qualityBadgeClass = (label) => {
+  const key = String(label || '').toLowerCase();
+  if (key.includes('không đạt') || key.includes('khong dat')) return 'bg-red-700 text-white';
+  if (key.includes('đạt tối thiểu') || key.includes('dat toi thieu')) return 'bg-orange-200 text-orange-800';
+  if (key.includes('đạt chuẩn') || key.includes('dat chuan')) return 'bg-slate-200 text-slate-700';
+  if (key.includes('tốt') || key.includes('tot')) return 'bg-lime-400 text-lime-900';
+  if (key.includes('xuất sắc') || key.includes('xuat sac')) return 'bg-emerald-500 text-white';
+  return 'bg-slate-200 text-slate-700';
+};
+
+const statusCVBadgeClass = (status) => {
+  const key = String(status || '').toLowerCase();
+  if (key.includes('hoàn thành') || key.includes('hoan thanh')) return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+  if (key.includes('đợi duyệt') || key.includes('doi duyet')) return 'bg-violet-100 text-violet-800 border border-violet-200';
+  if (key.includes('đang thực hiện') || key.includes('dang thuc hien')) return 'bg-amber-100 text-amber-800 border border-amber-200';
+  if (key.includes('tạm dừng') || key.includes('tam dung')) return 'bg-slate-100 text-slate-700 border border-slate-200';
+  if (key.includes('không hoàn thành') || key.includes('khong hoan thanh')) return 'bg-red-100 text-red-700 border border-red-200';
+  return 'bg-slate-100 text-slate-700 border border-slate-200';
+};
+
 /** Trạng thái CV theo đánh giá admin (CSV): Hoàn thành đúng hạn / Không hoàn thành / Chưa đến hạn / Đang thực hiện. */
 function statusCVLabel(task) {
   if (!task) return '—';
@@ -2041,16 +2061,16 @@ const App = () => {
                                 <th className="py-3 px-3 w-[120px]">Ngày hoàn thành</th>
                                 <th className="py-3 px-3 w-[110px]">Chủ trì</th>
                                 <th className="py-3 px-3 w-[140px]">Tiến độ</th>
-                                <th className="py-3 px-3 w-[120px]">
-                                  <div>Trọng số CV</div>
-                                  <div className="text-[10px] text-slate-500 font-medium">(tự đánh giá)</div>
-                                </th>
+                                <th className="py-3 px-3 w-[130px]">Trọng số CV</th>
+                                <th className="py-3 px-3 w-[130px]">Chất lượng CV</th>
+                                <th className="py-3 px-3 w-[170px]">Trạng thái CV</th>
+                                <th className="py-3 px-3 w-[220px]">Đánh giá của chỉ huy</th>
                               </tr>
                             </thead>
                             <tbody>
                               {visibleTasks.length === 0 ? (
                                 <tr>
-                                  <td colSpan={9} className="py-10 text-center text-slate-400">
+                                  <td colSpan={13} className="py-10 text-center text-slate-400">
                                     Không có nhiệm vụ.
                                   </td>
                                 </tr>
@@ -2079,8 +2099,9 @@ const App = () => {
                                           : { label: reported ? 'Đã báo tiến độ' : 'Chưa thực hiện', className: reported ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-red-100 text-red-700 border border-red-200' };
 
                                   const weightTxt = t.weight != null ? weightLabel(t.weight) : '—';
-                                  const qualityTxt = t.quality != null ? qualityLabel(t.quality) : '';
-                                  const cvSelfTxt = qualityTxt ? `${weightTxt} · ${qualityTxt}` : weightTxt;
+                                  const qualityTxt = t.quality != null ? qualityLabel(t.quality) : '—';
+                                  const statusCvTxt = statusCVLabel(t);
+                                  const leaderCommentTxt = t.leaderComment || t.lastRejectReason || '—';
 
                                   return (
                                     <tr
@@ -2115,7 +2136,20 @@ const App = () => {
                                         </span>
                                       </td>
                                       <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                        {cvSelfTxt}
+                                        {weightTxt}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
+                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${qualityBadgeClass(qualityTxt)}`}>
+                                          {qualityTxt}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
+                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusCVBadgeClass(statusCvTxt)}`}>
+                                          {statusCvTxt}
+                                        </span>
+                                      </td>
+                                      <td className="py-2 px-3 overflow-hidden text-ellipsis" title={leaderCommentTxt}>
+                                        {leaderCommentTxt}
                                       </td>
                                     </tr>
                                   );
