@@ -346,6 +346,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
         (loading ? (
           <div className="p-8 text-center text-gray-500">Đang tải...</div>
         ) : (
+        <>
         <div className="overflow-x-auto custom-scrollbar relative">
           <table className="w-full text-left border-collapse min-w-[max-content]">
             <thead>
@@ -444,6 +445,24 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             </tbody>
           </table>
         </div>
+        <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/60">
+          <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Ghi chú cách đọc số liệu</p>
+          <ul className="space-y-1.5 text-sm text-slate-600">
+            <li>
+              <span className="font-semibold text-blue-700">C.Tổng:</span>{' '}
+              Khi có dữ liệu chấm điểm từ API, đây là tổng <span className="font-medium">điểm thời gian làm việc (tối đa 5)</span> +{' '}
+              <span className="font-medium">điểm báo cáo hàng ngày (tối đa 5)</span>. Nếu chưa có dữ liệu API, hệ thống tạm hiển thị{' '}
+              <span className="font-medium">số ngày công trong tháng</span>.
+            </li>
+            <li>
+              <span className="font-semibold text-emerald-700">Tiến độ:</span>{' '}
+              Hiển thị theo dạng <span className="font-medium">X / Y</span>, trong đó <span className="font-medium">Y</span> là số ngày có nhiệm vụ phát sinh,{' '}
+              <span className="font-medium">X</span> là số ngày đã có ít nhất một báo cáo tiến độ. Phần trăm bên dưới là{' '}
+              <span className="font-medium">X / Y</span>.
+            </li>
+          </ul>
+        </div>
+        </>
         ))}
 
       {reportDetailModal && (
