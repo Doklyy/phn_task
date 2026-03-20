@@ -3144,6 +3144,7 @@ const App = () => {
                 .then((updatedTask) => {
                   const sid = String(selectedTaskId);
                   const isPaused = (payload?.status || '').toUpperCase() === 'PAUSED';
+                  const isStatusChange = payload?.status !== undefined;
                   const status = isPaused ? 'paused' : (updatedTask?.status || '').toLowerCase();
                   const patchFromPayload = {
                     ...(payload?.title !== undefined ? { title: payload.title } : {}),
@@ -3158,6 +3159,9 @@ const App = () => {
                         : t
                     )
                   );
+                  // Neu chi sua noi dung/muc tieu/tieu de thi uu tien cap nhat ngay tren FE,
+                  // tranh truong hop BE dong bo cham lam UI "nhin nhu chua luu".
+                  if (!isStatusChange) return Promise.resolve();
                   return refreshTasks();
                 })
                 .then(() => {
@@ -3291,6 +3295,7 @@ const TaskDetailModal = ({
   const [rejectReasonError, setRejectReasonError] = useState('');
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState('');
+  const [editSuccess, setEditSuccess] = useState('');
   useEffect(() => {
     setReportChoice(null);
     const first = getTaskFirstReportableDateStr(task);
@@ -3313,6 +3318,7 @@ const TaskDetailModal = ({
     setApproveQuality(task.quality != null ? String(task.quality) : '');
     setRejectReason('');
     setRejectReasonError('');
+    setEditSuccess('');
   }, [task?.id]);
   const toDatetimeLocal = (v) => {
     if (!v) return '';
@@ -3726,11 +3732,11 @@ const TaskDetailModal = ({
                   )}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                      <label className="text-sm font-bold text-slate-600 uppercase flex items-center gap-1.5">
                         <BarChart3 size={14} /> Trọng số CV
                       </label>
                       <select
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-base focus:ring-2 focus:ring-blue-500 outline-none"
                         value={editWeight}
                         onChange={(e) => setEditWeight(e.target.value)}
                       >
@@ -3741,11 +3747,11 @@ const TaskDetailModal = ({
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                      <label className="text-sm font-bold text-slate-600 uppercase flex items-center gap-1.5">
                         <Star size={14} /> Chất lượng (0–1)
                       </label>
                       <select
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-base focus:ring-2 focus:ring-blue-500 outline-none"
                         value={approveQuality}
                         onChange={(e) => setApproveQuality(e.target.value)}
                       >
@@ -3756,11 +3762,11 @@ const TaskDetailModal = ({
                       </select>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                      <label className="text-sm font-bold text-slate-600 uppercase flex items-center gap-1.5">
                         <Activity size={14} /> Trạng thái CV
                       </label>
                       <select
-                        className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-lg text-sm font-medium text-emerald-700 focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-base font-medium text-emerald-700 focus:ring-2 focus:ring-blue-500 outline-none"
                         value={editStatus}
                         onChange={(e) => setEditStatus(e.target.value)}
                       >
@@ -3771,12 +3777,12 @@ const TaskDetailModal = ({
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                    <label className="text-sm font-bold text-slate-600 uppercase flex items-center gap-1.5">
                       <MessageSquare size={14} /> Đánh giá của chỉ huy
                     </label>
                     <textarea
                       placeholder="Ghi nhận xét, góp ý cho nhân viên tại đây..."
-                      className={`w-full p-4 bg-slate-50 border rounded-xl text-sm min-h-[150px] focus:ring-2 focus:ring-blue-500 outline-none transition-all ${rejectReasonError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
+                      className={`w-full p-4 bg-slate-50 border rounded-xl text-base min-h-[150px] focus:ring-2 focus:ring-blue-500 outline-none transition-all ${rejectReasonError ? 'border-red-400 bg-red-50' : 'border-slate-200'}`}
                       value={rejectReason}
                       onChange={(e) => { setRejectReason(e.target.value); setRejectReasonError(''); }}
                     />
@@ -3785,23 +3791,24 @@ const TaskDetailModal = ({
                 </div>
               ) : (
                 <div className="space-y-5">
+                  {editSuccess && <p className="text-emerald-700 text-sm font-semibold">{editSuccess}</p>}
                   {editError && <p className="text-red-600 text-sm">{editError}</p>}
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">Tên nhiệm vụ</label>
                     <input
                       type="text"
-                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-base font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-4 bg-white border border-slate-300 rounded-lg text-lg font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
                       value={editTitle}
-                      onChange={(e) => setEditTitle(e.target.value)}
+                      onChange={(e) => { setEditTitle(e.target.value); setEditSuccess(''); }}
                       placeholder="Nhập tên nhiệm vụ"
                     />
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">Mục tiêu</label>
                     <textarea
-                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-base text-slate-800 min-h-[96px] focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-4 bg-white border border-slate-300 rounded-lg text-lg text-slate-800 min-h-[110px] focus:ring-2 focus:ring-blue-500 outline-none"
                       value={editObjective}
-                      onChange={(e) => setEditObjective(e.target.value)}
+                      onChange={(e) => { setEditObjective(e.target.value); setEditSuccess(''); }}
                       rows={3}
                       placeholder="Nhập mục tiêu chính của nhiệm vụ"
                     />
@@ -3809,9 +3816,9 @@ const TaskDetailModal = ({
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">Nội dung chi tiết</label>
                     <textarea
-                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-base text-slate-800 min-h-[150px] focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-4 bg-white border border-slate-300 rounded-lg text-lg text-slate-800 min-h-[180px] focus:ring-2 focus:ring-blue-500 outline-none"
                       value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
+                      onChange={(e) => { setEditContent(e.target.value); setEditSuccess(''); }}
                       rows={6}
                       placeholder="Mô tả chi tiết các bước thực hiện, tiêu chí hoàn thành..."
                     />
@@ -3822,9 +3829,9 @@ const TaskDetailModal = ({
                     </label>
                     <input
                       type="datetime-local"
-                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-base text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-lg text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
                       value={editDeadline}
-                      onChange={(e) => setEditDeadline(e.target.value)}
+                      onChange={(e) => { setEditDeadline(e.target.value); setEditSuccess(''); }}
                     />
                   </div>
                 </div>
@@ -3954,6 +3961,7 @@ const TaskDetailModal = ({
                   <button
                     type="button"
                     onClick={() => {
+                      setEditSuccess('');
                       setEditTitle(task.title || '');
                       setEditContent(task.content || '');
                       setEditObjective(task.objective || '');
@@ -3969,6 +3977,7 @@ const TaskDetailModal = ({
                     disabled={editSaving}
                     onClick={() => {
                       setEditError('');
+                      setEditSuccess('');
                       setEditSaving(true);
                       const payload = {
                         title: editTitle.trim() || undefined,
@@ -3977,7 +3986,7 @@ const TaskDetailModal = ({
                         deadline: editDeadline ? `${editDeadline}:00` : undefined,
                       };
                       onSaveEdit(payload)
-                        .then(() => onClose?.())
+                        .then(() => setEditSuccess('Da luu thay doi thanh cong.'))
                         .catch((err) => { setEditError(err?.message || 'Lỗi lưu.'); })
                         .finally(() => setEditSaving(false));
                     }}
@@ -4058,55 +4067,55 @@ const AddTaskForSelfForm = ({ currentUser, onCreated }) => {
       </div>
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+          <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">
             Tiêu đề nhiệm vụ <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
             placeholder="Ví dụ: Rà soát tài liệu dự án"
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Mục tiêu</label>
+          <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">Mục tiêu</label>
           <textarea
             rows={2}
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
             placeholder="Mục tiêu chính của nhiệm vụ..."
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nội dung chi tiết</label>
+          <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">Nội dung chi tiết</label>
           <textarea
             rows={3}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
             placeholder="Mô tả cụ thể các bước, yêu cầu báo cáo..."
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+            <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">
               Hạn chót <span className="text-red-500">*</span>
             </label>
             <input
               type="datetime-local"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số</label>
+            <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">Trọng số</label>
             <select
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
             >
               {WEIGHT_LEVELS.map((lvl) => (
                 <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
@@ -4211,55 +4220,55 @@ const AssignTaskForm = ({ currentUser, role, users, onCreated }) => {
       </div>
       <form onSubmit={handleSubmit} className="max-w-2xl space-y-4">
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+          <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">
             Tiêu đề nhiệm vụ <span className="text-red-500">*</span>
           </label>
           <input
             type="text"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
             placeholder="Ví dụ: Rà soát khách hàng ngành dược"
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Mục tiêu</label>
+          <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">Mục tiêu</label>
           <textarea
             rows={2}
             value={objective}
             onChange={(e) => setObjective(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
             placeholder="Mục tiêu chính của nhiệm vụ..."
           />
         </div>
         <div>
-          <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Nội dung chi tiết</label>
+          <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">Nội dung chi tiết</label>
           <textarea
             rows={3}
             value={content}
             onChange={(e) => setContent(e.target.value)}
-            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+            className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
             placeholder="Mô tả cụ thể các bước, yêu cầu báo cáo..."
           />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+            <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">
               Hạn chót <span className="text-red-500">*</span>
             </label>
             <input
               type="datetime-local"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none"
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trọng số</label>
+            <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">Trọng số</label>
             <select
               value={weight}
               onChange={(e) => setWeight(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
             >
               {WEIGHT_LEVELS.map((lvl) => (
                 <option key={lvl.value} value={lvl.value}>{lvl.label}</option>
@@ -4270,11 +4279,11 @@ const AssignTaskForm = ({ currentUser, role, users, onCreated }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {isAdmin && (
             <div>
-              <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Trưởng nhóm (Leader)</label>
+              <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">Trưởng nhóm (Leader)</label>
               <select
                 value={leaderId}
                 onChange={(e) => setLeaderId(e.target.value)}
-                className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+                className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
               >
                 <option value="">-- Chọn leader --</option>
                 {leaderOptions.map((u) => (
@@ -4286,13 +4295,13 @@ const AssignTaskForm = ({ currentUser, role, users, onCreated }) => {
             </div>
           )}
           <div>
-            <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">
+            <label className="block text-sm font-bold text-slate-600 uppercase tracking-wider mb-1">
               Người thực hiện <span className="text-red-500">*</span>
             </label>
             <select
               value={assigneeId}
               onChange={(e) => setAssigneeId(e.target.value)}
-              className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
+              className="w-full border border-slate-200 rounded-xl px-4 py-3 text-base focus:ring-2 focus:ring-[#D4384E]/20 outline-none bg-white"
             >
               <option value="">-- Chọn nhân sự --</option>
               {assigneeOptions.map((u) => (
