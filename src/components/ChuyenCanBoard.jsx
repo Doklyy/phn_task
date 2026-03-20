@@ -179,7 +179,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
   }, [reportDetailModal, allReportsList, focusDateStr]);
 
   return (
-    <div className="max-w-[1400px] mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+    <div className="w-full mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
       <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Bảng Theo Dõi Báo Cáo Công Việc</h1>
