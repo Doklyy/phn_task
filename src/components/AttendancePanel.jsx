@@ -22,6 +22,40 @@ import { createLeaveRequest, getMyLeaveRequests, getPendingLeaveRequests, approv
 
 const VIETTEL_RED = '#D4384E';
 
+// DISPLAY ONLY: Chuẩn hóa chức danh hiển thị theo đúng danh sách bạn cung cấp.
+// Không dùng cho quyền (permission) - quyền vẫn dựa theo `role` đang truyền vào component.
+const DISPLAY_TITLE_BY_PERSON = {
+  'Nguyễn Đình Dũng': 'Trưởng phòng',
+  'Trần Minh Nhất': 'Chuyên viên',
+  'Phạm Thùy Dương': 'Nhân viên',
+  'Phạm Quang Khải': 'Nhân viên',
+  'Nguyễn An': 'Nhân viên',
+  'Nguyễn Phụ Nam': 'Chuyên viên chính',
+  'Đỗ Khánh Ly': 'Thực tập sinh',
+};
+
+const normalizeVN = (s) => String(s ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .trim()
+  .toLowerCase();
+
+const normalizedDisplayTitleByPerson = Object.fromEntries(
+  Object.entries(DISPLAY_TITLE_BY_PERSON).map(([k, v]) => [normalizeVN(k), v])
+);
+
+function getEmployeeDisplayTitle(emp) {
+  const name = emp?.name || emp?.fullName || emp?.username || '';
+  const key = normalizeVN(name);
+  if (normalizedDisplayTitleByPerson[key]) return normalizedDisplayTitleByPerson[key];
+  // Nếu BE chỉ trả về role/admin/leader/staff mà không có position/title thì map sang chức danh tương ứng.
+  const roleKey = normalizeVN(emp?.role || '');
+  if (emp?.position || emp?.title) return emp.position || emp.title;
+  if (roleKey === 'admin') return 'Trưởng phòng';
+  if (roleKey === 'leader') return 'Phó phòng';
+  return 'Nhân viên';
+}
+
 /** Danh sách mã trạng thái chấm công (dùng khi API /attendance/codes chưa load). */
 const ATTENDANCE_CODES_FALLBACK = [
   { code: 'L', description: 'Làm cả ngày' },
@@ -705,7 +739,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                                 </div>
                                 <div>
                                   <h4 className="font-semibold text-slate-900 text-sm">{name}</h4>
-                                  <p className="text-xs text-slate-500">{emp.position || emp.role || emp.username || 'Nhân viên'}</p>
+                                  <p className="text-xs text-slate-500">{getEmployeeDisplayTitle(emp)}</p>
                                 </div>
                               </div>
                               <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-medium uppercase tracking-wider ${status.bg} ${status.color}`}>
@@ -816,7 +850,7 @@ export function AttendancePanel({ currentUser, role, canManageAttendance = false
                                     </div>
                                     <div className="truncate">
                                       <p className="font-medium text-slate-900 truncate">{emp.name || emp.username || '—'}</p>
-                                      <p className="text-[11px] text-slate-500 truncate">{emp.position || emp.role || emp.username || 'Nhân viên'}</p>
+                                      <p className="text-[11px] text-slate-500 truncate">{getEmployeeDisplayTitle(emp)}</p>
                                     </div>
                                   </div>
                                 </td>

@@ -1433,7 +1433,28 @@ const App = () => {
                     {currentUser.name || currentUser.username || 'Tài khoản'}
                   </span>
                   <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide leading-tight">
-                    {role === 'admin' ? 'ADMIN' : role === 'leader' ? 'LEADER' : 'STAFF'}
+                    {(() => {
+                      const name = currentUser?.name || currentUser?.fullName || currentUser?.username || '';
+                      const normalizeVN = (s) => String(s ?? '')
+                        .normalize('NFD')
+                        .replace(/[\u0300-\u036f]/g, '')
+                        .trim()
+                        .toLowerCase();
+                      const key = normalizeVN(name);
+                      const mapByPerson = {
+                        'nguyendinhdung': 'Trưởng phòng',
+                        'tranminhnhat': 'Chuyên viên',
+                        'phamthuyduong': 'Nhân viên',
+                        'phamquangkhai': 'Nhân viên',
+                        'nguyenan': 'Nhân viên',
+                        'nguyenphunam': 'Chuyên viên chính',
+                        'dokhanhly': 'Thực tập sinh',
+                      };
+                      if (mapByPerson[key]) return mapByPerson[key];
+                      if (normalizeVN(role) === 'admin') return 'Trưởng phòng';
+                      if (normalizeVN(role) === 'leader') return 'Phó phòng';
+                      return 'Nhân viên';
+                    })()}
                   </span>
                 </div>
                 <ChevronRight
@@ -1457,7 +1478,28 @@ const App = () => {
                       <div className="overflow-hidden min-w-0">
                         <p className="text-sm font-semibold text-slate-900 truncate">{currentUser.name}</p>
                         <p className="text-[11px] font-semibold text-slate-400 uppercase tracking-wide">
-                          {role === 'admin' ? 'ADMIN' : role === 'leader' ? 'LEADER' : 'STAFF'}
+                          {(() => {
+                            const name = currentUser?.name || currentUser?.fullName || currentUser?.username || '';
+                            const normalizeVN = (s) => String(s ?? '')
+                              .normalize('NFD')
+                              .replace(/[\u0300-\u036f]/g, '')
+                              .trim()
+                              .toLowerCase();
+                            const key = normalizeVN(name);
+                            const mapByPerson = {
+                              'nguyendinhdung': 'Trưởng phòng',
+                              'tranminhnhat': 'Chuyên viên',
+                              'phamthuyduong': 'Nhân viên',
+                              'phamquangkhai': 'Nhân viên',
+                              'nguyenan': 'Nhân viên',
+                              'nguyenphunam': 'Chuyên viên chính',
+                              'dokhanhly': 'Thực tập sinh',
+                            };
+                            if (mapByPerson[key]) return mapByPerson[key];
+                            if (normalizeVN(role) === 'admin') return 'Trưởng phòng';
+                            if (normalizeVN(role) === 'leader') return 'Phó phòng';
+                            return 'Nhân viên';
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -2126,15 +2168,36 @@ const App = () => {
                                     }}
                                     className="text-xs font-semibold rounded-lg border border-slate-200 px-2 py-1 bg-white text-slate-700"
                                   >
-                                    <option value="admin">ADMIN</option>
-                                    <option value="leader">LEADER</option>
-                                    <option value="staff">STAFF</option>
+                                    <option value="admin">Trưởng phòng</option>
+                                    <option value="leader">Phó phòng / Chuyên viên chính</option>
+                                    <option value="staff">Nhân viên</option>
                                   </select>
                                 ) : (
                                   <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                                    {roleLabel === 'ADMIN' || roleLabel === 'LEADER' || roleLabel === 'STAFF'
-                                      ? roleLabel
-                                      : 'STAFF'}
+                                    {(() => {
+                                      const name = u?.name || u?.fullName || u?.username || '';
+                                      const normalizeVN = (s) => String(s ?? '')
+                                        .normalize('NFD')
+                                        .replace(/[\u0300-\u036f]/g, '')
+                                        .trim()
+                                        .toLowerCase();
+                                      const key = normalizeVN(name);
+                                      const mapByPerson = {
+                                        'nguyendinhdung': 'Trưởng phòng',
+                                        'tranminhnhat': 'Chuyên viên',
+                                        'phamthuyduong': 'Nhân viên',
+                                        'phamquangkhai': 'Nhân viên',
+                                        'nguyenan': 'Nhân viên',
+                                        'nguyenphunam': 'Chuyên viên chính',
+                                        'dokhanhly': 'Thực tập sinh',
+                                      };
+                                      if (mapByPerson[key]) return mapByPerson[key];
+                                      const r = normalizeVN(u?.role || '');
+                                      if (r === 'admin') return 'Trưởng phòng';
+                                      if (r === 'leader') return 'Phó phòng';
+                                      // Fallback: ưu tiên vị trí/chức danh (nếu BE trả về), còn không thì dùng Nhân viên
+                                      return u?.position || u?.title || 'Nhân viên';
+                                    })()}
                                   </span>
                                 )}
                               </td>
@@ -2279,9 +2342,9 @@ const App = () => {
                             onChange={(e) => setAddUserForm((f) => ({ ...f, role: e.target.value }))}
                             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
                           >
-                            <option value="staff">STAFF</option>
-                            <option value="leader">LEADER</option>
-                            <option value="admin">ADMIN</option>
+                            <option value="staff">Nhân viên</option>
+                            <option value="leader">Phó phòng / Chuyên viên chính</option>
+                            <option value="admin">Trưởng phòng</option>
                           </select>
                         </div>
                         <div>
