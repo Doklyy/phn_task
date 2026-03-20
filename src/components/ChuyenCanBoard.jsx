@@ -217,7 +217,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             }`}
           >
             <LayoutGrid size={18} className="shrink-0 opacity-80" />
-            bảng công theo tháng
+            Bảng công theo tháng
           </button>
           <button
             type="button"
@@ -345,120 +345,115 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       {boardSection === 'grid' &&
         (loading ? (
           <div className="p-8 text-center text-gray-500">Đang tải...</div>
+
         ) : (
         <>
-        <div className="overflow-x-auto custom-scrollbar relative">
-          <table className="w-full text-left border-collapse min-w-[max-content]">
-            <thead>
-              <tr>
-                <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] p-4 font-semibold text-gray-600 bg-gray-50 border-b border-r border-gray-200">
-                  Nhân sự
-                </th>
-                <th className="sticky left-[160px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-blue-700 bg-gray-50 border-b border-r border-gray-200" title="Khi có API: điểm chuyên cần (TG làm việc 5đ + Báo cáo 5đ). Khi chưa có: số ngày công.">
-                  C.Tổng
-                </th>
-                <th className="sticky left-[240px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-rose-700 bg-gray-50 border-b border-r border-gray-200">
-                  Nghỉ
-                </th>
-                <th className="sticky left-[320px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-orange-700 bg-gray-50 border-b border-r border-gray-200">
-                  Muộn
-                </th>
-                <th className="sticky left-[400px] z-30 w-[100px] min-w-[100px] max-w-[100px] p-4 font-semibold text-center text-emerald-700 bg-gray-50 border-b border-r border-gray-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.1)]">
-                  Tiến độ
-                </th>
-                {daysList.map((day) => (
-                  <th key={day} className="p-2 font-medium text-center text-gray-500 border-b border-gray-200 w-[80px] min-w-[80px] bg-white">
-                    {day}
+          <div className="overflow-x-auto custom-scrollbar relative">
+            <table className="w-full text-left border-collapse min-w-[max-content]">
+              <thead>
+                <tr>
+                  <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] p-4 font-semibold text-gray-600 bg-gray-50 border-b border-r border-gray-200">
+                    Nhân sự
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {(data || []).map((person) => {
-                let totalWorkDays = 0;
-                let totalLeaveDays = 0;
-                let totalLateDays = 0;
-                // Tổng số NGÀY có nhiệm vụ và số NGÀY đã có ÍT NHẤT MỘT báo cáo
-                let totalTaskDays = 0;
-                let fullReportedDays = 0;
-                const daysObj = person.days || {};
-                Object.values(daysObj).forEach((d) => {
-                  if (d.isLeave) totalLeaveDays += 1;
-                  if (d.isLate) totalLateDays += 1;
-                  if (d.workDay) totalWorkDays += d.workDay;
-                  if (d.totalTasks && d.totalTasks > 0) {
-                    totalTaskDays += 1;
-                    // Quan điểm tính điểm chuyên cần theo ngày:
-                    // nếu trong ngày có ít nhất 1 đầu việc được báo cáo thì coi là "đã báo cáo ngày đó",
-                    // không bắt buộc phải báo cáo đủ 100% tất cả đầu việc đang active.
-                    if (d.reportedTasks > 0) {
-                      fullReportedDays += 1;
+                  <th className="sticky left-[160px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-blue-700 bg-gray-50 border-b border-r border-gray-200" title="Khi có API: điểm chuyên cần (TG làm việc 5đ + Báo cáo 5đ). Khi chưa có: số ngày công.">
+                    C.Tổng
+                  </th>
+                  <th className="sticky left-[240px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-rose-700 bg-gray-50 border-b border-r border-gray-200">
+                    Nghỉ
+                  </th>
+                  <th className="sticky left-[320px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-orange-700 bg-gray-50 border-b border-r border-gray-200">
+                    Muộn
+                  </th>
+                  <th className="sticky left-[400px] z-30 w-[100px] min-w-[100px] max-w-[100px] p-4 font-semibold text-center text-emerald-700 bg-gray-50 border-b border-r border-gray-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.1)]">
+                    Tiến độ
+                  </th>
+                  {daysList.map((day) => (
+                    <th key={day} className="p-2 font-medium text-center text-gray-500 border-b border-gray-200 w-[80px] min-w-[80px] bg-white">
+                      {day}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(data || []).map((person) => {
+                  let totalWorkDays = 0;
+                  let totalLeaveDays = 0;
+                  let totalLateDays = 0;
+                  // Tổng số NGÀY có nhiệm vụ và số NGÀY đã có ÍT NHẤT MỘT báo cáo
+                  let totalTaskDays = 0;
+                  let fullReportedDays = 0;
+                  const daysObj = person.days || {};
+                  Object.values(daysObj).forEach((d) => {
+                    if (d.isLeave) totalLeaveDays += 1;
+                    if (d.isLate) totalLateDays += 1;
+                    if (d.workDay) totalWorkDays += d.workDay;
+                    if (d.totalTasks && d.totalTasks > 0) {
+                      totalTaskDays += 1;
+                      // Quan điểm tính điểm chuyên cần theo ngày:
+                      // nếu trong ngày có ít nhất 1 đầu việc được báo cáo thì coi là "đã báo cáo ngày đó",
+                      // không bắt buộc phải báo cáo đủ 100% tất cả đầu việc đang active.
+                      if (d.reportedTasks > 0) {
+                        fullReportedDays += 1;
+                      }
                     }
-                  }
-                });
-                const reportRate = totalTaskDays > 0 ? Math.round((fullReportedDays / totalTaskDays) * 100) : 0;
-                const sid = String(person.id ?? '');
-                const scoreRow = rankingByUserId[sid];
-                const tw = scoreRow?.timeWorkScore5;
-                const dr = scoreRow?.dailyReportScore5;
-                const hasScore = typeof tw === 'number' || typeof dr === 'number';
-                const totalScore = (typeof tw === 'number' ? tw : 0) + (typeof dr === 'number' ? dr : 0);
+                  });
+                  const reportRate = totalTaskDays > 0 ? Math.round((fullReportedDays / totalTaskDays) * 100) : 0;
+                  const sid = String(person.id ?? '');
+                  const scoreRow = rankingByUserId[sid];
+                  const tw = scoreRow?.timeWorkScore5;
+                  const dr = scoreRow?.dailyReportScore5;
+                  const hasScore = typeof tw === 'number' || typeof dr === 'number';
+                  const totalScore = (typeof tw === 'number' ? tw : 0) + (typeof dr === 'number' ? dr : 0);
 
-                return (
-                  <tr key={person.id} className="group transition-colors">
-                    <td className="sticky left-0 z-20 w-[160px] min-w-[160px] max-w-[160px] p-4 bg-white group-hover:bg-gray-50 border-b border-r border-gray-200 font-medium text-gray-800">
-                      {person.name}
-                    </td>
-                    <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-blue-600 border-b border-r border-gray-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : 'Điểm từ API chưa có; đang hiển thị số ngày công.'}>
-                      {hasScore ? (totalScore % 1 !== 0 ? totalScore.toFixed(1) : totalScore) : (typeof totalWorkDays === 'number' && totalWorkDays % 1 !== 0 ? totalWorkDays.toFixed(1) : totalWorkDays)}
-                    </td>
-                    <td className="sticky left-[240px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-rose-500 border-b border-r border-gray-200">
-                      {totalLeaveDays}
-                    </td>
-                    <td className="sticky left-[320px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-orange-600 border-b border-r border-gray-200">
-                      {totalLateDays}
-                    </td>
-                    <td className="sticky left-[400px] z-20 w-[100px] min-w-[100px] max-w-[100px] p-4 bg-white group-hover:bg-gray-50 text-center border-b border-r border-gray-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.1)]">
-                      <div className="flex flex-col items-center justify-center">
-                        <span className="font-bold text-gray-700">
-                          {fullReportedDays}
-                          <span className="text-xs font-normal text-gray-500">
-                            /
-                            {totalTaskDays}
-                          </span>
-                        </span>
-                        {totalTaskDays > 0 && (
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 ${reportRate === 100 ? 'bg-emerald-100 text-emerald-800' : reportRate >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>
-                            {reportRate}%
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    {daysList.map((day) => (
-                      <td key={day} className="p-2 border-b border-gray-100 w-[80px] min-w-[80px] bg-white group-hover:bg-gray-50">
-                        <div className="w-full h-full p-0.5">{renderCell(daysObj[String(day)], day)}</div>
+                  return (
+                    <tr key={person.id} className="group transition-colors">
+                      <td className="sticky left-0 z-20 w-[160px] min-w-[160px] max-w-[160px] p-4 bg-white group-hover:bg-gray-50 border-b border-r border-gray-200 font-medium text-gray-800">
+                        {person.name}
                       </td>
-                    ))}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-blue-600 border-b border-r border-gray-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : 'Điểm từ API chưa có; đang hiển thị số ngày công.'}>
+                        {hasScore ? (totalScore % 1 !== 0 ? totalScore.toFixed(1) : totalScore) : (typeof totalWorkDays === 'number' && totalWorkDays % 1 !== 0 ? totalWorkDays.toFixed(1) : totalWorkDays)}
+                      </td>
+                      <td className="sticky left-[240px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-rose-500 border-b border-r border-gray-200">
+                        {totalLeaveDays}
+                      </td>
+                      <td className="sticky left-[320px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-orange-600 border-b border-r border-gray-200">
+                        {totalLateDays}
+                      </td>
+                      <td className="sticky left-[400px] z-20 w-[100px] min-w-[100px] max-w-[100px] p-4 bg-white group-hover:bg-gray-50 text-center border-b border-r border-gray-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.1)]">
+                        <div className="flex flex-col items-center justify-center">
+                          <span className="font-bold text-gray-700">
+                            {fullReportedDays}
+                            <span className="text-xs font-normal text-gray-500">
+                              /
+                              {totalTaskDays}
+                            </span>
+                          </span>
+                          {totalTaskDays > 0 && (
+                            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full mt-1 ${reportRate === 100 ? 'bg-emerald-100 text-emerald-800' : reportRate >= 50 ? 'bg-amber-100 text-amber-800' : 'bg-rose-100 text-rose-800'}`}>
+                              {reportRate}%
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      {daysList.map((day) => (
+                        <td key={day} className="p-2 border-b border-gray-100 w-[80px] min-w-[80px] bg-white group-hover:bg-gray-50">
+                          <div className="w-full h-full p-0.5">{renderCell(daysObj[String(day)], day)}</div>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         <div className="px-5 py-4 border-t border-slate-100 bg-slate-50/60">
           <p className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">Ghi chú cách đọc số liệu</p>
           <ul className="space-y-1.5 text-sm text-slate-600">
             <li>
-              <span className="font-semibold text-blue-700">C.Tổng:</span>{' '}
-              Khi có dữ liệu chấm điểm từ API, đây là tổng <span className="font-medium">điểm thời gian làm việc (tối đa 5)</span> +{' '}
-              <span className="font-medium">điểm báo cáo hàng ngày (tối đa 5)</span>. Nếu chưa có dữ liệu API, hệ thống tạm hiển thị{' '}
-              <span className="font-medium">số ngày công trong tháng</span>.
+              <span className="font-semibold text-blue-700">C.Tổng:</span> Tổng thời gian làm việc.
             </li>
             <li>
-              <span className="font-semibold text-emerald-700">Tiến độ:</span>{' '}
-              Hiển thị theo dạng <span className="font-medium">X / Y</span>, trong đó <span className="font-medium">Y</span> là số ngày có nhiệm vụ phát sinh,{' '}
-              <span className="font-medium">X</span> là số ngày đã có ít nhất một báo cáo tiến độ. Phần trăm bên dưới là{' '}
-              <span className="font-medium">X / Y</span>.
+              <span className="font-semibold text-emerald-700">Tiến độ:</span> Số ngày đã báo cáo / Số ngày có nhiệm vụ.
             </li>
           </ul>
         </div>
