@@ -1948,10 +1948,26 @@ const App = () => {
                         </button>
                       </div>
                     )}
-                    <div className="mb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
-                      <div>
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
-                        <p className="text-slate-500 font-medium mt-1"></p>
+                    <div className="mb-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h2 className="text-3xl font-black text-slate-900 tracking-tight mr-2">Nhiệm vụ</h2>
+                        {statusTabs.map((t) => (
+                          <button
+                            key={t.id}
+                            type="button"
+                            onClick={() => setDashTaskStatusTab(t.id)}
+                            className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                              dashTaskStatusTab === t.id
+                                ? `shadow-sm ${t.classes}`
+                                : `bg-white text-slate-600 hover:text-slate-900 border-slate-200`
+                            }`}
+                          >
+                            {t.label}
+                            <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${dashTaskStatusTab === t.id ? '' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                              {t.count}
+                            </span>
+                          </button>
+                        ))}
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <label className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên:</label>
@@ -1963,27 +1979,6 @@ const App = () => {
                           className="px-3 py-1.5 rounded-lg text-xs sm:text-sm border border-slate-200 bg-white text-slate-700 min-w-[160px]"
                         />
                       </div>
-                    </div>
-
-                    {/* Tabs nhỏ theo trạng thái */}
-                    <div className="mb-3 flex flex-wrap gap-2">
-                      {statusTabs.map((t) => (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => setDashTaskStatusTab(t.id)}
-                          className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${
-                            dashTaskStatusTab === t.id
-                              ? `shadow-sm ${t.classes}`
-                              : `bg-white text-slate-600 hover:text-slate-900 border-slate-200`
-                          }`}
-                        >
-                          {t.label}
-                          <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${dashTaskStatusTab === t.id ? '' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
-                            {t.count}
-                          </span>
-                        </button>
-                      ))}
                     </div>
 
                     <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
