@@ -6,12 +6,12 @@ import { LayoutGrid, CalendarDays } from 'lucide-react';
  * Ô hiển thị [đã báo cáo tiến độ] / [tổng nhiệm vụ]; màu đủ/thiếu/chưa; N = nghỉ phép, 0.5 = nửa công, chấm cam = đi muộn.
  */
 function renderCell(dayData, day) {
-  if (!dayData) return <div className="flex items-center justify-center h-full text-gray-200 font-light">-</div>;
+  if (!dayData) return <div className="flex items-center justify-center h-full text-slate-300 font-light">-</div>;
 
   if (dayData.isLeave) {
     return (
-      <div className="flex flex-col items-center justify-center h-full w-full bg-gray-50/50 border border-transparent rounded-md" title="Nghỉ phép">
-        <span className="text-gray-400 font-bold">N</span>
+      <div className="flex flex-col items-center justify-center h-full w-full bg-slate-50 border border-transparent rounded-md" title="Nghỉ phép">
+        <span className="text-slate-400 font-bold">N</span>
       </div>
     );
   }
@@ -24,8 +24,8 @@ function renderCell(dayData, day) {
   const reportedPartial = dayData.reportedTasks > 0 && dayData.reportedTasks < dayData.totalTasks;
 
   let bgColor = 'bg-white';
-  let textColor = 'text-gray-700';
-  let borderColor = 'border-gray-200';
+  let textColor = 'text-slate-700';
+  let borderColor = 'border-slate-200';
 
   if (hasTasks) {
     if (reportedAll) {
@@ -47,14 +47,14 @@ function renderCell(dayData, day) {
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center w-full h-[52px] border ${borderColor} ${bgColor} rounded-md transition-all hover:shadow-md cursor-default`}
+      className={`relative flex flex-col items-center justify-center w-full h-[50px] border ${borderColor} ${bgColor} rounded-md transition-all hover:shadow-sm cursor-default`}
       title={tooltipText}
     >
       {isLate && (
-        <div className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-orange-500 rounded-full border-2 border-white shadow-sm z-10" title="Đi muộn" />
+        <div className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-orange-500 rounded-full border-2 border-white z-10" title="Đi muộn" />
       )}
       {isHalfDay && (
-        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full shadow-sm z-10">
+        <div className="absolute -top-2 -right-2 bg-blue-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full z-10">
           0.5
         </div>
       )}
@@ -66,7 +66,7 @@ function renderCell(dayData, day) {
           </span>
         </div>
       ) : (
-        <span className="text-[10px] text-gray-400 text-center leading-tight px-1">
+        <span className="text-[10px] text-slate-400 text-center leading-tight px-1">
           Không có
           <br />
           task
@@ -178,12 +178,18 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       .sort((a, b) => String(a.taskTitle || '').localeCompare(String(b.taskTitle || '')));
   }, [reportDetailModal, allReportsList, focusDateStr]);
 
+  const totalRows = Array.isArray(data) ? data.length : 0;
+  const totalReportTasks = React.useMemo(
+    () => dashboardSummary.reportedDetails.reduce((sum, item) => sum + (Number(item.ratio.split('/')[0]) || 0), 0),
+    [dashboardSummary.reportedDetails]
+  );
+
   return (
-    <div className="w-full mx-auto bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-      <div className="p-5 border-b border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="w-full mx-auto bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <div className="p-5 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-slate-50/80 to-white">
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Bảng Theo Dõi Báo Cáo Công Việc</h1>
-          <p className="text-sm text-gray-500 mt-1">{monthLabel} </p>
+          <h1 className="text-xl font-bold text-slate-800">Bảng Theo Dõi Báo Cáo Công Việc</h1>
+          <p className="text-sm text-slate-500 mt-1">{monthLabel}</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           {onMonthChange && (
@@ -191,16 +197,19 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
               type="month"
               value={monthValue || ''}
               onChange={(e) => onMonthChange(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+              className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
             />
           )}
-          <div className="flex flex-wrap items-center gap-3 bg-gray-50 p-3 rounded-lg border border-gray-100 text-sm">
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-emerald-100 border border-emerald-200 block" /><span className="text-gray-600">Đủ báo cáo</span></span>
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-amber-100 border border-amber-300 block" /><span className="text-gray-600">Báo cáo thiếu</span></span>
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-rose-100 border border-rose-300 block" /><span className="text-gray-600">Chưa báo cáo</span></span>
-            <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold text-center">0.5</span><span className="text-gray-600">Nửa công</span></span>
-            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-500 block" /><span className="text-gray-600">Đi muộn</span></span>
-            <span className="flex items-center gap-1.5"><span className="w-4 h-4 text-center text-gray-400 font-bold text-xs">N</span><span className="text-gray-600">Nghỉ phép</span></span>
+          <div className="flex flex-wrap items-center gap-3 bg-white/80 p-3 rounded-lg border border-slate-200 text-sm">
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-emerald-100 border border-emerald-200 block" /><span className="text-slate-600">Đủ báo cáo</span></span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-amber-100 border border-amber-300 block" /><span className="text-slate-600">Báo cáo thiếu</span></span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 rounded bg-rose-100 border border-rose-300 block" /><span className="text-slate-600">Chưa báo cáo</span></span>
+            <span className="flex items-center gap-1.5"><span className="w-6 py-0.5 rounded-full bg-blue-500 text-white text-[10px] font-bold text-center">0.5</span><span className="text-slate-600">Nửa công</span></span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-orange-500 block" /><span className="text-slate-600">Đi muộn</span></span>
+            <span className="flex items-center gap-1.5"><span className="w-4 h-4 text-center text-slate-400 font-bold text-xs">N</span><span className="text-slate-600">Nghỉ phép</span></span>
+          </div>
+          <div className="text-xs text-slate-500 bg-white border border-slate-200 rounded-full px-3 py-1.5">
+            Tổng nhân sự: <span className="font-semibold text-slate-700">{totalRows}</span>
           </div>
         </div>
       </div>
@@ -291,7 +300,9 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
               <h3 className="text-sm md:text-base font-bold text-slate-800">
                 Báo cáo tiến độ theo ngày {dashboardSummary.dayLabel}
               </h3>
-              <span className="text-xs text-slate-500">Bấm vào người đã báo cáo để xem chi tiết</span>
+              <span className="text-xs text-slate-500">
+                {dashboardSummary.reportedToday} người đã báo cáo, {totalReportTasks} đầu việc đã nộp
+              </span>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
               <div className="bg-slate-50/80 border border-emerald-200 rounded-lg p-3">
@@ -299,7 +310,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                 {dashboardSummary.reportedDetails.length === 0 ? (
                   <p className="text-sm text-slate-400">Không có</p>
                 ) : (
-                  <ul className="space-y-2 text-sm text-slate-700 pr-1">
+                  <ul className="space-y-2 text-sm text-slate-700 pr-1 max-h-56 overflow-auto">
                     {dashboardSummary.reportedDetails.map((item, idx) => (
                       <li key={`${item.name}-${idx}`} className="border-b border-emerald-100 pb-1 last:border-b-0 last:pb-0">
                         <button
@@ -344,31 +355,33 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
 
       {boardSection === 'grid' &&
         (loading ? (
-          <div className="p-8 text-center text-gray-500">Đang tải...</div>
+          <div className="p-8 text-center text-slate-500">Đang tải...</div>
 
+        ) : (data || []).length === 0 ? (
+          <div className="p-8 text-center text-slate-500">Không có dữ liệu chuyên cần trong tháng này.</div>
         ) : (
         <>
           <div className="overflow-x-auto custom-scrollbar relative">
             <table className="w-full text-left border-collapse min-w-[max-content]">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] p-4 font-semibold text-gray-600 bg-gray-50 border-b border-r border-gray-200">
+                  <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] p-4 font-semibold text-slate-600 bg-slate-50 border-b border-r border-slate-200">
                     Nhân sự
                   </th>
-                  <th className="sticky left-[160px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-blue-700 bg-gray-50 border-b border-r border-gray-200" title="Khi có API: điểm chuyên cần (TG làm việc 5đ + Báo cáo 5đ). Khi chưa có: số ngày công.">
+                  <th className="sticky left-[160px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-blue-700 bg-slate-50 border-b border-r border-slate-200" title="Khi có API: điểm chuyên cần (TG làm việc 5đ + Báo cáo 5đ). Khi chưa có: số ngày công.">
                     C.Tổng
                   </th>
-                  <th className="sticky left-[240px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-rose-700 bg-gray-50 border-b border-r border-gray-200">
+                  <th className="sticky left-[240px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-rose-700 bg-slate-50 border-b border-r border-slate-200">
                     Nghỉ
                   </th>
-                  <th className="sticky left-[320px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-orange-700 bg-gray-50 border-b border-r border-gray-200">
+                  <th className="sticky left-[320px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-orange-700 bg-slate-50 border-b border-r border-slate-200">
                     Muộn
                   </th>
-                  <th className="sticky left-[400px] z-30 w-[100px] min-w-[100px] max-w-[100px] p-4 font-semibold text-center text-emerald-700 bg-gray-50 border-b border-r border-gray-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.1)]">
+                  <th className="sticky left-[400px] z-30 w-[100px] min-w-[100px] max-w-[100px] p-4 font-semibold text-center text-emerald-700 bg-slate-50 border-b border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                     Tiến độ
                   </th>
                   {daysList.map((day) => (
-                    <th key={day} className="p-2 font-medium text-center text-gray-500 border-b border-gray-200 w-[80px] min-w-[80px] bg-white">
+                    <th key={day} className="p-2 font-medium text-center text-slate-500 border-b border-slate-200 w-[80px] min-w-[80px] bg-white">
                       {day}
                     </th>
                   ))}
@@ -406,24 +419,24 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                   const totalScore = (typeof tw === 'number' ? tw : 0) + (typeof dr === 'number' ? dr : 0);
 
                   return (
-                    <tr key={person.id} className="group transition-colors">
-                      <td className="sticky left-0 z-20 w-[160px] min-w-[160px] max-w-[160px] p-4 bg-white group-hover:bg-gray-50 border-b border-r border-gray-200 font-medium text-gray-800">
+                    <tr key={person.id} className="group transition-colors odd:bg-white even:bg-slate-50/35">
+                      <td className="sticky left-0 z-20 w-[160px] min-w-[160px] max-w-[160px] p-4 bg-inherit group-hover:bg-slate-100/60 border-b border-r border-slate-200 font-medium text-slate-800">
                         {person.name}
                       </td>
-                      <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-blue-600 border-b border-r border-gray-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : 'Điểm từ API chưa có; đang hiển thị số ngày công.'}>
+                      <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-inherit group-hover:bg-slate-100/60 text-center font-bold text-blue-600 border-b border-r border-slate-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : 'Điểm từ API chưa có; đang hiển thị số ngày công.'}>
                         {hasScore ? (totalScore % 1 !== 0 ? totalScore.toFixed(1) : totalScore) : (typeof totalWorkDays === 'number' && totalWorkDays % 1 !== 0 ? totalWorkDays.toFixed(1) : totalWorkDays)}
                       </td>
-                      <td className="sticky left-[240px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-rose-500 border-b border-r border-gray-200">
+                      <td className="sticky left-[240px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-inherit group-hover:bg-slate-100/60 text-center font-bold text-rose-500 border-b border-r border-slate-200">
                         {totalLeaveDays}
                       </td>
-                      <td className="sticky left-[320px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white group-hover:bg-gray-50 text-center font-bold text-orange-600 border-b border-r border-gray-200">
+                      <td className="sticky left-[320px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-inherit group-hover:bg-slate-100/60 text-center font-bold text-orange-600 border-b border-r border-slate-200">
                         {totalLateDays}
                       </td>
-                      <td className="sticky left-[400px] z-20 w-[100px] min-w-[100px] max-w-[100px] p-4 bg-white group-hover:bg-gray-50 text-center border-b border-r border-gray-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.1)]">
+                      <td className="sticky left-[400px] z-20 w-[100px] min-w-[100px] max-w-[100px] p-4 bg-inherit group-hover:bg-slate-100/60 text-center border-b border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                         <div className="flex flex-col items-center justify-center">
-                          <span className="font-bold text-gray-700">
+                          <span className="font-bold text-slate-700">
                             {fullReportedDays}
-                            <span className="text-xs font-normal text-gray-500">
+                            <span className="text-xs font-normal text-slate-500">
                               /
                               {totalTaskDays}
                             </span>
@@ -436,7 +449,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                         </div>
                       </td>
                       {daysList.map((day) => (
-                        <td key={day} className="p-2 border-b border-gray-100 w-[80px] min-w-[80px] bg-white group-hover:bg-gray-50">
+                        <td key={day} className="p-2 border-b border-slate-100 w-[80px] min-w-[80px] bg-inherit group-hover:bg-slate-100/60">
                           <div className="w-full h-full p-0.5">{renderCell(daysObj[String(day)], day)}</div>
                         </td>
                       ))}
@@ -492,7 +505,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                           Ngày: {r.date ? String(r.date).slice(0, 10) : dashboardSummary.dayLabel}
                         </div>
                       </div>
-                      <div className="text-sm text-slate-700 whitespace-pre-wrap mt-2 leading-relaxed">
+                      <div className="text-sm text-slate-700 whitespace-pre-wrap mt-2 leading-relaxed bg-slate-50/70 rounded-lg p-3 border border-slate-100">
                         {r.result || r.content || '—'}
                       </div>
                       {(r.submittedAt || r.submitted_at) && (
