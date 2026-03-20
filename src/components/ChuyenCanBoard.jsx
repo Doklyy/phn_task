@@ -217,7 +217,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             }`}
           >
             <LayoutGrid size={18} className="shrink-0 opacity-80" />
-            Lưới theo tháng
+            bảng công theo tháng
           </button>
           <button
             type="button"
