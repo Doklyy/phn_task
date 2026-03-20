@@ -227,7 +227,8 @@ const App = () => {
 
   const [activeTab, setActiveTab] = useState('dash');
   // Back trong web: lưu lịch sử các tab đã mở để nút Back quay lại đúng tab trước đó.
-  const [tabHistory, setTabHistory] = useState(['dash']);
+  // Khi activeTab === 'dash' thì lưu kèm dashView để back trong nội bộ Dashboard cũng đúng.
+  const [tabHistory, setTabHistory] = useState(['dash:attendance']);
   const [isBackNav, setIsBackNav] = useState(false);
   const [dashView, setDashView] = useState('attendance'); // 'performance' | 'tasks' | 'attendance'
   const [showAllRanking, setShowAllRanking] = useState(false);
@@ -244,25 +245,31 @@ const App = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Cập nhật lịch sử tab khi activeTab thay đổi (trừ trường hợp đang bấm Back).
+  // Cập nhật lịch sử back khi activeTab/dashView thay đổi (trừ trường hợp đang bấm Back).
   useEffect(() => {
     if (isBackNav) {
       setIsBackNav(false);
       return;
     }
+    const nextEntry = activeTab === 'dash' ? `dash:${dashView}` : activeTab;
     setTabHistory((prev) => {
       const last = prev[prev.length - 1];
-      if (last === activeTab) return prev;
-      return [...prev, activeTab];
+      if (last === nextEntry) return prev;
+      return [...prev, nextEntry];
     });
-  }, [activeTab, isBackNav]);
+  }, [activeTab, dashView, isBackNav]);
 
   const handleWebBack = useCallback(() => {
     setTabHistory((prev) => {
       if (prev.length <= 1) return prev;
-      const prevTab = prev[prev.length - 2];
+      const prevEntry = prev[prev.length - 2];
       setIsBackNav(true);
-      setActiveTab(prevTab);
+      if (String(prevEntry).startsWith('dash:')) {
+        setActiveTab('dash');
+        setDashView(String(prevEntry).slice('dash:'.length) || 'attendance');
+      } else {
+        setActiveTab(prevEntry);
+      }
       return prev.slice(0, -1);
     });
   }, []);
@@ -2153,6 +2160,24 @@ const App = () => {
                           const uidNum = Number(uid);
                           const rowKey = `user-${uid}-${String(username)}-${index}`;
                           const isEditingRole = role === 'admin' && Number(uid) !== Number(currentUser?.id);
+                          const desiredTitleByPerson = (() => {
+                            const normalizeVN = (s) => String(s ?? '')
+                              .normalize('NFD')
+                              .replace(/[\u0300-\u036f]/g, '')
+                              .trim()
+                              .toLowerCase();
+                            const key = normalizeVN(u?.name || u?.fullName || u?.username);
+                            const mapByPerson = {
+                              'nguyendinhdung': 'Trưởng phòng',
+                              'tranminhnhat': 'Chuyên viên',
+                              'phamthuyduong': 'Nhân viên',
+                              'phamquangkhai': 'Nhân viên',
+                              'nguyenan': 'Nhân viên',
+                              'nguyenphunam': 'Chuyên viên chính',
+                              'dokhanhly': 'Thực tập sinh',
+                            };
+                            return mapByPerson[key] || '';
+                          })();
                           return (
                             <tr key={rowKey} className="border-b last:border-0 border-slate-100" data-userid={String(uid)}>
                               <td className="py-2 pr-4 font-medium text-slate-800">{name}</td>
@@ -2213,8 +2238,14 @@ const App = () => {
                                     className="text-xs font-semibold rounded-lg border border-slate-200 px-2 py-1 bg-white text-slate-700"
                                   >
                                     <option value="admin">Trưởng phòng</option>
-                                    <option value="leader">Phó phòng / Chuyên viên chính</option>
-                                    <option value="staff">Nhân viên</option>
+                                    <option value="leader">{desiredTitleByPerson === 'Chuyên viên chính' ? 'Chuyên viên chính' : 'Phó phòng'}</option>
+                                    <option value="staff">
+                                      {desiredTitleByPerson === 'Chuyên viên'
+                                        ? 'Chuyên viên'
+                                        : desiredTitleByPerson === 'Thực tập sinh'
+                                          ? 'Thực tập sinh'
+                                          : 'Nhân viên'}
+                                    </option>
                                   </select>
                                 ) : (
                                   <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
