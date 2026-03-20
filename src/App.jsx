@@ -1990,7 +1990,7 @@ const App = () => {
                     <div className="mb-3 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
                       <div>
                         <h2 className="text-3xl font-black text-slate-900 tracking-tight">Nhiệm vụ</h2>
-                        <p className="text-slate-500 font-medium mt-1">Theo dõi nhanh các nhiệm vụ trong tháng đang chọn.</p>
+                        <p className="text-slate-500 font-medium mt-1"></p>
                       </div>
                       <div className="flex flex-wrap items-center gap-2">
                         <label className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên:</label>

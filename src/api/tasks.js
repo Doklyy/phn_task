@@ -9,13 +9,18 @@ import { request, isApiConfigured } from './client.js';
  * - Ép các ID (id, assignerId, leaderId, assigneeId) về string để so sánh với currentUser.id (cũng là string).
  */
 function normalizeTask(t) {
+  const sanitizeObjective = (value) => {
+    const text = String(value ?? '').trim();
+    if (!text) return '';
+    return text.toLowerCase().includes('mục tiêu từ file csv') ? '' : text;
+  };
   const rawStatus = (t.status || t.taskStatus || '').toLowerCase();
   const status = rawStatus === 'pending_approval' ? 'pending_approval' : rawStatus === 'in_progress' ? 'accepted' : rawStatus === 'new' || rawStatus === 'accepted' || rawStatus === 'completed' || rawStatus === 'paused' ? rawStatus : 'new';
   const toId = (v) => (v == null ? '' : String(v));
   return {
     id: toId(t.id),
     title: t.title || t.name || '',
-    objective: t.objective ?? t.goal ?? t.purpose ?? '',
+    objective: sanitizeObjective(t.objective ?? t.goal ?? t.purpose ?? ''),
     content: t.content ?? t.description ?? '',
     assignerId: toId(t.assignerId ?? t.assigner_id ?? t.assigner),
     leaderId: toId(t.leaderId ?? t.leader_id ?? t.leader ?? t.hostId),
