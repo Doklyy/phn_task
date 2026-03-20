@@ -74,7 +74,7 @@ const normalizeVNLoose = (s) => String(s ?? '')
   .toLowerCase();
 
 const KHAI_TASK_BLOCK_FROM = '2026-03-05';
-const KHAI_TASK_BLOCK_TO = '2026-03-18';
+const KHAI_TASK_BLOCK_TO = '2026-03-19';
 const titleByKnownPersonName = {
   nguyendinhdung: 'Trưởng phòng',
   tranminhnhat: 'Chuyên viên',
