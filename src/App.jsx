@@ -59,6 +59,36 @@ const USERS_DB = [
 // Màu đỏ Viettel dịu mắt (không đỏ gắt)
 const VIETTEL_RED = '#D4384E';
 const CHART_COLORS = { new: '#f97316', accepted: '#22c55e', overdue: VIETTEL_RED, completed: '#64748b', paused: '#8b5cf6' };
+const USER_TITLE_OVERRIDES_STORAGE_KEY = 'phn_user_title_overrides_v1';
+const TITLE_OPTIONS = ['Trưởng phòng', 'Phó phòng', 'Chuyên viên chính', 'Chuyên viên', 'Nhân viên', 'Thực tập sinh'];
+const roleFromTitle = (title) => {
+  if (title === 'Trưởng phòng') return 'admin';
+  if (title === 'Phó phòng' || title === 'Chuyên viên chính') return 'leader';
+  return 'staff';
+};
+const normalizeVNLoose = (s) => String(s ?? '')
+  .normalize('NFD')
+  .replace(/[\u0300-\u036f]/g, '')
+  .trim()
+  .replace(/\s+/g, '')
+  .toLowerCase();
+const titleByKnownPersonName = {
+  nguyendinhdung: 'Trưởng phòng',
+  tranminhnhat: 'Chuyên viên',
+  phamthuyduong: 'Nhân viên',
+  phamquangkhai: 'Nhân viên',
+  nguyenan: 'Nhân viên',
+  nguyenphunam: 'Chuyên viên chính',
+  dokhanhly: 'Thực tập sinh',
+};
+const inferTitleForUser = (u) => {
+  const key = normalizeVNLoose(u?.name || u?.fullName || u?.username || '');
+  if (titleByKnownPersonName[key]) return titleByKnownPersonName[key];
+  const roleKey = normalizeVNLoose(u?.role || '');
+  if (roleKey === 'admin') return 'Trưởng phòng';
+  if (roleKey === 'leader') return 'Phó phòng';
+  return 'Nhân viên';
+};
 
 /** Chuẩn hóa chuỗi ngày từ BE (YYYY-MM-DD hoặc DD/MM/YYYY hoặc có time) thành YYYY-MM-DD để so sánh theo tháng. */
 function toYYYYMMDD(dateStr) {
@@ -275,6 +305,20 @@ const App = () => {
   }, []);
   const [adminAttendanceMap, setAdminAttendanceMap] = useState({});
   const [adminAttendanceLoading, setAdminAttendanceLoading] = useState(false);
+  const [userTitleOverrides, setUserTitleOverrides] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem(USER_TITLE_OVERRIDES_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : {};
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch {
+      return {};
+    }
+  });
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(USER_TITLE_OVERRIDES_STORAGE_KEY, JSON.stringify(userTitleOverrides || {}));
+    } catch {}
+  }, [userTitleOverrides]);
 
   // Danh sách tất cả báo cáo (Admin dùng cho tab Báo cáo + bảng chuyên cần)
   const [allReportsList, setAllReportsList] = useState([]);
@@ -2159,28 +2203,12 @@ const App = () => {
                           const roleLabel = String(u.role || '').toUpperCase();
                           const currentRole = (u.role || 'staff').toLowerCase();
                           const uid = u.id ?? u.userId;
+                          const uidStr = String(uid);
                           const uidNum = Number(uid);
                           const rowKey = `user-${uid}-${String(username)}-${index}`;
                           const isEditingRole = role === 'admin' && Number(uid) !== Number(currentUser?.id);
-                          const desiredTitleByPerson = (() => {
-                            const normalizeVN = (s) => String(s ?? '')
-                              .normalize('NFD')
-                              .replace(/[\u0300-\u036f]/g, '')
-                              .trim()
-                              .replace(/\s+/g, '')
-                              .toLowerCase();
-                            const key = normalizeVN(u?.name || u?.fullName || u?.username);
-                            const mapByPerson = {
-                              'nguyendinhdung': 'Trưởng phòng',
-                              'tranminhnhat': 'Chuyên viên',
-                              'phamthuyduong': 'Nhân viên',
-                              'phamquangkhai': 'Nhân viên',
-                              'nguyenan': 'Nhân viên',
-                              'nguyenphunam': 'Chuyên viên chính',
-                              'dokhanhly': 'Thực tập sinh',
-                            };
-                            return mapByPerson[key] || '';
-                          })();
+                          const inferredTitle = inferTitleForUser(u);
+                          const selectedTitle = userTitleOverrides[uidStr] || inferredTitle;
                           return (
                             <tr key={rowKey} className="border-b last:border-0 border-slate-100" data-userid={String(uid)}>
                               <td className="py-2 pr-4 font-medium text-slate-800">{name}</td>
@@ -2226,11 +2254,15 @@ const App = () => {
                               <td className="py-2 pr-4">
                                 {isEditingRole ? (
                                   <select
-                                    value={currentRole}
+                                    value={selectedTitle}
                                     onChange={async (e) => {
-                                      const newRole = e.target.value;
+                                      const nextTitle = e.target.value;
+                                      const newRole = roleFromTitle(nextTitle);
                                       try {
-                                        await updateUserRole(uid, newRole, currentUser.id);
+                                        if (String(newRole) !== String(currentRole)) {
+                                          await updateUserRole(uid, newRole, currentUser.id);
+                                        }
+                                        setUserTitleOverrides((prev) => ({ ...prev, [uidStr]: nextTitle }));
                                         const list = await fetchPersonnel(currentUser.id);
                                         personnelScrollRestoreRef.current = mainContentScrollRef.current?.scrollTop ?? null;
                                         setUsers(list);
@@ -2240,43 +2272,13 @@ const App = () => {
                                     }}
                                     className="text-xs font-semibold rounded-lg border border-slate-200 px-2 py-1 bg-white text-slate-700"
                                   >
-                                    <option value="admin">Trưởng phòng</option>
-                                    <option value="leader">{desiredTitleByPerson === 'Chuyên viên chính' ? 'Chuyên viên chính' : 'Phó phòng'}</option>
-                                    <option value="staff">
-                                      {desiredTitleByPerson === 'Chuyên viên'
-                                        ? 'Chuyên viên'
-                                        : desiredTitleByPerson === 'Thực tập sinh'
-                                          ? 'Thực tập sinh'
-                                          : 'Nhân viên'}
-                                    </option>
+                                    {TITLE_OPTIONS.map((title) => (
+                                      <option key={title} value={title}>{title}</option>
+                                    ))}
                                   </select>
                                 ) : (
                                   <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700">
-                                    {(() => {
-                                      const name = u?.name || u?.fullName || u?.username || '';
-                                      const normalizeVN = (s) => String(s ?? '')
-                                        .normalize('NFD')
-                                        .replace(/[\u0300-\u036f]/g, '')
-                                        .trim()
-                                        .replace(/\s+/g, '')
-                                        .toLowerCase();
-                                      const key = normalizeVN(name);
-                                      const mapByPerson = {
-                                        'nguyendinhdung': 'Trưởng phòng',
-                                        'tranminhnhat': 'Chuyên viên',
-                                        'phamthuyduong': 'Nhân viên',
-                                        'phamquangkhai': 'Nhân viên',
-                                        'nguyenan': 'Nhân viên',
-                                        'nguyenphunam': 'Chuyên viên chính',
-                                        'dokhanhly': 'Thực tập sinh',
-                                      };
-                                      if (mapByPerson[key]) return mapByPerson[key];
-                                      const r = normalizeVN(u?.role || '');
-                                      if (r === 'admin') return 'Trưởng phòng';
-                                      if (r === 'leader') return 'Phó phòng';
-                                      // Fallback: ưu tiên vị trí/chức danh (nếu BE trả về), còn không thì dùng Nhân viên
-                                      return u?.position || u?.title || 'Nhân viên';
-                                    })()}
+                                    {selectedTitle}
                                   </span>
                                 )}
                               </td>
@@ -2421,8 +2423,11 @@ const App = () => {
                             onChange={(e) => setAddUserForm((f) => ({ ...f, role: e.target.value }))}
                             className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm"
                           >
+                            <option value="staff">Chuyên viên</option>
                             <option value="staff">Nhân viên</option>
-                            <option value="leader">Phó phòng / Chuyên viên chính</option>
+                            <option value="staff">Thực tập sinh</option>
+                            <option value="leader">Phó phòng</option>
+                            <option value="leader">Chuyên viên chính</option>
                             <option value="admin">Trưởng phòng</option>
                           </select>
                         </div>
