@@ -725,7 +725,7 @@ const App = () => {
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all');
   const [taskAssigneeNameFilter, setTaskAssigneeNameFilter] = useState(''); // Tìm theo tên nhân sự (tab Nhiệm vụ)
   const [dashTaskAssigneeNameFilter, setDashTaskAssigneeNameFilter] = useState(''); // Tìm theo tên nhân sự (tab Theo dõi Nhiệm vụ trong Dashboard)
-  const [dashTaskStatusTab, setDashTaskStatusTab] = useState('overdue'); // overdue | new | paused | completed | pending_approval | in_progress
+  const [dashTaskStatusTab, setDashTaskStatusTab] = useState('all'); // all | overdue | new | paused | completed | pending_approval | in_progress
   const [forcedReportDate, setForcedReportDate] = useState('');
   const [tasksViewMode, setTasksViewMode] = useState('trello'); // 'list' | 'trello' — mặc định Trello để dễ nhìn
   const [reportsViewMode, setReportsViewMode] = useState('trello'); // 'list' | 'trello'
@@ -1422,7 +1422,9 @@ const App = () => {
                             type="button"
                             onClick={() => {
                               setBellOpen(false);
-                              setActiveTab('tasks');
+                              setActiveTab('dash');
+                              setDashView('tasks');
+                              setDashTaskStatusTab('pending_approval');
                               setListFilter('pending_approval');
                               setTimeout(() => mainContentScrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
                             }}
@@ -1938,23 +1940,26 @@ const App = () => {
                 const inProgressList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'accepted');
 
                 const statusTab = dashTaskStatusTab;
-                const visibleTasks = statusTab === 'overdue'
-                  ? overdueList
-                  : statusTab === 'new'
-                    ? newList
-                    : statusTab === 'paused'
-                      ? pausedList
-                      : statusTab === 'completed'
-                        ? completedList
-                        : statusTab === 'pending_approval'
-                          ? pendingList
-                          : inProgressList;
+                const visibleTasks = statusTab === 'all'
+                  ? dashboardTasks
+                  : statusTab === 'overdue'
+                    ? overdueList
+                    : statusTab === 'new'
+                      ? newList
+                      : statusTab === 'paused'
+                        ? pausedList
+                        : statusTab === 'completed'
+                          ? completedList
+                          : statusTab === 'pending_approval'
+                            ? pendingList
+                            : inProgressList;
 
                 const reportedSet = taskIdsWithProgressReport instanceof Set
                   ? taskIdsWithProgressReport
                   : new Set(Array.isArray(taskIdsWithProgressReport) ? taskIdsWithProgressReport : []);
 
                 const statusTabs = [
+                  { id: 'all', label: 'Tất cả', count: dashboardTasks.length, classes: 'bg-slate-50 border-slate-200 text-slate-900' },
                   { id: 'overdue', label: 'Quá hạn', count: overdueList.length, classes: 'bg-red-50 border-red-200 text-red-800' },
                   { id: 'new', label: 'Nhiệm vụ mới', count: newList.length, classes: 'bg-amber-50 border-amber-200 text-amber-900' },
                   { id: 'paused', label: 'Tạm dừng', count: pausedList.length, classes: 'bg-gray-50 border-gray-200 text-gray-700' },
@@ -2205,7 +2210,13 @@ const App = () => {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setListFilter('pending_approval')}
+                      onClick={() => {
+                        setActiveTab('dash');
+                        setDashView('tasks');
+                        setDashTaskStatusTab('pending_approval');
+                        setListFilter('pending_approval');
+                        setTimeout(() => mainContentScrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+                      }}
                       className="text-sm font-semibold text-amber-600 hover:text-amber-700"
                     >
                       Xem danh sách Đợi duyệt →
@@ -2285,7 +2296,13 @@ const App = () => {
                       tasks={filteredTasks}
                       onTaskClick={(id) => setSelectedTaskId(id)}
                       taskIdsWithProgressReport={taskIdsWithProgressReport}
-                      scrollToColumnId={listFilter === 'paused' ? 'paused' : undefined}
+                      scrollToColumnId={
+                        listFilter === 'paused'
+                          ? 'paused'
+                          : listFilter === 'pending_approval'
+                            ? 'pending_approval'
+                            : undefined
+                      }
                     />
                   )}
                 </div>
