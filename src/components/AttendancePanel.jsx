@@ -38,6 +38,7 @@ const normalizeVN = (s) => String(s ?? '')
   .normalize('NFD')
   .replace(/[\u0300-\u036f]/g, '')
   .trim()
+  .replace(/\s+/g, '')
   .toLowerCase();
 
 const normalizedDisplayTitleByPerson = Object.fromEntries(

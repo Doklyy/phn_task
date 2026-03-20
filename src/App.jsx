@@ -1473,6 +1473,7 @@ const App = () => {
                         .normalize('NFD')
                         .replace(/[\u0300-\u036f]/g, '')
                         .trim()
+                        .replace(/\s+/g, '')
                         .toLowerCase();
                       const key = normalizeVN(name);
                       const mapByPerson = {
@@ -1518,6 +1519,7 @@ const App = () => {
                               .normalize('NFD')
                               .replace(/[\u0300-\u036f]/g, '')
                               .trim()
+                              .replace(/\s+/g, '')
                               .toLowerCase();
                             const key = normalizeVN(name);
                             const mapByPerson = {
@@ -2165,6 +2167,7 @@ const App = () => {
                               .normalize('NFD')
                               .replace(/[\u0300-\u036f]/g, '')
                               .trim()
+                              .replace(/\s+/g, '')
                               .toLowerCase();
                             const key = normalizeVN(u?.name || u?.fullName || u?.username);
                             const mapByPerson = {
@@ -2255,6 +2258,7 @@ const App = () => {
                                         .normalize('NFD')
                                         .replace(/[\u0300-\u036f]/g, '')
                                         .trim()
+                                        .replace(/\s+/g, '')
                                         .toLowerCase();
                                       const key = normalizeVN(name);
                                       const mapByPerson = {
