@@ -78,6 +78,20 @@ function renderCell(dayData, day) {
 
 export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, displayDays, loading, ranking, allReportsList }) {
   const daysList = displayDays && displayDays.length > 0 ? displayDays : Array.from({ length: 31 }, (_, i) => i + 1);
+  const selectedMonth = (monthValue || '').slice(0, 7);
+  const maxDayInMonth = daysList.length > 0 ? Math.max(...daysList) : 1;
+  const [focusDay, setFocusDay] = React.useState(() => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    return selectedMonth === currentMonth ? Math.min(now.getDate(), maxDayInMonth) : maxDayInMonth;
+  });
+
+  React.useEffect(() => {
+    const now = new Date();
+    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const nextFocus = selectedMonth === currentMonth ? Math.min(now.getDate(), maxDayInMonth) : maxDayInMonth;
+    setFocusDay(nextFocus);
+  }, [selectedMonth, maxDayInMonth]);
   const rankingByUserId = React.useMemo(() => {
     const m = {};
     (ranking || []).forEach((r) => {
@@ -88,12 +102,8 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
   }, [ranking]);
 
   const dashboardSummary = React.useMemo(() => {
-    const now = new Date();
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-    const selectedMonth = (monthValue || '').slice(0, 7);
-    const fallbackDay = daysList.length > 0 ? Math.max(...daysList) : 1;
-    const focusDay = selectedMonth === currentMonth ? Math.min(now.getDate(), fallbackDay) : fallbackDay;
-    const focusKey = String(focusDay);
+    const clampedFocusDay = Math.min(Math.max(Number(focusDay) || 1, 1), maxDayInMonth);
+    const focusKey = String(clampedFocusDay);
 
     let totalStaff = 0;
     let reportedToday = 0;
@@ -132,7 +142,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       }
     });
 
-    const dayLabel = `${String(focusDay).padStart(2, '0')}/${monthValue?.slice(5, 7) || '—'}/${monthValue?.slice(0, 4) || '—'}`;
+    const dayLabel = `${String(clampedFocusDay).padStart(2, '0')}/${monthValue?.slice(5, 7) || '—'}/${monthValue?.slice(0, 4) || '—'}`;
     return {
       totalStaff,
       reportedToday,
@@ -142,10 +152,10 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       missingNames,
       leaveNames,
       reportedDetails,
-      focusDay,
+      focusDay: clampedFocusDay,
       dayLabel,
     };
-  }, [data, daysList, monthValue]);
+  }, [data, monthValue, focusDay, maxDayInMonth]);
 
   const [reportDetailModal, setReportDetailModal] = React.useState(null); // { userId, name }
   const focusMonth = (monthValue || '').slice(0, 7);
@@ -193,6 +203,30 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       </div>
 
       <div className="p-5 border-b border-gray-200 bg-slate-50/50">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ngày theo dõi chuyên cần</p>
+            <p className="text-sm text-slate-600 mt-1">Chọn ngày để xem rõ ai đã báo cáo, ai chưa báo cáo.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              type="date"
+              value={selectedMonth ? `${selectedMonth}-${String(dashboardSummary.focusDay).padStart(2, '0')}` : ''}
+              min={selectedMonth ? `${selectedMonth}-01` : undefined}
+              max={selectedMonth ? `${selectedMonth}-${String(maxDayInMonth).padStart(2, '0')}` : undefined}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (!val || !selectedMonth) return;
+                const monthPart = val.slice(0, 7);
+                if (monthPart !== selectedMonth) return;
+                const day = Number(val.slice(8, 10));
+                if (!Number.isNaN(day)) setFocusDay(day);
+              }}
+              className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
+            />
+          </div>
+        </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
           <div className="bg-white border border-slate-200 rounded-xl p-3">
             <p className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">Tổng nhân sự</p>
@@ -211,11 +245,14 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             <p className="text-2xl font-black text-slate-700 mt-1">{dashboardSummary.leaveToday}</p>
           </div>
         </div>
-        <div className="text-sm text-slate-600">
-          <span className="font-semibold">Báo cáo tiến độ ngày {dashboardSummary.dayLabel}:</span>{' '}
-        
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
+        <div className="bg-white border border-slate-200 rounded-xl p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm md:text-base font-bold text-slate-800">
+              Báo cáo tiến độ theo ngày {dashboardSummary.dayLabel}
+            </h3>
+            <span className="text-xs text-slate-500">Bấm vào người đã báo cáo để xem chi tiết</span>
+          </div>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
           <div className="bg-white border border-emerald-200 rounded-lg p-3">
             <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1">Đã báo cáo</p>
             {dashboardSummary.reportedDetails.length === 0 ? (
@@ -260,6 +297,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             ) : (
               <p className="text-sm text-slate-700">{dashboardSummary.leaveNames.join(', ')}</p>
             )}
+          </div>
           </div>
         </div>
       </div>
