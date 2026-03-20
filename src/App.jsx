@@ -1647,7 +1647,7 @@ const App = () => {
                   if (mainContentScrollRef.current) mainContentScrollRef.current.scrollTop = 0;
                 }, 50);
               }}
-              className="fixed bottom-5 left-5 z-30 h-10 w-10 rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md hover:bg-white hover:shadow-lg transition-all flex items-center justify-center"
+              className="fixed top-5 left-5 md:top-6 md:left-6 z-30 h-10 w-10 rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md hover:bg-white hover:shadow-lg transition-all flex items-center justify-center"
               title="Quay lại"
               aria-label="Quay lại"
             >
