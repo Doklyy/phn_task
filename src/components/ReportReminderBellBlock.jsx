@@ -4,8 +4,9 @@
  */
 import { useState, useEffect } from 'react';
 import { getReportsReminder } from '../api/reports.js';
+import { getTaskFirstReportableDateStr, dateStrLTE } from '../utils/taskReportDates.js';
 
-export default function ReportReminderBellBlock({ userId, onGoReport, onClosePopup }) {
+export default function ReportReminderBellBlock({ userId, onGoReport, onClosePopup, tasks = [] }) {
   const [reminder, setReminder] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -23,7 +24,16 @@ export default function ReportReminderBellBlock({ userId, onGoReport, onClosePop
   if (loading) return <div style={styles.loading}>Đang tải...</div>;
   if (!reminder?.missingYesterday) return null;
 
-  const missingTasks = Array.isArray(reminder.missingTasks) ? reminder.missingTasks : [];
+  const missingDateStr = reminder.yesterday ? String(reminder.yesterday).slice(0, 10) : '';
+  const rawMissing = Array.isArray(reminder.missingTasks) ? reminder.missingTasks : [];
+  const missingTasks = rawMissing.filter((mt) => {
+    const task = tasks.find((x) => String(x.id) === String(mt.taskId));
+    if (!task) return true;
+    const first = getTaskFirstReportableDateStr(task);
+    if (!first) return true;
+    return dateStrLTE(first, missingDateStr);
+  });
+  if (missingTasks.length === 0) return null;
   const yesterdayStr = reminder.yesterday
     ? new Date(reminder.yesterday).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '';

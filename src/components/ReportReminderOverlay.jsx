@@ -4,8 +4,9 @@
  */
 import { useState, useEffect } from 'react';
 import { getReportsReminder } from '../api/reports.js';
+import { getTaskFirstReportableDateStr, dateStrLTE } from '../utils/taskReportDates.js';
 
-export default function ReportReminderOverlay({ userId, onGoReport, refetchTrigger }) {
+export default function ReportReminderOverlay({ userId, onGoReport, refetchTrigger, tasks = [] }) {
   const [reminder, setReminder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [goneToReport, setGoneToReport] = useState(false);
@@ -32,7 +33,17 @@ export default function ReportReminderOverlay({ userId, onGoReport, refetchTrigg
   const yesterdayDate = reminder.yesterday ? new Date(String(reminder.yesterday).replace(' ', 'T').slice(0, 10)) : null;
   if (yesterdayDate && !Number.isNaN(yesterdayDate.getTime()) && yesterdayDate.getDay() === 0) return null;
 
-  const missingTasks = Array.isArray(reminder.missingTasks) ? reminder.missingTasks : [];
+  const missingDateStr = reminder.yesterday ? String(reminder.yesterday).slice(0, 10) : '';
+  const rawMissing = Array.isArray(reminder.missingTasks) ? reminder.missingTasks : [];
+  // Chỉ bắt bù ngày D với nhiệm vụ đã tồn tại vào ngày D (ngày tạo <= D)
+  const missingTasks = rawMissing.filter((mt) => {
+    const task = tasks.find((x) => String(x.id) === String(mt.taskId));
+    if (!task) return true;
+    const first = getTaskFirstReportableDateStr(task);
+    if (!first) return true;
+    return dateStrLTE(first, missingDateStr);
+  });
+  if (missingTasks.length === 0) return null;
   const yesterdayStr = reminder.yesterday
     ? new Date(reminder.yesterday).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
     : '';

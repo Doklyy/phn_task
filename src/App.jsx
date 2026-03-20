@@ -45,6 +45,7 @@ import { ReportsTrelloBoard } from './components/ReportsTrelloBoard.jsx';
 import { getAttendanceRecordsForMonth } from './api/attendance.js';
 import ReportReminderOverlay from './components/ReportReminderOverlay.jsx';
 import ReportReminderBellBlock from './components/ReportReminderBellBlock.jsx';
+import { getTaskFirstReportableDateStr, dateStrLTE } from './utils/taskReportDates.js';
 import DashboardAttendanceMock from './components/DashboardAttendanceMock.jsx';
 
 // Danh sách user để hiển thị tên (BE có thể trả về hoặc lấy từ API users)
@@ -1056,19 +1057,26 @@ const App = () => {
       yesterdayDayOfWeek: d.getDay(), // 0=CN, 6=T7
     };
   }, []);
-  const myAcceptedTaskIds = useMemo(
-    () => filteredTasks.filter((t) => t.assigneeId === currentUser?.id && t.status === 'accepted').map((t) => t.id),
+  const myAcceptedTasks = useMemo(
+    () => filteredTasks.filter((t) => t.assigneeId === currentUser?.id && t.status === 'accepted'),
     [filteredTasks, currentUser?.id]
   );
   const hasReportedYesterdayForAll = useMemo(() => {
     // Hôm qua là cuối tuần: không yêu cầu báo cáo, luôn cho phép tiếp nhận việc mới
     if (yesterdayDayOfWeek === 0 || yesterdayDayOfWeek === 6) return true;
-    if (myAcceptedTaskIds.length === 0) return true;
-    return myAcceptedTaskIds.every((taskId) => {
-      const history = reportHistoryByTask[taskId] || [];
+    if (myAcceptedTasks.length === 0) return true;
+    // Chỉ bắt báo cáo hôm qua với nhiệm vụ đã được giao (theo ngày tạo) trước hoặc trong ngày hôm qua
+    const needsReportYesterday = myAcceptedTasks.filter((t) => {
+      const first = getTaskFirstReportableDateStr(t);
+      if (!first) return true;
+      return dateStrLTE(first, yesterday);
+    });
+    if (needsReportYesterday.length === 0) return true;
+    return needsReportYesterday.every((t) => {
+      const history = reportHistoryByTask[t.id] || [];
       return history.some((r) => r.date === yesterday);
     });
-  }, [myAcceptedTaskIds, reportHistoryByTask, yesterday, yesterdayDayOfWeek]);
+  }, [myAcceptedTasks, reportHistoryByTask, yesterday, yesterdayDayOfWeek]);
   const acceptNewLocked = !hasReportedYesterdayForAll;
 
   // Validation form báo cáo
@@ -1246,6 +1254,7 @@ const App = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans text-slate-900">
       <ReportReminderOverlay
         userId={currentUser?.id}
+        tasks={tasks}
         refetchTrigger={reminderRefetchTrigger}
         onGoReport={(missingDate) => {
           if (missingDate) {
@@ -1346,6 +1355,7 @@ const App = () => {
                       )}
                       <ReportReminderBellBlock
                         userId={currentUser?.id}
+                        tasks={tasks}
                         onGoReport={() => {
                           setBellOpen(false);
                           setActiveTab('tasks');
@@ -2766,6 +2776,12 @@ const App = () => {
           || (users && users.find((u) => String(u.id ?? u.userId) === String(task.assigneeId))?.name)
           || null;
         const refreshTasks = () => fetchTasksForCurrentUser(currentUser?.id).then(setTasks);
+        const taskFirstDay = getTaskFirstReportableDateStr(task);
+        const effectiveForcedReportDate =
+          forcedReportDate &&
+          (!taskFirstDay || dateStrLTE(taskFirstDay, forcedReportDate))
+            ? forcedReportDate
+            : '';
         return (
           <TaskDetailModal
             task={task}
@@ -2795,7 +2811,7 @@ const App = () => {
             assigneeName={assigneeName}
             acceptNewLocked={acceptNewLocked}
             yesterday={yesterday}
-            defaultReportDate={forcedReportDate}
+            defaultReportDate={effectiveForcedReportDate}
             onComplete={(payload) => submitCompletion(Number(selectedTaskId) || selectedTaskId, Number(currentUser?.id) || currentUser?.id, payload).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onApprove={(quality) => approveCompletion(selectedTaskId, currentUser.id, quality).then(refreshTasks).then(() => setSelectedTaskId(null))}
             onReject={(reason) => rejectCompletion(selectedTaskId, currentUser.id, reason).then(refreshTasks).then(() => setSelectedTaskId(null))}
@@ -2925,7 +2941,8 @@ const TaskDetailModal = ({
   onDelete,
 }) => {
   const todayStr = new Date().toISOString().slice(0, 10);
-  const initialReportDate = defaultReportDate || todayStr;
+  const firstReportableDay = getTaskFirstReportableDateStr(task);
+  const initialReportDate = defaultReportDate || (firstReportableDay && todayStr < firstReportableDay ? firstReportableDay : todayStr);
   const [reportChoice, setReportChoice] = useState(null);
   const [reportDate, setReportDate] = useState(initialReportDate);
   const [reportResult, setReportResult] = useState('');
@@ -2947,7 +2964,9 @@ const TaskDetailModal = ({
   const [editError, setEditError] = useState('');
   useEffect(() => {
     setReportChoice(null);
-    const baseDate = defaultReportDate || new Date().toISOString().slice(0, 10);
+    const first = getTaskFirstReportableDateStr(task);
+    const today = new Date().toISOString().slice(0, 10);
+    const baseDate = defaultReportDate || (first && today < first ? first : today);
     setReportDate(baseDate);
     setReportResult('');
     setReportAttachmentPaths([]);
@@ -3163,6 +3182,10 @@ const TaskDetailModal = ({
                           setReportError('Kết quả / tiến độ tối thiểu 10 ký tự.');
                           return;
                         }
+                        if (firstReportableDay && String(reportDate).slice(0, 10) < firstReportableDay) {
+                          setReportError(`Ngày báo cáo không được trước ngày giao nhiệm vụ (${firstReportableDay.slice(8, 10)}/${firstReportableDay.slice(5, 7)}/${firstReportableDay.slice(0, 4)}).`);
+                          return;
+                        }
                         setReportError('');
                         setReportSubmitting(true);
                         const submitPromise = onAddReport({
@@ -3192,6 +3215,7 @@ const TaskDetailModal = ({
                         <input
                           type="date"
                           value={reportDate}
+                          min={firstReportableDay || undefined}
                           onChange={(e) => setReportDate(e.target.value)}
                           disabled={!!defaultReportDate}
                           required
