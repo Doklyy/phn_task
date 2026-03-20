@@ -154,9 +154,19 @@ export async function updateTaskDetails(taskId, userId, payload) {
   const uid = userId != null ? Number(userId) : userId;
   const url = `tasks/${taskId}?userId=${encodeURIComponent(uid)}`;
   const body = {};
-  if (payload.title !== undefined) body.title = payload.title;
-  if (payload.content !== undefined) body.content = payload.content;
-  if (payload.objective !== undefined) body.objective = payload.objective;
+  if (payload.title !== undefined) {
+    body.title = payload.title;
+    body.name = payload.title;
+  }
+  if (payload.content !== undefined) {
+    body.content = payload.content;
+    body.description = payload.content;
+  }
+  if (payload.objective !== undefined) {
+    body.objective = payload.objective;
+    body.goal = payload.objective;
+    body.purpose = payload.objective;
+  }
   if (payload.deadline !== undefined) body.deadline = payload.deadline;
   if (payload.weight !== undefined) body.weight = Number(payload.weight);
   if (payload.status !== undefined) body.status = String(payload.status).toUpperCase();

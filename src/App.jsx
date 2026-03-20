@@ -3145,10 +3145,16 @@ const App = () => {
                   const sid = String(selectedTaskId);
                   const isPaused = (payload?.status || '').toUpperCase() === 'PAUSED';
                   const status = isPaused ? 'paused' : (updatedTask?.status || '').toLowerCase();
+                  const patchFromPayload = {
+                    ...(payload?.title !== undefined ? { title: payload.title } : {}),
+                    ...(payload?.content !== undefined ? { content: payload.content } : {}),
+                    ...(payload?.objective !== undefined ? { objective: payload.objective } : {}),
+                    ...(payload?.deadline !== undefined ? { deadline: payload.deadline } : {}),
+                  };
                   setTasks((prev) =>
                     prev.map((t) =>
                       String(t.id) === sid
-                        ? { ...t, ...updatedTask, status: status || t.status }
+                        ? { ...t, ...patchFromPayload, ...updatedTask, status: status || t.status }
                         : t
                     )
                   );
@@ -3780,40 +3786,43 @@ const TaskDetailModal = ({
               ) : (
                 <div className="space-y-5">
                   {editError && <p className="text-red-600 text-sm">{editError}</p>}
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Tiêu đề công việc</label>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">Tên nhiệm vụ</label>
                     <input
                       type="text"
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-base font-semibold text-slate-900 focus:ring-2 focus:ring-blue-500 outline-none"
                       value={editTitle}
                       onChange={(e) => setEditTitle(e.target.value)}
+                      placeholder="Nhập tên nhiệm vụ"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Nội dung công việc</label>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">Mục tiêu</label>
                     <textarea
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm min-h-[80px] focus:ring-2 focus:ring-blue-500 outline-none"
-                      value={editContent}
-                      onChange={(e) => setEditContent(e.target.value)}
-                      rows={4}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Mục tiêu</label>
-                    <input
-                      type="text"
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-base text-slate-800 min-h-[96px] focus:ring-2 focus:ring-blue-500 outline-none"
                       value={editObjective}
                       onChange={(e) => setEditObjective(e.target.value)}
+                      rows={3}
+                      placeholder="Nhập mục tiêu chính của nhiệm vụ"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1.5">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 uppercase tracking-wide">Nội dung chi tiết</label>
+                    <textarea
+                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-base text-slate-800 min-h-[150px] focus:ring-2 focus:ring-blue-500 outline-none"
+                      value={editContent}
+                      onChange={(e) => setEditContent(e.target.value)}
+                      rows={6}
+                      placeholder="Mô tả chi tiết các bước thực hiện, tiêu chí hoàn thành..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700 uppercase tracking-wide flex items-center gap-1.5">
                       <Calendar size={14} /> Thời hạn (Deadline)
                     </label>
                     <input
                       type="datetime-local"
-                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      className="w-full p-3.5 bg-white border border-slate-300 rounded-lg text-base text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
                       value={editDeadline}
                       onChange={(e) => setEditDeadline(e.target.value)}
                     />
