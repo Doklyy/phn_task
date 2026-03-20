@@ -258,9 +258,9 @@ const App = () => {
   const [activeTab, setActiveTab] = useState('dash');
   // Back trong web: lưu lịch sử các tab đã mở để nút Back quay lại đúng tab trước đó.
   // Khi activeTab === 'dash' thì lưu kèm dashView để back trong nội bộ Dashboard cũng đúng.
-  const [tabHistory, setTabHistory] = useState(['dash:attendance']);
+  const [tabHistory, setTabHistory] = useState(['dash:performance']);
   const [isBackNav, setIsBackNav] = useState(false);
-  const [dashView, setDashView] = useState('attendance'); // 'performance' | 'tasks' | 'attendance'
+  const [dashView, setDashView] = useState('performance'); // 'performance' | 'tasks' | 'attendance'
   const [showAllRanking, setShowAllRanking] = useState(false);
   const [userCardOpen, setUserCardOpen] = useState(false);
   const [listFilter, setListFilter] = useState('all');
@@ -1614,23 +1614,22 @@ const App = () => {
         </header>
 
         {/* Nội dung chính */}
-        <div ref={mainContentScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 min-w-0">
+        <div ref={mainContentScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 min-w-0 relative">
           {tabHistory.length > 1 && (
-            <div className="max-w-5xl mx-auto pb-3">
-              <button
-                type="button"
-                onClick={() => {
-                  handleWebBack();
-                  setTimeout(() => {
-                    if (mainContentScrollRef.current) mainContentScrollRef.current.scrollTop = 0;
-                  }, 50);
-                }}
-                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-sm font-semibold text-slate-700 shadow-sm"
-              >
-                <ChevronLeft size={18} />
-                Quay lại
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                handleWebBack();
+                setTimeout(() => {
+                  if (mainContentScrollRef.current) mainContentScrollRef.current.scrollTop = 0;
+                }, 50);
+              }}
+              className="fixed bottom-5 left-5 z-30 h-10 w-10 rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md hover:bg-white hover:shadow-lg transition-all flex items-center justify-center"
+              title="Quay lại"
+              aria-label="Quay lại"
+            >
+              <ChevronLeft size={18} />
+            </button>
           )}
           <div className="max-w-5xl mx-auto pb-4">
             {/* Bảng điều khiển với 3 tab nội bộ: Điểm & Xếp hạng / Theo dõi Nhiệm vụ / Chuyên cần */}
