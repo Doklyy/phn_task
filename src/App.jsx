@@ -2034,7 +2034,6 @@ const App = () => {
                             <thead className="bg-slate-50 border-b border-slate-200">
                               <tr className="text-left">
                                 <th className="py-3 px-3 w-[110px]">Ngày Giao</th>
-                                <th className="py-3 px-3 w-[110px]">Người giao</th>
                                 <th className="py-3 px-3 w-[220px]">Tên công việc</th>
                                 <th className="py-3 px-3 w-[200px]">Mục tiêu</th>
                                 <th className="py-3 px-3 w-[240px]">Nội dung cụ thể</th>
@@ -2051,16 +2050,14 @@ const App = () => {
                             <tbody>
                               {visibleTasks.length === 0 ? (
                                 <tr>
-                                  <td colSpan={10} className="py-10 text-center text-slate-400">
+                                  <td colSpan={9} className="py-10 text-center text-slate-400">
                                     Không có nhiệm vụ.
                                   </td>
                                 </tr>
                               ) : (
                                 visibleTasks.map((t) => {
                                   const taskId = t.id;
-                                  const leaderId = t.leaderId ?? t.leader_id;
                                   const assigneeId = t.assigneeId ?? t.assignee_id;
-                                  const leaderName = leaderId != null ? (userNameById.get(String(leaderId)) || '—') : '—';
                                   const assigneeName = assigneeId != null ? (userNameById.get(String(assigneeId)) || '—') : '—';
                                   const reported = taskId != null && reportedSet.has(String(taskId));
 
@@ -2088,9 +2085,6 @@ const App = () => {
                                     >
                                       <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.createdAt || t.created_at}>
                                         {formatDateShortLocal(t.createdAt || t.created_at)}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={leaderName}>
-                                        {leaderName}
                                       </td>
                                       <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.title}>
                                         {t.title || '—'}
@@ -3378,7 +3372,7 @@ const TaskDetailModal = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('review')}
-                className={`pb-3 text-sm font-semibold transition-all relative ${activeTab === 'review' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`pb-3 text-base font-semibold transition-all relative ${activeTab === 'review' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 ĐÁNH GIÁ KẾT QUẢ
                 {activeTab === 'review' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full" />}
@@ -3386,7 +3380,7 @@ const TaskDetailModal = ({
               <button
                 type="button"
                 onClick={() => setActiveTab('edit')}
-                className={`pb-3 text-sm font-semibold transition-all relative ${activeTab === 'edit' ? 'text-blue-600' : 'text-slate-400 hover:text-slate-600'}`}
+                className={`pb-3 text-base font-semibold transition-all relative ${activeTab === 'edit' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
               >
                 CHỈNH SỬA NỘI DUNG
                 {activeTab === 'edit' && <div className="absolute bottom-0 left-0 w-full h-1 bg-blue-600 rounded-t-full" />}
@@ -3397,10 +3391,10 @@ const TaskDetailModal = ({
         <div className="flex-1 overflow-y-auto p-6 space-y-6">
           <div>
             <h2 className="text-xl font-black text-slate-900 mb-1">{task.title}</h2>
-            <p className="text-slate-500 text-sm">
+            <p className="text-slate-600 text-base">
               Hạn chót: {formatDeadline(task.deadline)} · Trọng số: {weightLabel(task.weight)} · Người thực hiện: {assigneeName || '—'}
             </p>
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-500 text-sm">
+            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-slate-500 text-base">
               <span>Ngày giao: {formatDeadline(task.createdAt)}</span>
               {(task.acceptedAt || task.accepted_at) && (
                 <span>Thời gian nhận nhiệm vụ: {formatDeadline(task.acceptedAt || task.accepted_at)}</span>
@@ -3414,8 +3408,8 @@ const TaskDetailModal = ({
             </div>
             {(task.leaderComment != null && task.leaderComment !== '') || task.weight != null || task.quality != null ? (
               <div className="mt-4 p-4 bg-slate-50 rounded-xl border border-slate-200">
-                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Đánh giá của chỉ huy</h4>
-                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-3">Đánh giá của chỉ huy</h4>
+                <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-base">
                   <div><dt className="text-slate-500">Đánh giá của chỉ huy</dt><dd className="text-slate-800 mt-0.5">{task.leaderComment || '—'}</dd></div>
                   <div><dt className="text-slate-500">Trọng số CV</dt><dd className="text-slate-800 mt-0.5">{weightLabel(task.weight)}</dd></div>
                   <div><dt className="text-slate-500">Chất lượng CV</dt><dd className="text-slate-800 mt-0.5">{qualityLabel(task.quality)}</dd></div>
@@ -3426,12 +3420,12 @@ const TaskDetailModal = ({
             ) : null}
           </div>
           <div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Mục tiêu</h4>
-            <p className="text-slate-700 text-sm">{task.objective}</p>
+            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Mục tiêu</h4>
+            <p className="text-slate-700 text-base">{task.objective}</p>
           </div>
           <div>
-            <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-1">Nội dung công việc</h4>
-            <p className="text-slate-700 text-sm whitespace-pre-wrap">{task.content}</p>
+            <h4 className="text-sm font-bold text-slate-500 uppercase tracking-wider mb-1">Nội dung công việc</h4>
+            <p className="text-slate-700 text-base whitespace-pre-wrap">{task.content}</p>
           </div>
 
           {task.status === 'new' && (
