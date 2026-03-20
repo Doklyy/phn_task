@@ -1858,65 +1858,6 @@ const App = () => {
                         </table>
                       </div>
                     </div>
-                    {/* Đánh giá admin theo từng nhiệm vụ — dễ nhìn, dễ tra cứu */}
-                    {(() => {
-                      const tasksWithEval = (tasks || []).filter((t) =>
-                        (t.leaderComment != null && t.leaderComment !== '') || t.weight != null || t.quality != null
-                      );
-                      const formatDateShort = (v) => {
-                        if (!v) return '—';
-                        const d = new Date(String(v).replace(' ', 'T'));
-                        return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
-                      };
-                      if (tasksWithEval.length === 0) return null;
-                      return (
-                        <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
-                          <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                            <h3 className="text-sm font-bold text-slate-800">Đánh giá của chỉ huy theo nhiệm vụ</h3>
-                            <p className="text-xs text-slate-500 mt-0.5">Trọng số CV, Chất lượng CV, Trạng thái CV và Chấm điểm nhiệm vụ (W×Q×T). {role !== 'admin' ? 'Chỉ nhiệm vụ bạn tham gia.' : ''}</p>
-                          </div>
-                          <div className="overflow-x-auto max-h-[24rem] overflow-y-auto">
-                            <table className="w-full text-sm">
-                              <thead className="bg-slate-50 sticky top-0">
-                                <tr className="border-b border-slate-200">
-                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Tên công việc</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Người thực hiện</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Hạn</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Đánh giá chỉ huy</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Trọng số</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Chất lượng</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Trạng thái</th>
-                                  <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {tasksWithEval.map((t) => {
-                                  const assigneeName = (users || []).find((u) => String(u.id ?? u.userId) === String(t.assigneeId))?.name ?? (users || []).find((u) => String(u.id ?? u.userId) === String(t.assigneeId))?.fullName ?? t.assigneeName ?? '—';
-                                  return (
-                                    <tr key={t.id} className="border-b border-slate-100 hover:bg-slate-50/50">
-                                      <td className="py-2 px-3 text-slate-800 max-w-[200px] truncate" title={t.title}>{t.title || '—'}</td>
-                                      <td className="py-2 px-3 text-slate-700">{assigneeName}</td>
-                                      <td className="py-2 px-3 text-slate-600">{formatDateShort(t.deadline)}</td>
-                                      <td className="py-2 px-3 text-slate-600 max-w-[140px] truncate" title={t.leaderComment}>{t.leaderComment || '—'}</td>
-                                      <td className="py-2 px-3">{weightLabel(t.weight)}</td>
-                                      <td className="py-2 px-3">{qualityLabel(t.quality)}</td>
-                                      <td className="py-2 px-3">{statusCVLabel(t)}</td>
-                                      <td className="py-2 px-3 font-semibold text-slate-900">
-                                        {t.quality != null || t.weight != null ? (() => {
-                                          const { w, q, t: tVal, score } = taskScoreBreakdown(t);
-                                          if (score === 0 && (w > 0 || q > 0)) return <span title={`W=${w} × Q=${q} × T=${tVal} = 0 (T=0: chưa hoàn thành đúng hạn)`}>{score} <span className="text-slate-400 font-normal text-xs"></span></span>;
-                                          return score;
-                                        })() : '—'}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      );
-                    })()}
                   </section>
               );
 
