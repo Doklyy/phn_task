@@ -72,6 +72,9 @@ const normalizeVNLoose = (s) => String(s ?? '')
   .trim()
   .replace(/\s+/g, '')
   .toLowerCase();
+
+const KHAI_TASK_BLOCK_FROM = '2026-03-05';
+const KHAI_TASK_BLOCK_TO = '2026-03-18';
 const titleByKnownPersonName = {
   nguyendinhdung: 'Trưởng phòng',
   tranminhnhat: 'Chuyên viên',
@@ -1043,6 +1046,17 @@ const App = () => {
       });
     }
 
+    // Rule nghiệp vụ: 05/03 -> 18/03, anh Phạm Quang Khải không có task trong bảng.
+    base = base.filter((t) => {
+      const uid = String(t.assigneeId ?? t.assignee_id ?? '');
+      const u = (users || []).find((us) => String(us.id ?? us.userId) === uid);
+      const assigneeName = normalizeVNLoose(u?.name ?? u?.fullName ?? u?.username ?? t.assigneeName ?? '');
+      if (assigneeName !== 'phamquangkhai') return true;
+      const assignedDate = toYYYYMMDD(t.createdAt || t.created_at);
+      if (!assignedDate) return true;
+      return assignedDate < KHAI_TASK_BLOCK_FROM || assignedDate > KHAI_TASK_BLOCK_TO;
+    });
+
     const q = taskSearch.trim().toLowerCase();
     if (!q) return base;
     return base.filter((t) => {
@@ -1063,8 +1077,17 @@ const App = () => {
         set.add(String(taskId));
       }
     });
+    // Rule nghiệp vụ: anh Nguyễn Phụ Nam luôn được tính là đã báo cáo tiến độ cho mọi task.
+    (tasks || []).forEach((t) => {
+      const uid = String(t.assigneeId ?? t.assignee_id ?? '');
+      const u = (users || []).find((us) => String(us.id ?? us.userId) === uid);
+      const assigneeName = normalizeVNLoose(u?.name ?? u?.fullName ?? u?.username ?? t.assigneeName ?? '');
+      if (assigneeName === 'nguyenphunam' && t?.id != null) {
+        set.add(String(t.id));
+      }
+    });
     return set;
-  }, [reportHistoryByTask]);
+  }, [reportHistoryByTask, tasks, users]);
 
   // Phân nhóm theo trạng thái: Quá hạn, Đang thực hiện, Hoàn thành, Tồn đọng, Tạm dừng (chuẩn hóa nhãn)
   // Quá hạn: chưa xong, quá hạn (loại đợi duyệt để tránh báo đỏ khi đã gửi hoàn thành)
