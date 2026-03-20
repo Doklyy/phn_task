@@ -725,6 +725,7 @@ const App = () => {
   const [taskAssigneeFilter, setTaskAssigneeFilter] = useState('all');
   const [taskAssigneeNameFilter, setTaskAssigneeNameFilter] = useState(''); // Tìm theo tên nhân sự (tab Nhiệm vụ)
   const [dashTaskAssigneeNameFilter, setDashTaskAssigneeNameFilter] = useState(''); // Tìm theo tên nhân sự (tab Theo dõi Nhiệm vụ trong Dashboard)
+  const [dashTaskStatusTab, setDashTaskStatusTab] = useState('overdue'); // overdue | new | paused | completed | pending_approval | in_progress
   const [forcedReportDate, setForcedReportDate] = useState('');
   const [tasksViewMode, setTasksViewMode] = useState('trello'); // 'list' | 'trello' — mặc định Trello để dễ nhìn
   const [reportsViewMode, setReportsViewMode] = useState('trello'); // 'list' | 'trello'
@@ -1631,7 +1632,7 @@ const App = () => {
               <ChevronLeft size={18} />
             </button>
           )}
-          <div className="max-w-5xl mx-auto pb-4">
+          <div className="w-full pb-4">
             {/* Bảng điều khiển với 3 tab nội bộ: Điểm & Xếp hạng / Theo dõi Nhiệm vụ / Chuyên cần */}
             {activeTab === 'dash' && (() => {
               const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
@@ -1908,6 +1909,60 @@ const App = () => {
                     })
                   : filteredTasks;
 
+                const formatDateShortLocal = (v) => {
+                  if (!v) return '—';
+                  const d = new Date(String(v).replace(' ', 'T'));
+                  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                };
+
+                const isOverdueLocal = (t) => {
+                  const status = (t?.status || '').toLowerCase();
+                  if (status === 'completed' || status === 'paused' || status === 'pending_approval') return false;
+                  if (!t?.deadline) return false;
+                  const dl = new Date(String(t.deadline).replace(' ', 'T'));
+                  return !Number.isNaN(dl.getTime()) && dl.getTime() < Date.now();
+                };
+
+                const userNameById = new Map();
+                (users || []).forEach((u) => {
+                  const id = String(u.id ?? u.userId ?? '');
+                  if (!id) return;
+                  userNameById.set(id, u.name || u.fullName || u.username || id);
+                });
+
+                const overdueList = dashboardTasks.filter(isOverdueLocal);
+                const newList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'new');
+                const pausedList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'paused');
+                const completedList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'completed');
+                const pendingList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'pending_approval');
+                const inProgressList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'accepted');
+
+                const statusTab = dashTaskStatusTab;
+                const visibleTasks = statusTab === 'overdue'
+                  ? overdueList
+                  : statusTab === 'new'
+                    ? newList
+                    : statusTab === 'paused'
+                      ? pausedList
+                      : statusTab === 'completed'
+                        ? completedList
+                        : statusTab === 'pending_approval'
+                          ? pendingList
+                          : inProgressList;
+
+                const reportedSet = taskIdsWithProgressReport instanceof Set
+                  ? taskIdsWithProgressReport
+                  : new Set(Array.isArray(taskIdsWithProgressReport) ? taskIdsWithProgressReport : []);
+
+                const statusTabs = [
+                  { id: 'overdue', label: 'Quá hạn', count: overdueList.length, classes: 'bg-red-50 border-red-200 text-red-800' },
+                  { id: 'new', label: 'Nhiệm vụ mới', count: newList.length, classes: 'bg-amber-50 border-amber-200 text-amber-900' },
+                  { id: 'paused', label: 'Tạm dừng', count: pausedList.length, classes: 'bg-gray-50 border-gray-200 text-gray-700' },
+                  { id: 'completed', label: 'Hoàn thành', count: completedList.length, classes: 'bg-slate-50 border-slate-200 text-slate-700' },
+                  { id: 'pending_approval', label: 'Đợi duyệt', count: pendingList.length, classes: 'bg-violet-50 border-violet-200 text-violet-900' },
+                  { id: 'in_progress', label: 'Đang thực hiện', count: inProgressList.length, classes: 'bg-emerald-50 border-emerald-200 text-emerald-900' },
+                ];
+
                 return (
                   <section className="mb-3" id="task-list-section">
                     {role === 'admin' && (
@@ -1943,15 +1998,126 @@ const App = () => {
                         />
                       </div>
                     </div>
-                    <div className="bg-white border border-slate-200 rounded-2xl p-4">
+
+                    {/* Tabs nhỏ theo trạng thái */}
+                    <div className="mb-3 flex flex-wrap gap-2">
+                      {statusTabs.map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setDashTaskStatusTab(t.id)}
+                          className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${
+                            dashTaskStatusTab === t.id
+                              ? `shadow-sm ${t.classes}`
+                              : `bg-white text-slate-600 hover:text-slate-900 border-slate-200`
+                          }`}
+                        >
+                          {t.label}
+                          <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${dashTaskStatusTab === t.id ? '' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                            {t.count}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
                       {tasksLoading ? (
                         <div className="py-10 text-center text-slate-500">Đang tải...</div>
                       ) : (
-                        <TasksTrelloBoard
-                          tasks={dashboardTasks}
-                          onTaskClick={(id) => setSelectedTaskId(id)}
-                          taskIdsWithProgressReport={taskIdsWithProgressReport}
-                        />
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm table-fixed">
+                            <thead className="bg-slate-50 border-b border-slate-200">
+                              <tr className="text-left">
+                                <th className="py-3 px-3 w-[110px]">Ngày Giao</th>
+                                <th className="py-3 px-3 w-[110px]">Người giao</th>
+                                <th className="py-3 px-3 w-[220px]">Tên công việc</th>
+                                <th className="py-3 px-3 w-[200px]">Mục tiêu</th>
+                                <th className="py-3 px-3 w-[240px]">Nội dung cụ thể</th>
+                                <th className="py-3 px-3 w-[110px]">Deadline</th>
+                                <th className="py-3 px-3 w-[120px]">Ngày hoàn thành</th>
+                                <th className="py-3 px-3 w-[110px]">Chủ trì</th>
+                                <th className="py-3 px-3 w-[140px]">Tiến độ</th>
+                                <th className="py-3 px-3 w-[120px]">
+                                  <div>Trọng số CV</div>
+                                  <div className="text-[10px] text-slate-500 font-medium">(tự đánh giá)</div>
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {visibleTasks.length === 0 ? (
+                                <tr>
+                                  <td colSpan={10} className="py-10 text-center text-slate-400">
+                                    Không có nhiệm vụ.
+                                  </td>
+                                </tr>
+                              ) : (
+                                visibleTasks.map((t) => {
+                                  const taskId = t.id;
+                                  const leaderId = t.leaderId ?? t.leader_id;
+                                  const assigneeId = t.assigneeId ?? t.assignee_id;
+                                  const leaderName = leaderId != null ? (userNameById.get(String(leaderId)) || '—') : '—';
+                                  const assigneeName = assigneeId != null ? (userNameById.get(String(assigneeId)) || '—') : '—';
+                                  const reported = taskId != null && reportedSet.has(String(taskId));
+
+                                  const completedDateRaw = t.status === 'completed'
+                                    ? (t.completedAt || t.completed_at)
+                                    : t.status === 'pending_approval'
+                                      ? (t.submittedAt || t.submitted_at)
+                                      : null;
+
+                                  let progressLabel = 'Chưa báo';
+                                  if ((t.status || '').toLowerCase() === 'completed') progressLabel = 'Hoàn thành';
+                                  else if ((t.status || '').toLowerCase() === 'pending_approval') progressLabel = 'Đợi duyệt';
+                                  else if ((t.status || '').toLowerCase() === 'paused') progressLabel = 'Tạm dừng';
+                                  else if (reported) progressLabel = 'Đã báo tiến độ';
+
+                                  const weightTxt = t.weight != null ? weightLabel(t.weight) : '—';
+                                  const qualityTxt = t.quality != null ? qualityLabel(t.quality) : '';
+                                  const cvSelfTxt = qualityTxt ? `${weightTxt} · ${qualityTxt}` : weightTxt;
+
+                                  return (
+                                    <tr
+                                      key={t.id}
+                                      className="border-b border-slate-100 hover:bg-slate-50/60 cursor-pointer"
+                                      onClick={() => setSelectedTaskId(t.id)}
+                                    >
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.createdAt || t.created_at}>
+                                        {formatDateShortLocal(t.createdAt || t.created_at)}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={leaderName}>
+                                        {leaderName}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.title}>
+                                        {t.title || '—'}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.objective}>
+                                        {t.objective || '—'}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.content}>
+                                        {t.content || '—'}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
+                                        {formatDateShortLocal(t.deadline)}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
+                                        {formatDateShortLocal(completedDateRaw)}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={assigneeName}>
+                                        {assigneeName}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
+                                        {progressLabel}
+                                      </td>
+                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
+                                        {cvSelfTxt}
+                                      </td>
+                                    </tr>
+                                  );
+                                })
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
                       )}
                     </div>
                   </section>
@@ -1962,7 +2128,7 @@ const App = () => {
                 <>
                   {/* Thanh 3 tab trên cùng – bố cục ngang kiểu Facebook: cụm tab giữa, chọn tháng bên phải */}
                   <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm -mx-4 md:-mx-6 px-4 md:px-6 py-3 mb-4">
-                    <div className="max-w-5xl mx-auto flex items-center gap-4">
+                    <div className="w-full flex items-center gap-4">
                       <div className="flex-1 min-w-0" />
                       <div className="flex flex-wrap justify-center gap-1 bg-slate-100 p-1 rounded-lg">
                         <button
