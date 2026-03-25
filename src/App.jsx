@@ -46,7 +46,7 @@ import { ReportsTrelloBoard } from './components/ReportsTrelloBoard.jsx';
 import { getAttendanceRecordsForMonth } from './api/attendance.js';
 import ReportReminderOverlay from './components/ReportReminderOverlay.jsx';
 import ReportReminderBellBlock from './components/ReportReminderBellBlock.jsx';
-import { getTaskFirstReportableDateStr, dateStrLTE } from './utils/taskReportDates.js';
+import { getTaskFirstReportableDateStr, dateStrLTE, taskRequiresProgressReportOnDateStr } from './utils/taskReportDates.js';
 import DashboardAttendanceMock from './components/DashboardAttendanceMock.jsx';
 
 // Danh sách user để hiển thị tên (BE có thể trả về hoặc lấy từ API users)
@@ -543,32 +543,7 @@ const App = () => {
 
   const taskActiveOnDay = useCallback((task, y, m, day) => {
     const dStr = `${y}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const status = (task.status || '').toLowerCase();
-
-    // Ngày tạo (ngày giao nhiệm vụ)
-    const createdStr = task.createdAt
-      ? String(task.createdAt).slice(0, 10)
-      : (task.created_at ? String(task.created_at).slice(0, 10) : '');
-
-    // Chưa giao thì không cần báo cáo
-    if (createdStr && dStr < createdStr) return false;
-
-    // Đã gửi cho chỉ huy đợi duyệt: từ ngày hôm sau không còn phải báo cáo.
-    // (Ngày gửi vẫn tính 1/1 nhờ bản ghi daily_report; từ ngày sau không tính vào totalTasks.)
-    if (status === 'pending_approval') return false;
-
-    // Nếu nhiệm vụ đã hoàn thành: chỉ yêu cầu báo cáo tới NGÀY HOÀN THÀNH.
-    if (status === 'completed') {
-      const completedStr = (task.completedAt || task.completed_at || task.submittedAt || task.submitted_at)
-        ? String(task.completedAt || task.completed_at || task.submittedAt || task.submitted_at).slice(0, 10)
-        : null;
-      if (completedStr && dStr > completedStr) return false;
-    }
-
-    // Nhiệm vụ Tạm dừng: không yêu cầu báo cáo.
-    if (status === 'paused') return false;
-
-    return true;
+    return taskRequiresProgressReportOnDateStr(task, dStr);
   }, []);
 
   const chuyenCanBoardData = useMemo(() => {
@@ -1169,7 +1144,8 @@ const App = () => {
     const needsReportYesterday = myAcceptedTasks.filter((t) => {
       const first = getTaskFirstReportableDateStr(t);
       if (!first) return true;
-      return dateStrLTE(first, yesterday);
+      if (!dateStrLTE(first, yesterday)) return false;
+      return taskRequiresProgressReportOnDateStr(t, yesterday);
     });
     if (needsReportYesterday.length === 0) return true;
     return needsReportYesterday.every((t) => {

@@ -42,6 +42,7 @@ function normalizeTask(t) {
     leaderComment: t.leaderComment ?? t.leader_comment ?? null,
     lastRejectReason: t.lastRejectReason ?? t.last_reject_reason ?? null,
     lastRejectAt: t.lastRejectAt ?? t.last_reject_at ?? null,
+    deletedAt: t.deletedAt ?? t.deleted_at ?? null,
   };
 }
 
@@ -240,8 +241,8 @@ export async function rejectCompletion(taskId, userId, reason) {
 }
 
 /**
- * Xóa nhiệm vụ – chỉ Admin được phép.
- * Backend: DELETE /api/tasks/{taskId}?userId=...
+ * Xóa mềm nhiệm vụ — chỉ Admin. Báo cáo tiến độ được giữ; hoàn tác: restoreTask.
+ * Backend: DELETE /api/tasks/{taskId}?userId=... → { taskId, message }
  */
 export async function deleteTask(taskId, userId) {
   const tid = taskId != null ? Number(taskId) : NaN;
@@ -249,9 +250,37 @@ export async function deleteTask(taskId, userId) {
   if (Number.isNaN(tid) || Number.isNaN(uid)) {
     throw new Error('Không xác định được nhiệm vụ hoặc người dùng.');
   }
-  await request(`tasks/${tid}?userId=${encodeURIComponent(uid)}`, {
+  return request(`tasks/${tid}?userId=${encodeURIComponent(uid)}`, {
     method: 'DELETE',
   });
+}
+
+/**
+ * Hoàn tác xóa mềm — chỉ Admin.
+ * POST /api/tasks/{taskId}/restore?userId=...
+ */
+export async function restoreTask(taskId, userId) {
+  const tid = taskId != null ? Number(taskId) : NaN;
+  const uid = userId != null ? Number(userId) : NaN;
+  if (Number.isNaN(tid) || Number.isNaN(uid)) {
+    throw new Error('Không xác định được nhiệm vụ hoặc người dùng.');
+  }
+  const res = await request(`tasks/${tid}/restore?userId=${encodeURIComponent(uid)}`, {
+    method: 'POST',
+  });
+  return normalizeTask(res);
+}
+
+/**
+ * Thùng rác (đã xóa mềm) — chỉ Admin.
+ * GET /api/tasks/deleted?userId=...
+ */
+export async function fetchSoftDeletedTasks(userId) {
+  if (!isApiConfigured()) return [];
+  const uid = userId != null ? Number(userId) : NaN;
+  if (Number.isNaN(uid)) throw new Error('Không xác định được userId.');
+  const data = await request(`tasks/deleted?userId=${encodeURIComponent(uid)}`);
+  return Array.isArray(data) ? data.map(normalizeTask) : [];
 }
 
 /** Dữ liệu mẫu khi chưa có BE */

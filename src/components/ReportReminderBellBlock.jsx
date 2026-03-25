@@ -4,7 +4,7 @@
  */
 import { useState, useEffect } from 'react';
 import { getReportsReminder } from '../api/reports.js';
-import { getTaskFirstReportableDateStr, dateStrLTE } from '../utils/taskReportDates.js';
+import { getTaskFirstReportableDateStr, dateStrLTE, taskRequiresProgressReportOnDateStr } from '../utils/taskReportDates.js';
 
 export default function ReportReminderBellBlock({ userId, onGoReport, onClosePopup, tasks = [] }) {
   const [reminder, setReminder] = useState(null);
@@ -31,7 +31,8 @@ export default function ReportReminderBellBlock({ userId, onGoReport, onClosePop
     if (!task) return true;
     const first = getTaskFirstReportableDateStr(task);
     if (!first) return true;
-    return dateStrLTE(first, missingDateStr);
+    if (!dateStrLTE(first, missingDateStr)) return false;
+    return taskRequiresProgressReportOnDateStr(task, missingDateStr);
   });
   if (missingTasks.length === 0) return null;
   const yesterdayStr = reminder.yesterday
