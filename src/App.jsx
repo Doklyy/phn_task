@@ -3061,6 +3061,22 @@ const App = () => {
         const assigneeName = task.assigneeName
           || (users && users.find((u) => String(u.id ?? u.userId) === String(task.assigneeId))?.name)
           || null;
+        const leaderCanEditTask = (() => {
+          if (role !== 'leader') return false;
+          if (!currentUser?.id) return false;
+          const meId = String(currentUser.id);
+          const leaderId = String(task.leaderId ?? task.leader_id ?? '');
+          const assigneeId = String(task.assigneeId ?? task.assignee_id ?? '');
+          // Leader không được sửa nhiệm vụ của chính mình
+          if (!leaderId || leaderId !== meId) return false;
+          if (assigneeId && assigneeId === meId) return false;
+          // Nếu có thông tin team thì chỉ cho sửa trong cùng team; thiếu team thì vẫn cho phép theo leaderId (BE sẽ chặn nếu sai)
+          const leaderTeam = (users || []).find((u) => String(u.id ?? u.userId) === meId)?.team ?? null;
+          const assigneeTeam = (users || []).find((u) => String(u.id ?? u.userId) === assigneeId)?.team ?? null;
+          if (leaderTeam && assigneeTeam) return String(leaderTeam) === String(assigneeTeam);
+          return true;
+        })();
+        const canEditTask = role === 'admin' || leaderCanEditTask;
         const refreshTasks = () => fetchTasksForCurrentUser(currentUser?.id).then(setTasks);
         const taskFirstDay = getTaskFirstReportableDateStr(task);
         const effectiveForcedReportDate =
@@ -3093,7 +3109,7 @@ const App = () => {
                 });
             }}
             role={role}
-            canEdit={role === 'admin' || role === 'leader'}
+            canEdit={canEditTask}
             assigneeName={assigneeName}
             acceptNewLocked={acceptNewLocked}
             yesterday={yesterday}
@@ -3304,7 +3320,15 @@ const TaskDetailModal = ({
   }, []);
   const [editPausedFrom, setEditPausedFrom] = useState(yesterdayStr);
   const [editPausedTo, setEditPausedTo] = useState(`${new Date().getFullYear()}-03-15`);
-  const canReview = (role === 'leader' || role === 'admin') && onApprove && onReject && (String(currentUserId) === String(task.leaderId) || String(currentUserId) === String(task.assignerId) || role === 'admin');
+  const canReview = (() => {
+    if (!onApprove || !onReject) return false;
+    if (role === 'admin') return true;
+    if (role !== 'leader') return false;
+    // Leader chỉ review task của nhân viên; không tự review task của chính mình
+    if (String(currentUserId) !== String(task.leaderId)) return false;
+    if (String(currentUserId) === String(task.assigneeId)) return false;
+    return true;
+  })();
   const showAdminTabs = (canEdit && onSaveEdit) || (task.status === 'pending_approval' && canReview);
   const [activeTab, setActiveTab] = useState(() => (task.status === 'pending_approval' && canReview ? 'review' : 'edit'));
 
