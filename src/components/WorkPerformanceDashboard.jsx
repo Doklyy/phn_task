@@ -71,7 +71,7 @@ export function WorkPerformanceDashboard({
       {/* Header row */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-4 mt-1">
         <div className="space-y-1">
-          <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight uppercase italic">
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight uppercase italic">
             Phòng Sản Phẩm Hàng Nặng
           </h1>
         </div>
