@@ -368,19 +368,19 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             <table className="w-full text-left border-collapse min-w-[max-content]">
               <thead>
                 <tr>
-                  <th className="sticky left-0 z-30 w-[160px] min-w-[160px] max-w-[160px] p-4 font-semibold text-slate-600 bg-slate-50 border-b border-r border-slate-200">
+                  <th className="sticky left-0 z-50 w-[160px] min-w-[160px] max-w-[160px] p-4 font-semibold text-slate-600 bg-white border-b border-r border-slate-200">
                     Nhân sự
                   </th>
-                  <th className="sticky left-[160px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-blue-700 bg-slate-50 border-b border-r border-slate-200" title="Khi có API: điểm chuyên cần (TG làm việc 5đ + Báo cáo 5đ). Khi chưa có: số ngày công.">
+                  <th className="sticky left-[160px] z-50 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-blue-700 bg-white border-b border-r border-slate-200" title="Khi có API: điểm chuyên cần (TG làm việc 5đ + Báo cáo 5đ). Khi chưa có: số ngày công.">
                     C.Tổng
                   </th>
-                  <th className="sticky left-[240px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-rose-700 bg-slate-50 border-b border-r border-slate-200">
+                  <th className="sticky left-[240px] z-50 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-rose-700 bg-white border-b border-r border-slate-200">
                     Nghỉ
                   </th>
-                  <th className="sticky left-[320px] z-30 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-orange-700 bg-slate-50 border-b border-r border-slate-200">
+                  <th className="sticky left-[320px] z-50 w-[80px] min-w-[80px] max-w-[80px] p-4 font-semibold text-center text-orange-700 bg-white border-b border-r border-slate-200">
                     Muộn
                   </th>
-                  <th className="sticky left-[400px] z-30 w-[100px] min-w-[100px] max-w-[100px] p-4 font-semibold text-center text-emerald-700 bg-slate-50 border-b border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">
+                  <th className="sticky left-[400px] z-50 w-[100px] min-w-[100px] max-w-[100px] p-4 font-semibold text-center text-emerald-700 bg-white border-b border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.12)]">
                     Tiến độ
                   </th>
                   {daysList.map((day) => (
@@ -423,19 +423,19 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
 
                   return (
                     <tr key={person.id} className="group transition-colors odd:bg-white even:bg-slate-50/35">
-                      <td className="sticky left-0 z-20 w-[160px] min-w-[160px] max-w-[160px] p-4 bg-inherit group-hover:bg-slate-100/60 border-b border-r border-slate-200 font-medium text-slate-800">
+                      <td className="sticky left-0 z-40 w-[160px] min-w-[160px] max-w-[160px] p-4 bg-white border-b border-r border-slate-200 font-medium text-slate-800">
                         {person.name}
                       </td>
-                      <td className="sticky left-[160px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-inherit group-hover:bg-slate-100/60 text-center font-bold text-blue-600 border-b border-r border-slate-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : 'Điểm từ API chưa có; đang hiển thị số ngày công.'}>
+                      <td className="sticky left-[160px] z-40 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white text-center font-bold text-blue-600 border-b border-r border-slate-200" title={hasScore ? `Thời gian làm việc: ${typeof tw === 'number' ? tw.toFixed(1) : '—'}đ | Báo cáo hàng ngày: ${typeof dr === 'number' ? dr.toFixed(1) : '—'}đ` : 'Điểm từ API chưa có; đang hiển thị số ngày công.'}>
                         {hasScore ? (totalScore % 1 !== 0 ? totalScore.toFixed(1) : totalScore) : (typeof totalWorkDays === 'number' && totalWorkDays % 1 !== 0 ? totalWorkDays.toFixed(1) : totalWorkDays)}
                       </td>
-                      <td className="sticky left-[240px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-inherit group-hover:bg-slate-100/60 text-center font-bold text-rose-500 border-b border-r border-slate-200">
+                      <td className="sticky left-[240px] z-40 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white text-center font-bold text-rose-500 border-b border-r border-slate-200">
                         {totalLeaveDays}
                       </td>
-                      <td className="sticky left-[320px] z-20 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-inherit group-hover:bg-slate-100/60 text-center font-bold text-orange-600 border-b border-r border-slate-200">
+                      <td className="sticky left-[320px] z-40 w-[80px] min-w-[80px] max-w-[80px] p-4 bg-white text-center font-bold text-orange-600 border-b border-r border-slate-200">
                         {totalLateDays}
                       </td>
-                      <td className="sticky left-[400px] z-20 w-[100px] min-w-[100px] max-w-[100px] p-4 bg-inherit group-hover:bg-slate-100/60 text-center border-b border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">
+                      <td className="sticky left-[400px] z-40 w-[100px] min-w-[100px] max-w-[100px] p-4 bg-white text-center border-b border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.12)]">
                         <div className="flex flex-col items-center justify-center">
                           <span className="font-bold text-slate-700">
                             {fullReportedDays}
