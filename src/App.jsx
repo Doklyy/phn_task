@@ -1635,59 +1635,7 @@ const App = () => {
           <div className="w-full pb-4">
             {/* Bảng điều khiển với 3 tab nội bộ: Điểm & Xếp hạng / Theo dõi Nhiệm vụ / Chuyên cần */}
             {activeTab === 'dash' && (() => {
-              const score100 = (v) => (v != null ? (Number(v) * 100).toFixed(1) : '—');
-              const formatPct = (v) => (v != null ? `${Math.round(Number(v) * 100)}%` : '—');
-              const filterName = (r) => {
-                const name = String(r.name ?? r.userName ?? '').toLowerCase();
-                return name !== 'nguyễn đình dũng' && name !== 'nguyen dinh dung';
-              };
-              // Danh sách người: luôn lấy từ allUsersForRanking (toàn bộ phòng) để mọi role đều thấy tất cả mọi người như admin.
-              const scoreByUserId = {};
-              (computedRanking || []).forEach((r) => { scoreByUserId[String(r.userId)] = Number(r.totalScore) || 0; });
-              const baseList = (allUsersForRanking && allUsersForRanking.length > 0) ? allUsersForRanking : (users || []);
-              const nameByUserId = {};
-              (baseList || []).forEach((u) => {
-                const sid = String(u.id ?? u.userId ?? '');
-                if (sid) nameByUserId[sid] = u.name ?? u.fullName ?? u.username ?? sid;
-              });
-              (tasks || []).forEach((t) => {
-                const sid = String(t.assigneeId ?? t.assignee_id ?? '');
-                if (sid && !nameByUserId[sid]) nameByUserId[sid] = t.assigneeName ?? t.assignee_name ?? sid;
-              });
-              const rankingByUserId = {};
-              (ranking || []).forEach((r) => {
-                const sid = String(r.userId ?? r.id ?? '');
-                if (sid) rankingByUserId[sid] = r;
-              });
-              const assigneeMap = {};
-              (baseList || []).forEach((u) => {
-                const sid = String(u.id ?? u.userId ?? '');
-                if (!sid) return;
-                assigneeMap[sid] = { userId: sid, name: nameByUserId[sid] ?? u.name ?? u.fullName ?? u.username ?? sid };
-              });
-              (tasks || []).forEach((t) => {
-                const sid = String(t.assigneeId ?? t.assignee_id ?? '');
-                if (sid && !assigneeMap[sid]) assigneeMap[sid] = { userId: sid, name: nameByUserId[sid] ?? t.assigneeName ?? t.assignee_name ?? sid };
-              });
-              const allStaffForRanking = Object.values(assigneeMap).filter((r) => filterName(r));
-              const displayRanking = allStaffForRanking
-                .map((r) => {
-                  const sid = String(r.userId);
-                  const fromApi = rankingByUserId[sid];
-                  return {
-                    userId: r.userId,
-                    name: r.name ?? '—',
-                    totalScore: fromApi?.totalScore ?? scoreByUserId[sid] ?? 0,
-                    attendanceScore: fromApi?.attendanceScore,
-                    qualityScore: fromApi?.qualityScore,
-                  };
-                })
-                .sort((a, b) => (Number(b.totalScore) ?? 0) - (Number(a.totalScore) ?? 0));
-              const myScoreForDisplay = myComputedScore ?? 0;
-              const currentRank = displayRanking.findIndex((r) => String(r.userId) === String(currentUser?.id)) + 1;
-              const totalRanked = displayRanking.length;
-              const scoreDisplay = (v) => (v != null && v !== '' ? (Number(v) < 1 && Number(v) > 0 ? (Number(v) * 100).toFixed(1) : String(Number(v))) : '—');
-
+              // Dashboard mới: Work & Performance (layout gọn, dữ liệu thật)
               const handleExportEvaluationForms = async () => {
                 try {
                   if (!dashMonth) return;
@@ -1723,435 +1671,56 @@ const App = () => {
                 }
               };
 
-              const renderPerformance = () => (
-                  <section className="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm mb-6">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-                      <h2 className="text-xl font-bold text-slate-900">Hoàn thành cá nhân</h2>
-                      <button
-                        type="button"
-                        onClick={handleExportEvaluationForms}
-                        className="inline-flex items-center gap-2 bg-white border border-slate-300 px-3 py-1.5 rounded-lg text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50 shadow-sm"
-                      >
-                        Xuất phiếu đánh giá (Excel)
-                      </button>
-                    </div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Tổng điểm</p>
-                      <p className="text-2xl font-black text-slate-900">
-                        {score100(myScoreForDisplay)}
-                      </p>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1">Xếp hạng</p>
-                      <p className="text-2xl font-black text-slate-900">
-                        #{currentRank > 0 ? currentRank : '—'} <span className="text-slate-500 font-normal text-lg">/ {totalRanked || '—'}</span>
-                      </p>
-                      </div>
-                      <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 md:col-span-1">
-                        <p className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Top vinh danh</p>
-                        <p className="text-[10px] text-slate-500 mb-2">Top 3 điểm cao nhất — kéo xuống xem toàn bộ phòng</p>
-                        <div className="relative">
-                          <div className="space-y-1 max-h-[8.5rem] overflow-y-auto overflow-x-hidden pr-2 scroll-smooth scrollbar-thin" style={{ scrollbarWidth: 'thin' }}>
-                            {displayRanking.map((r, idx) => (
-                              <div key={r.userId ?? `${idx}-${r.userName ?? r.name ?? ''}`} className="flex items-center gap-2 text-sm py-0.5">
-                                <span className={`w-6 h-6 rounded flex items-center justify-center text-xs font-bold shrink-0 ${idx === 0 ? 'bg-amber-100 text-amber-800' : idx === 1 ? 'bg-slate-200 text-slate-700' : idx === 2 ? 'bg-amber-200/80 text-amber-900' : 'bg-slate-100 text-slate-600'}`}>{idx + 1}</span>
-                                <span className="flex-1 min-w-0 truncate">{r.name ?? r.userName ?? '—'}</span>
-                                <span className="font-semibold text-slate-800 shrink-0">{score100(r.totalScore)}đ</span>
-                              </div>
-                            ))}
-                          </div>
-                          {displayRanking.length > 3 && (
-                            <div className="absolute bottom-0 left-0 right-3 h-6 bg-gradient-to-t from-slate-50 to-transparent pointer-events-none rounded-b" aria-hidden />
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="border border-slate-200 rounded-xl overflow-hidden">
-                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-800">Chi tiết điểm đánh giá</h3>
-                      </div>
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200">
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tiêu chí đánh giá</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Tỷ trọng</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Điểm đạt</th>
-                            <th className="text-left py-2 px-3 font-semibold text-slate-700">Ghi chú</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-700">Chuyên cần</td>
-                            <td className="py-2 px-3">40%</td>
-                            <td className="py-2 px-3">{formatPct(scoringUser?.attendanceScore)}</td>
-                            <td className="py-2 px-3 text-slate-500">{scoringUser?.reportedDays != null ? `Số ngày báo cáo: ${scoringUser.reportedDays}` : '—'}</td>
-                          </tr>
-                          <tr className="border-b border-slate-100">
-                          <td className="py-2 px-3 text-slate-700">Chất lượng công việc</td>
-                            <td className="py-2 px-3">60%</td>
-                            <td className="py-2 px-3">{formatPct(scoringUser?.qualityScore)}</td>
-                            <td className="py-2 px-3 text-slate-500">{scoringUser?.completedTasks != null ? `Hoàn thành: ${scoringUser.completedTasks} nhiệm vụ` : '—'}</td>
-                          </tr>
-                          <tr className="bg-slate-50 font-bold">
-                            <td className="py-2 px-3">Tổng cộng</td>
-                            <td className="py-2 px-3">100%</td>
-                            <td className="py-2 px-3">{score100(myScoreForDisplay)}</td>
-                            <td className="py-2 px-3 text-slate-500 text-xs"></td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <div className="mt-4 border border-slate-200 rounded-xl overflow-hidden">
-                      <div className="bg-slate-50 px-4 py-2 border-b border-slate-200">
-                        <h3 className="text-sm font-bold text-slate-800">Bảng đánh giá điểm mọi người</h3>
-                        <p className="text-xs text-slate-500 mt-0.5">Tất cả nhân viên — tháng {dashMonth || '—'}. </p>
-                      </div>
-                      <div className="overflow-x-auto max-h-[20rem] overflow-y-auto">
-                        <table className="w-full text-sm">
-                          <thead className="bg-slate-50 sticky top-0">
-                            <tr className="border-b border-slate-200">
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700 w-12">STT</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Tên</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chuyên cần </th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Chất lượng</th>
-                              <th className="text-left py-2 px-3 font-semibold text-slate-700">Tổng điểm</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {displayRanking.length === 0 ? (
-                              <tr><td colSpan={5} className="py-4 px-3 text-slate-500 text-center">Chưa có dữ liệu đánh giá tháng này.</td></tr>
-                            ) : (
-                              displayRanking.map((r, idx) => (
-                                <tr key={r.userId ?? idx} className={`border-b border-slate-100 ${String(r.userId) === String(currentUser?.id) ? 'bg-violet-50/60' : ''}`}>
-                                  <td className="py-2 px-3 text-slate-600">{idx + 1}</td>
-                                  <td className="py-2 px-3 font-medium text-slate-800">{r.name ?? r.userName ?? '—'}</td>
-                                  <td className="py-2 px-3">{formatPct(r.attendanceScore)}</td>
-                                  <td className="py-2 px-3">{formatPct(r.qualityScore)}</td>
-                                  <td className="py-2 px-3 font-semibold text-slate-900">{score100(r.totalScore)}đ</td>
-                                </tr>
-                              ))
-                            )}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  </section>
-              );
+              const baseList = (allUsersForRanking && allUsersForRanking.length > 0) ? allUsersForRanking : (users || []);
+              const nameByUserId = {};
+              (baseList || []).forEach((u) => {
+                const sid = String(u.id ?? u.userId ?? '');
+                if (!sid) return;
+                nameByUserId[sid] = u.name ?? u.fullName ?? u.username ?? sid;
+              });
 
-              const renderTasksInDashboard = () => {
-                const nameQ = dashTaskAssigneeNameFilter.trim().toLowerCase();
-                const dashboardTasks = nameQ && (users || []).length
-                  ? filteredTasks.filter((t) => {
-                      const uid = String(t.assigneeId ?? t.assignee_id ?? '');
-                      const u = (users || []).find((us) => String(us.id ?? us.userId) === uid);
-                      const nm = (u?.name ?? u?.fullName ?? u?.username ?? '').toLowerCase();
-                      return nm.includes(nameQ);
-                    })
-                  : filteredTasks;
+              const staffProgress = (tasksInProgress || []).map((t) => {
+                const assigneeId = String(t.assigneeId ?? t.assignee_id ?? '');
+                const name = (nameByUserId[assigneeId] ?? t.assigneeName ?? t.assignee_name ?? assigneeId) || '—';
+                const status = (t.status || '').toLowerCase();
+                const isOverdue =
+                  t.deadline &&
+                  new Date(String(t.deadline).replace(' ', 'T')) < new Date() &&
+                  status !== 'completed' &&
+                  status !== 'pending_approval' &&
+                  status !== 'paused';
 
-                const formatDateShortLocal = (v) => {
-                  if (!v) return '—';
-                  const d = new Date(String(v).replace(' ', 'T'));
-                  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+                let statusLabel = 'Đang thực hiện';
+                let statusBadge = 'info';
+                if (isOverdue) {
+                  statusLabel = 'Chậm tiến độ';
+                  statusBadge = 'danger';
+                } else if (status === 'pending_approval') {
+                  statusLabel = 'Đợi duyệt';
+                  statusBadge = 'info';
+                }
+
+                return {
+                  id: String(t.id),
+                  initial: name.split(' ').pop()?.[0] || '?',
+                  name,
+                  code: assigneeId,
+                  taskTitle: t.title,
+                  progress: isOverdue ? 60 : 80,
+                  statusLabel,
+                  statusBadge,
+                  lastUpdate: '',
                 };
-
-                const isOverdueLocal = (t) => {
-                  const status = (t?.status || '').toLowerCase();
-                  if (status === 'completed' || status === 'paused' || status === 'pending_approval') return false;
-                  if (!t?.deadline) return false;
-                  const dl = new Date(String(t.deadline).replace(' ', 'T'));
-                  return !Number.isNaN(dl.getTime()) && dl.getTime() < Date.now();
-                };
-
-                const userNameById = new Map();
-                (users || []).forEach((u) => {
-                  const id = String(u.id ?? u.userId ?? '');
-                  if (!id) return;
-                  userNameById.set(id, u.name || u.fullName || u.username || id);
-                });
-
-                const overdueList = dashboardTasks.filter(isOverdueLocal);
-                const newList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'new');
-                const pausedList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'paused');
-                const completedList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'completed');
-                const pendingList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'pending_approval');
-                const inProgressList = dashboardTasks.filter((t) => (t.status || '').toLowerCase() === 'accepted');
-
-                const statusTab = dashTaskStatusTab;
-                const visibleTasks = statusTab === 'all'
-                  ? dashboardTasks
-                  : statusTab === 'overdue'
-                    ? overdueList
-                    : statusTab === 'new'
-                      ? newList
-                      : statusTab === 'paused'
-                        ? pausedList
-                        : statusTab === 'completed'
-                          ? completedList
-                          : statusTab === 'pending_approval'
-                            ? pendingList
-                            : inProgressList;
-
-                const reportedSet = taskIdsWithProgressReport instanceof Set
-                  ? taskIdsWithProgressReport
-                  : new Set(Array.isArray(taskIdsWithProgressReport) ? taskIdsWithProgressReport : []);
-
-                const statusTabs = [
-                  { id: 'all', label: 'Tất cả', count: dashboardTasks.length, classes: 'bg-slate-50 border-slate-200 text-slate-900' },
-                  { id: 'overdue', label: 'Quá hạn', count: overdueList.length, classes: 'bg-red-50 border-red-200 text-red-800' },
-                  { id: 'in_progress', label: 'Đang thực hiện', count: inProgressList.length, classes: 'bg-emerald-50 border-emerald-200 text-emerald-900' },
-                  { id: 'pending_approval', label: 'Đợi duyệt', count: pendingList.length, classes: 'bg-violet-50 border-violet-200 text-violet-900' },
-                  { id: 'paused', label: 'Tạm dừng', count: pausedList.length, classes: 'bg-gray-50 border-gray-200 text-gray-700' },
-                  { id: 'new', label: 'Nhiệm vụ mới', count: newList.length, classes: 'bg-amber-50 border-amber-200 text-amber-900' },
-                  { id: 'completed', label: 'Hoàn thành', count: completedList.length, classes: 'bg-slate-50 border-slate-200 text-slate-700' },
-                ];
-
-                return (
-                  <section className="mb-3" id="task-list-section">
-                    {role === 'admin' && (
-                      <div className="mb-4 p-4 bg-slate-50 border border-slate-200 rounded-xl">
-                        <h3 className="text-sm font-bold text-slate-800 mb-1">Hoàn thành chờ duyệt</h3>
-                        <p className="text-slate-600 text-sm mb-2">
-                          {tasksPendingApproval.length > 0
-                            ? `Có ${tasksPendingApproval.length} nhiệm vụ đang đợi duyệt`
-                            : 'Chưa có nhiệm vụ nào đợi duyệt.'}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => setActiveTab('tasks')}
-                          className="text-sm font-semibold text-amber-600 hover:text-amber-700"
-                        >
-                          Xem danh sách Đợi duyệt →
-                        </button>
-                      </div>
-                    )}
-                    <div className="mb-3 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h2 className="text-3xl font-black text-slate-900 tracking-tight mr-2">Nhiệm vụ</h2>
-                        {statusTabs.map((t) => (
-                          <button
-                            key={t.id}
-                            type="button"
-                            onClick={() => setDashTaskStatusTab(t.id)}
-                            className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold border transition-colors ${
-                              dashTaskStatusTab === t.id
-                                ? `shadow-sm ${t.classes}`
-                                : `bg-white text-slate-600 hover:text-slate-900 border-slate-200`
-                            }`}
-                          >
-                            {t.label}
-                            <span className={`text-xs font-black px-2 py-0.5 rounded-full border ${dashTaskStatusTab === t.id ? '' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
-                              {t.count}
-                            </span>
-                          </button>
-                        ))}
-                      </div>
-                      <div className="flex flex-wrap items-center gap-2">
-                        <label className="text-xs font-semibold text-slate-600">Lọc theo tên nhân viên:</label>
-                        <input
-                          type="text"
-                          placeholder="Gõ tên nhân viên..."
-                          value={dashTaskAssigneeNameFilter}
-                          onChange={(e) => setDashTaskAssigneeNameFilter(e.target.value)}
-                          className="px-3 py-1.5 rounded-lg text-xs sm:text-sm border border-slate-200 bg-white text-slate-700 min-w-[160px]"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden">
-                      {tasksLoading ? (
-                        <div className="py-10 text-center text-slate-500">Đang tải...</div>
-                      ) : (
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm table-fixed">
-                            <thead className="bg-slate-50 border-b border-slate-200">
-                              <tr className="text-left">
-                                <th className="py-3 px-3 w-[110px]">Ngày Giao</th>
-                                <th className="py-3 px-3 w-[220px]">Tên công việc</th>
-                                <th className="py-3 px-3 w-[200px]">Mục tiêu</th>
-                                <th className="py-3 px-3 w-[240px]">Nội dung cụ thể</th>
-                                <th className="py-3 px-3 w-[110px]">Deadline</th>
-                                <th className="py-3 px-3 w-[120px]">Ngày hoàn thành</th>
-                                <th className="py-3 px-3 w-[110px]">Chủ trì</th>
-                                <th className="py-3 px-3 w-[140px]">Tiến độ</th>
-                                <th className="py-3 px-3 w-[130px]">Trọng số CV</th>
-                                <th className="py-3 px-3 w-[130px]">Chất lượng CV</th>
-                                <th className="py-3 px-3 w-[170px]">Trạng thái CV</th>
-                                <th className="py-3 px-3 w-[120px]">Điểm đạt được</th>
-                                <th className="py-3 px-3 w-[220px]">Đánh giá của chỉ huy</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {visibleTasks.length === 0 ? (
-                                <tr>
-                                  <td colSpan={13} className="py-10 text-center text-slate-400">
-                                    Không có nhiệm vụ.
-                                  </td>
-                                </tr>
-                              ) : (
-                                visibleTasks.map((t) => {
-                                  const taskId = t.id;
-                                  const assigneeId = t.assigneeId ?? t.assignee_id;
-                                  const assigneeName = assigneeId != null ? (userNameById.get(String(assigneeId)) || '—') : '—';
-                                  const reported = taskId != null && reportedSet.has(String(taskId));
-
-                                  const completedDateRaw = t.status === 'completed'
-                                    ? (t.completedAt || t.completed_at)
-                                    : t.status === 'pending_approval'
-                                      ? (t.submittedAt || t.submitted_at)
-                                      : null;
-
-                                  const statusLower = (t.status || '').toLowerCase();
-                                  const progressMeta = statusLower === 'completed'
-                                    ? { label: 'Hoàn thành', className: 'bg-emerald-100 text-emerald-800 border border-emerald-200' }
-                                    : statusLower === 'pending_approval'
-                                      ? { label: 'Đợi duyệt', className: 'bg-violet-100 text-violet-800 border border-violet-200' }
-                                      : statusLower === 'paused'
-                                        ? { label: 'Tạm dừng', className: 'bg-slate-100 text-slate-700 border border-slate-200' }
-                                        : statusLower === 'accepted'
-                                          ? { label: 'Đang thực hiện', className: 'bg-amber-100 text-amber-800 border border-amber-200' }
-                                          : { label: reported ? 'Đã báo tiến độ' : 'Chưa thực hiện', className: reported ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-red-100 text-red-700 border border-red-200' };
-
-                                  const weightTxt = t.weight != null ? weightLabel(t.weight) : '—';
-                                  const qualityTxt = t.quality != null ? qualityLabel(t.quality) : '—';
-                                  const statusCvTxt = statusCVLabel(t);
-                                  const scoreTxt = t.quality != null || t.weight != null ? taskScore(t) : '—';
-                                  const rawLeaderComment = String(t.leaderComment || t.lastRejectReason || '').trim();
-                                  const leaderCommentTxt = ['tra ve', 'trả về', 'tra ve sua', 'trả về sửa']
-                                    .includes(rawLeaderComment.toLowerCase())
-                                    ? '—'
-                                    : (rawLeaderComment || '—');
-
-                                  return (
-                                    <tr
-                                      key={t.id}
-                                      className="border-b border-slate-100 hover:bg-slate-50/60 cursor-pointer"
-                                      onClick={() => setSelectedTaskId(t.id)}
-                                    >
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.createdAt || t.created_at}>
-                                        {formatDateShortLocal(t.createdAt || t.created_at)}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.title}>
-                                        {t.title || '—'}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.objective}>
-                                        {t.objective || '—'}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={t.content}>
-                                        {t.content || '—'}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                        {formatDateShortLocal(t.deadline)}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                        {formatDateShortLocal(completedDateRaw)}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis" title={assigneeName}>
-                                        {assigneeName}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${progressMeta.className}`}>
-                                          {progressMeta.label}
-                                        </span>
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                        {weightTxt}
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${qualityBadgeClass(qualityTxt)}`}>
-                                          {qualityTxt}
-                                        </span>
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis">
-                                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ${statusCVBadgeClass(statusCvTxt)}`}>
-                                          {statusCvTxt}
-                                        </span>
-                                      </td>
-                                      <td className="py-2 px-3 whitespace-nowrap overflow-hidden text-ellipsis font-semibold text-slate-800">
-                                        {scoreTxt}
-                                      </td>
-                                      <td className="py-2 px-3 overflow-hidden text-ellipsis" title={leaderCommentTxt}>
-                                        {leaderCommentTxt}
-                                      </td>
-                                    </tr>
-                                  );
-                                })
-                              )}
-                            </tbody>
-                          </table>
-                        </div>
-                      )}
-                    </div>
-                  </section>
-                );
-              };
+              });
 
               return (
-                <>
-                  {/* Thanh 3 tab trên cùng – bố cục ngang kiểu Facebook: cụm tab giữa, chọn tháng bên phải */}
-                  <div className="sticky top-0 z-10 bg-white border-b border-slate-200 shadow-sm -mx-4 md:-mx-6 px-4 md:px-6 py-3 mb-4">
-                    <div className="w-full flex items-center gap-4">
-                      <div className="flex-1 min-w-0" />
-                      <div className="flex flex-wrap justify-center gap-1 bg-slate-100 p-1 rounded-lg">
-                        <button
-                          type="button"
-                          onClick={() => setDashView('performance')}
-                          className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'performance' ? 'bg-white text-purple-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                          Điểm & Xếp hạng
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDashView('tasks')}
-                          className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'tasks' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                          Theo dõi Nhiệm vụ
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDashView('attendance')}
-                          className={`px-4 md:px-6 py-2 rounded-md text-sm font-medium transition-colors ${dashView === 'attendance' ? 'bg-white text-emerald-600 shadow-sm' : 'text-slate-600 hover:text-slate-900'}`}
-                        >
-                          Chuyên cần
-                        </button>
-                    </div>
-                      <div className="flex-1 flex justify-end items-center gap-2 min-w-0 flex-wrap">
-                        <span className="text-xs text-slate-500">Điểm &amp; xếp hạng theo tháng:</span>
-                        <select value={dashMonth} onChange={(e) => setDashMonth(e.target.value)} className="border border-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-                          {[1,2,3,4,5,6,7,8,9,10,11,12].map((m) => {
-                            const y = dashMonth ? parseInt(dashMonth.split('-')[0], 10) : new Date().getFullYear();
-                            const v = `${y}-${String(m).padStart(2, '0')}`;
-                            return <option key={v} value={v}>Tháng {m}/{y}</option>;
-                          })}
-                        </select>
-                        <p className="text-[10px] text-slate-400 w-full sm:w-auto"></p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {dashView === 'performance' && renderPerformance()}
-                  {dashView === 'tasks' && renderTasksInDashboard()}
-                  {dashView === 'attendance' && (() => {
-                    const [y, m] = dashMonth.split('-').map(Number);
-                    const lastDay = y && m ? new Date(y, m, 0).getDate() : 31;
-                    const displayDays = Array.from({ length: lastDay }, (_, i) => i + 1);
-                    const monthLabel = `Tháng ${m || ''} / ${y || ''}`;
-                    return (
-                      <section className="bg-slate-50 rounded-2xl p-4">
-                        <ChuyenCanBoard
-                          monthLabel={monthLabel}
-                          monthValue={dashMonth}
-                          onMonthChange={setDashMonth}
-                          data={chuyenCanBoardData}
-                          displayDays={displayDays}
-                          loading={adminAttendanceLoading}
-                          allReportsList={allReportsList}
-                        />
-                      </section>
-                    );
-                  })()}
-                </>
+                <WorkPerformanceDashboard
+                  monthLabel={dashMonth}
+                  ranking={ranking || []}
+                  dashboardStats={dashboardStats}
+                  staffProgress={staffProgress}
+                  onExportEvaluationForms={handleExportEvaluationForms}
+                />
               );
             })()}
 
