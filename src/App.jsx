@@ -11,7 +11,6 @@ import {
   TrendingUp,
   FileText,
   ChevronRight,
-  ChevronLeft,
   LogOut,
   Star,
   Filter,
@@ -277,19 +276,18 @@ const App = () => {
   const { user: currentUser, loading: authLoading, logout, canShowAttendance } = useAuth();
   const role = currentUser?.role || 'staff';
 
-  const parseRouteFromUrl = useCallback(() => {
+  const readRouteFromUrl = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    const tab = params.get('tab') || 'dash';
-    const view = params.get('view') || 'performance';
-    const allowedTabs = new Set(['dash', 'tasks', 'add-task', 'assign', 'users', 'reports', 'attendance', 'wqt']);
-    const allowedDashViews = new Set(['performance', 'tasks', 'attendance']);
+    const validTabs = new Set(['dash', 'tasks', 'add-task', 'assign', 'users', 'reports', 'attendance', 'wqt']);
+    const validDashViews = new Set(['performance', 'tasks', 'attendance']);
+    const urlTab = params.get('tab') || 'dash';
+    const urlView = params.get('view') || 'performance';
     return {
-      tab: allowedTabs.has(tab) ? tab : 'dash',
-      view: allowedDashViews.has(view) ? view : 'performance',
+      tab: validTabs.has(urlTab) ? urlTab : 'dash',
+      view: validDashViews.has(urlView) ? urlView : 'performance',
     };
   }, []);
-
-  const initialRoute = parseRouteFromUrl();
+  const initialRoute = readRouteFromUrl();
   const [activeTab, setActiveTab] = useState(initialRoute.tab);
   const [dashView, setDashView] = useState(initialRoute.view); // 'performance' | 'tasks' | 'attendance'
   const [showAllRanking, setShowAllRanking] = useState(false);
@@ -306,29 +304,41 @@ const App = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Đồng bộ trạng thái tab vào URL để điều hướng bằng back/forward trình duyệt.
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const currentTab = params.get('tab') || 'dash';
-    const currentView = params.get('view') || 'performance';
-    const nextTab = activeTab || 'dash';
-    const nextView = dashView || 'performance';
-    if (currentTab === nextTab && currentView === nextView) return;
-    params.set('tab', nextTab);
-    params.set('view', nextView);
-    const nextUrl = `${window.location.pathname}?${params.toString()}${window.location.hash || ''}`;
-    window.history.pushState({}, '', nextUrl);
-  }, [activeTab, dashView]);
+  const skipPushRouteRef = useRef(false);
+  const lastRouteRef = useRef(`${window.location.pathname}${window.location.search}${window.location.hash}`);
 
+  // Đồng bộ state theo Back/Forward của trình duyệt.
   useEffect(() => {
     const onPopState = () => {
-      const route = parseRouteFromUrl();
+      const route = readRouteFromUrl();
+      skipPushRouteRef.current = true;
       setActiveTab(route.tab);
       setDashView(route.view);
+      lastRouteRef.current = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, [parseRouteFromUrl]);
+  }, [readRouteFromUrl]);
+
+  // Đồng bộ state -> URL (routing theo query param).
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', activeTab);
+    if (activeTab === 'dash') {
+      url.searchParams.set('view', dashView);
+    } else {
+      url.searchParams.delete('view');
+    }
+    const nextRoute = `${url.pathname}${url.search}${url.hash}`;
+    if (lastRouteRef.current === nextRoute) return;
+    if (skipPushRouteRef.current) {
+      skipPushRouteRef.current = false;
+      lastRouteRef.current = nextRoute;
+      return;
+    }
+    window.history.pushState({}, '', nextRoute);
+    lastRouteRef.current = nextRoute;
+  }, [activeTab, dashView]);
   const [adminAttendanceMap, setAdminAttendanceMap] = useState({});
   const [adminAttendanceLoading, setAdminAttendanceLoading] = useState(false);
   const [userTitleOverrides, setUserTitleOverrides] = useState(() => {
@@ -1748,19 +1758,25 @@ const App = () => {
                   };
                 });
 
+              const rankingSource = (ranking || []).some((r) => Number(r?.totalScore) > 0)
+                ? (ranking || [])
+                : (computedRanking || []);
+              const dashboardStatsSource = {
+                total: (dashboardTaskSource || []).length,
+                inProgress: (dashboardTaskSource || []).filter((t) => String(t.status || '').toLowerCase() === 'accepted').length,
+                completed: (dashboardTaskSource || []).filter((t) => String(t.status || '').toLowerCase() === 'completed').length,
+              };
+
               return (
                 <WorkPerformanceDashboard
                   monthLabel={dashMonth}
-                  ranking={ranking || []}
-                  dashboardStats={dashboardStats}
+                  ranking={rankingSource}
+                  dashboardStats={dashboardStatsSource.total > 0 ? dashboardStatsSource : dashboardStats}
                   staffProgress={staffProgress}
                   completionReports={completionReports}
                   onExportEvaluationForms={handleExportEvaluationForms}
                   onOpenTasks={() => setActiveTab('tasks')}
-                  onOpenAttendance={() => {
-                    setActiveTab('dash');
-                    setDashView('attendance');
-                  }}
+                  onOpenAttendance={() => setActiveTab('attendance')}
                   onOpenTaskDetail={(taskId) => setSelectedTaskId(taskId)}
                 />
               );
@@ -1860,66 +1876,115 @@ const App = () => {
                   <h3 className="text-sm font-bold text-slate-700 mb-3">Tất cả nhiệm vụ (hiển thị 1 dòng / nhiệm vụ)</h3>
                   {tasksLoading ? (
                     <div className="py-10 text-center text-slate-500">Đang tải...</div>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-slate-200 text-slate-600">
-                            <th className="text-left py-2 px-3">Tên việc</th>
-                            <th className="text-left py-2 px-3">Người thực hiện</th>
-                            <th className="text-left py-2 px-3">Mục tiêu</th>
-                            <th className="text-left py-2 px-3">Deadline</th>
-                            <th className="text-left py-2 px-3">Trạng thái</th>
-                            <th className="text-left py-2 px-3">Trọng số</th>
-                            <th className="text-left py-2 px-3">Chất lượng</th>
-                            <th className="text-left py-2 px-3">Điểm</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {filteredTasks.map((t) => {
-                            const uid = String(t.assigneeId ?? t.assignee_id ?? '');
-                            const u = (users || []).find((x) => String(x.id ?? x.userId ?? '') === uid);
-                            const assigneeName = u?.name ?? u?.fullName ?? u?.username ?? t.assigneeName ?? t.assignee_name ?? uid ?? '—';
-                            const status = String(t.status || '').toLowerCase();
-                            const statusText = status === 'accepted'
-                              ? 'Đang thực hiện'
-                              : status === 'pending_approval'
-                                ? 'Đợi duyệt'
-                                : status === 'completed'
-                                  ? 'Hoàn thành'
-                                  : status === 'paused'
-                                    ? 'Tạm dừng'
-                                    : 'Mới';
-                            const deadline = t.deadline ? String(t.deadline).slice(0, 10) : '—';
+                  ) : (() => {
+                    const norm = (s) => String(s || '').toLowerCase();
+                    const statusTabs = [
+                      { id: 'all', label: 'Tất cả' },
+                      { id: 'overdue', label: 'Quá hạn' },
+                      { id: 'accepted', label: 'Đang thực hiện' },
+                      { id: 'pending_approval', label: 'Đợi duyệt' },
+                      { id: 'paused', label: 'Tạm dừng' },
+                      { id: 'new', label: 'Nhiệm vụ mới' },
+                      { id: 'completed', label: 'Hoàn thành' },
+                    ];
+                    const isOverdueTask = (t) => {
+                      const st = norm(t.status);
+                      if (st === 'completed' || st === 'paused' || st === 'pending_approval') return false;
+                      if (!t.deadline) return false;
+                      const d = new Date(String(t.deadline).replace(' ', 'T'));
+                      return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
+                    };
+                    const taskRows = (filteredTasks || []).filter((t) => {
+                      if (dashTaskStatusTab === 'all') return true;
+                      if (dashTaskStatusTab === 'overdue') return isOverdueTask(t);
+                      return norm(t.status) === dashTaskStatusTab;
+                    });
+                    return (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2 mb-3">
+                          {statusTabs.map((s) => {
+                            const count = s.id === 'all'
+                              ? (filteredTasks || []).length
+                              : s.id === 'overdue'
+                                ? (filteredTasks || []).filter(isOverdueTask).length
+                                : (filteredTasks || []).filter((t) => norm(t.status) === s.id).length;
                             return (
-                              <tr
-                                key={t.id}
-                                className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
-                                onClick={() => setSelectedTaskId(t.id)}
-                                title="Bấm để mở chi tiết nhiệm vụ / đánh giá"
+                              <button
+                                key={s.id}
+                                type="button"
+                                onClick={() => setDashTaskStatusTab(s.id)}
+                                className={`px-3 py-1.5 rounded-full text-xs border font-semibold ${
+                                  dashTaskStatusTab === s.id ? 'bg-slate-900 text-white border-slate-900' : 'bg-white text-slate-700 border-slate-200'
+                                }`}
                               >
-                                <td className="py-2 px-3 font-semibold text-slate-800 max-w-[240px] truncate">{t.title || '—'}</td>
-                                <td className="py-2 px-3">{assigneeName}</td>
-                                <td className="py-2 px-3 max-w-[260px] truncate">{t.objective || '—'}</td>
-                                <td className="py-2 px-3">{deadline}</td>
-                                <td className="py-2 px-3">{statusText}</td>
-                                <td className="py-2 px-3">{weightLabel(t.weight)}</td>
-                                <td className="py-2 px-3">{qualityLabel(t.quality)}</td>
-                                <td className="py-2 px-3 font-semibold">{taskScore(t)}</td>
-                              </tr>
+                                {s.label} ({count})
+                              </button>
                             );
                           })}
-                          {filteredTasks.length === 0 && (
-                            <tr>
-                              <td colSpan={8} className="py-8 text-center text-slate-500">
-                                Không có nhiệm vụ.
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                        </div>
+                        <div className="overflow-x-auto">
+                          <table className="w-full text-sm">
+                            <thead>
+                              <tr className="border-b border-slate-200 text-slate-600">
+                                <th className="text-left py-2 px-3">Ngày giao</th>
+                                <th className="text-left py-2 px-3">Tên công việc</th>
+                                <th className="text-left py-2 px-3">Mục tiêu</th>
+                                <th className="text-left py-2 px-3">Nội dung cụ thể</th>
+                                <th className="text-left py-2 px-3">Deadline</th>
+                                <th className="text-left py-2 px-3">Ngày hoàn thành</th>
+                                <th className="text-left py-2 px-3">Chủ trì</th>
+                                <th className="text-left py-2 px-3">Tiến độ</th>
+                                <th className="text-left py-2 px-3">Trọng số CV</th>
+                                <th className="text-left py-2 px-3">Chất lượng CV</th>
+                                <th className="text-left py-2 px-3">Trạng thái CV</th>
+                                <th className="text-left py-2 px-3">Điểm đạt được</th>
+                                <th className="text-left py-2 px-3">Đánh giá của chỉ huy</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {taskRows.map((t) => {
+                                const uid = String(t.assigneeId ?? t.assignee_id ?? '');
+                                const u = (users || []).find((x) => String(x.id ?? x.userId ?? '') === uid);
+                                const assigneeName = u?.name ?? u?.fullName ?? u?.username ?? t.assigneeName ?? t.assignee_name ?? uid ?? '—';
+                                const st = norm(t.status);
+                                const progressText = st === 'completed' ? 'Hoàn thành' : st === 'pending_approval' ? 'Đợi duyệt' : st === 'paused' ? 'Tạm dừng' : st === 'accepted' ? 'Đang thực hiện' : 'Mới';
+                                const doneAt = String(t.completedAt || t.completed_at || t.submittedAt || t.submitted_at || '').slice(0, 10) || '—';
+                                return (
+                                  <tr
+                                    key={t.id}
+                                    className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                    onClick={() => setSelectedTaskId(t.id)}
+                                    title="Bấm để mở chi tiết nhiệm vụ / đánh giá"
+                                  >
+                                    <td className="py-2 px-3">{String(t.createdAt || t.created_at || '').slice(0, 10) || '—'}</td>
+                                    <td className="py-2 px-3 font-semibold text-slate-800 max-w-[240px] truncate">{t.title || '—'}</td>
+                                    <td className="py-2 px-3 max-w-[200px] truncate">{t.objective || '—'}</td>
+                                    <td className="py-2 px-3 max-w-[240px] truncate">{t.content || '—'}</td>
+                                    <td className="py-2 px-3">{String(t.deadline || '').slice(0, 10) || '—'}</td>
+                                    <td className="py-2 px-3">{doneAt}</td>
+                                    <td className="py-2 px-3">{assigneeName}</td>
+                                    <td className="py-2 px-3">{progressText}</td>
+                                    <td className="py-2 px-3">{weightLabel(t.weight)}</td>
+                                    <td className="py-2 px-3">{qualityLabel(t.quality)}</td>
+                                    <td className="py-2 px-3">{statusCVLabel(t)}</td>
+                                    <td className="py-2 px-3 font-semibold">{taskScore(t)}</td>
+                                    <td className="py-2 px-3 max-w-[220px] truncate">{t.leaderComment || t.lastRejectReason || '—'}</td>
+                                  </tr>
+                                );
+                              })}
+                              {taskRows.length === 0 && (
+                                <tr>
+                                  <td colSpan={13} className="py-8 text-center text-slate-500">
+                                    Không có nhiệm vụ.
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                    );
+                  })()}
                 </div>
               </>
             )}

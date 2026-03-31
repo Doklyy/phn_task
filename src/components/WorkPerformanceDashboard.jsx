@@ -83,7 +83,7 @@ export function WorkPerformanceDashboard({
               className="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-2xl text-[10px] md:text-xs font-black transition-all hover:scale-105 shadow-sm uppercase tracking-tight"
             >
               <Target size={14} />
-              Tab Nhiệm vụ
+              Nhiệm vụ
             </button>
           )}
           {onOpenAttendance && (
@@ -93,7 +93,7 @@ export function WorkPerformanceDashboard({
               className="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-2xl text-[10px] md:text-xs font-black transition-all hover:scale-105 shadow-sm uppercase tracking-tight"
             >
               <FileText size={14} />
-              Tab Chuyên cần
+              Chuyên cần
             </button>
           )}
           {onExportEvaluationForms && (
