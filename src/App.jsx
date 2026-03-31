@@ -308,6 +308,21 @@ const App = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [dashboardProgressDate, setDashboardProgressDate] = useState('');
+  useEffect(() => {
+    const prefix = String(dashMonth || '').slice(0, 7);
+    const options = [...new Set(
+      (allReportsList || [])
+        .map((r) => String(r.date || r.reportDate || '').slice(0, 10))
+        .filter((d) => d && (!prefix || d.startsWith(prefix))),
+    )].sort((a, b) => b.localeCompare(a));
+    if (!options.length) {
+      if (dashboardProgressDate) setDashboardProgressDate('');
+      return;
+    }
+    if (!dashboardProgressDate || !options.includes(dashboardProgressDate)) {
+      setDashboardProgressDate(options[0]);
+    }
+  }, [allReportsList, dashMonth, dashboardProgressDate]);
 
   const skipPushRouteRef = useRef(false);
   const lastRouteRef = useRef(`${window.location.pathname}${window.location.search}${window.location.hash}`);
@@ -1693,6 +1708,13 @@ const App = () => {
                 (dashboardTaskSource || []).map((t) => [String(t.id), t]),
               );
               const monthPrefix = String(dashMonth || '').slice(0, 7);
+              const progressDateOptions = [...new Set(
+                (allReportsList || [])
+                  .map((r) => String(r.date || r.reportDate || '').slice(0, 10))
+                  .filter((d) => d && (!monthPrefix || d.startsWith(monthPrefix))),
+              )].sort((a, b) => b.localeCompare(a));
+              const selectedProgressDate = dashboardProgressDate || progressDateOptions[0] || '';
+
               const progressReportRows = (allReportsList || [])
                 .map((r) => {
                   const reportDate = String(r.date || r.reportDate || '').slice(0, 10);
@@ -1702,50 +1724,75 @@ const App = () => {
                   return { r, reportDate, taskId, userId, task };
                 })
                 .filter((x) => x.taskId && x.userId && x.reportDate && (!monthPrefix || x.reportDate.startsWith(monthPrefix)))
-                .filter((x) => !dashboardProgressDate || x.reportDate === dashboardProgressDate)
+                .filter((x) => !selectedProgressDate || x.reportDate === selectedProgressDate)
                 .filter((x) => {
                   const status = String(x.task?.status || '').toLowerCase();
                   return status !== 'completed' && status !== 'pending_approval';
                 })
                 .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
 
-              const progressDateOptions = [...new Set(
-                (allReportsList || [])
-                  .map((r) => String(r.date || r.reportDate || '').slice(0, 10))
-                  .filter((d) => d && (!monthPrefix || d.startsWith(monthPrefix))),
-              )].sort((a, b) => b.localeCompare(a));
-
-              const seenProgress = new Set();
-              const staffProgress = progressReportRows
-                .filter((x) => {
-                  const key = `${x.taskId}-${x.userId}`;
-                  if (seenProgress.has(key)) return false;
-                  seenProgress.add(key);
-                  return true;
-                })
-                .map((x) => {
-                  const t = x.task || {};
-                  const assigneeId = x.userId;
-                  const name = (nameByUserId[assigneeId] ?? t.assigneeName ?? t.assignee_name ?? assigneeId) || '—';
-                  const status = String(t.status || '').toLowerCase();
-                  const isOverdue =
-                    t.deadline &&
-                    new Date(String(t.deadline).replace(' ', 'T')) < new Date() &&
-                    status !== 'completed' &&
-                    status !== 'pending_approval' &&
-                    status !== 'paused';
+              const reportedTaskIdsByUser = {};
+              progressReportRows.forEach((x) => {
+                const uid = String(x.userId);
+                if (!reportedTaskIdsByUser[uid]) reportedTaskIdsByUser[uid] = new Set();
+                reportedTaskIdsByUser[uid].add(String(x.taskId));
+              });
+              const requiredTaskIdsByUser = {};
+              (dashboardTaskSource || []).forEach((t) => {
+                const uid = String(t.assigneeId ?? t.assignee_id ?? '');
+                if (!uid) return;
+                if (!selectedProgressDate || !taskRequiresProgressReportOnDateStr(t, selectedProgressDate)) return;
+                if (!requiredTaskIdsByUser[uid]) requiredTaskIdsByUser[uid] = new Set();
+                requiredTaskIdsByUser[uid].add(String(t.id));
+              });
+              const staffProgress = (baseList || [])
+                .filter((u) => String(u.role || '').toLowerCase() !== 'admin')
+                .map((u) => {
+                  const uid = String(u.id ?? u.userId ?? '');
+                  const name = nameByUserId[uid] || uid || '—';
+                  const requiredSet = requiredTaskIdsByUser[uid] || new Set();
+                  const reportedSetRaw = reportedTaskIdsByUser[uid] || new Set();
+                  const requiredList = [...requiredSet];
+                  const reportedCount = requiredList.length
+                    ? requiredList.filter((tid) => reportedSetRaw.has(tid)).length
+                    : reportedSetRaw.size;
+                  const progress = requiredList.length ? Math.round((reportedCount / requiredList.length) * 100) : (reportedCount > 0 ? 100 : 0);
+                  const firstTaskId = (reportedSetRaw.size ? [...reportedSetRaw][0] : requiredList[0]) || '';
+                  const firstTask = firstTaskId ? dashboardTaskMap.get(String(firstTaskId)) : null;
                   return {
-                    id: `p-${x.taskId}-${x.userId}`,
-                    taskId: x.taskId,
+                    id: `p-user-${uid}`,
+                    taskId: firstTaskId || '',
                     initial: name.split(' ').pop()?.[0] || '?',
                     name,
-                    code: assigneeId,
-                    taskTitle: t.title || x.r?.taskTitle || x.r?.task_name || '—',
-                    progress: isOverdue ? 60 : 80,
-                    statusLabel: isOverdue ? 'Chậm tiến độ' : 'Đang cập nhật',
-                    statusBadge: isOverdue ? 'danger' : 'info',
-                    lastUpdate: x.reportDate,
+                    code: uid,
+                    taskTitle: requiredList.length
+                      ? `Đã báo cáo ${reportedCount}/${requiredList.length} nhiệm vụ`
+                      : (reportedCount > 0 ? `Có ${reportedCount} báo cáo trong ngày` : 'Không có nhiệm vụ phải báo cáo'),
+                    progress,
+                    statusLabel: requiredList.length === 0
+                      ? 'Không yêu cầu'
+                      : reportedCount >= requiredList.length
+                        ? 'Đã báo cáo'
+                        : 'Chưa báo cáo',
+                    statusBadge: requiredList.length === 0
+                      ? 'info'
+                      : reportedCount >= requiredList.length
+                        ? 'success'
+                        : 'danger',
+                    lastUpdate: selectedProgressDate || '',
+                    _sortMissing: requiredList.length - reportedCount,
+                    _sortRequired: requiredList.length,
+                    _sortOverdue: firstTask && String(firstTask.status || '').toLowerCase() === 'accepted' && firstTask.deadline
+                      && new Date(String(firstTask.deadline).replace(' ', 'T')).getTime() < Date.now()
+                      ? 1
+                      : 0,
                   };
+                })
+                .sort((a, b) => {
+                  if (a._sortMissing !== b._sortMissing) return b._sortMissing - a._sortMissing;
+                  if (a._sortOverdue !== b._sortOverdue) return b._sortOverdue - a._sortOverdue;
+                  if (a._sortRequired !== b._sortRequired) return b._sortRequired - a._sortRequired;
+                  return String(a.name).localeCompare(String(b.name), 'vi');
                 });
 
               const completionReports = (dashboardTaskSource || [])
@@ -1795,7 +1842,7 @@ const App = () => {
                   onOpenTasks={() => setActiveTab('tasks')}
                   onOpenAttendance={() => setActiveTab('attendance')}
                   onOpenTaskDetail={(taskId) => setSelectedTaskId(taskId)}
-                  progressDate={dashboardProgressDate}
+                  progressDate={selectedProgressDate}
                   progressDateOptions={progressDateOptions}
                   onProgressDateChange={setDashboardProgressDate}
                 />
@@ -1924,6 +1971,8 @@ const App = () => {
                     };
                     const taskRows = (filteredTasks || [])
                       .filter((t) => {
+                        // Tab quá hạn luôn ưu tiên nhìn toàn bộ, không bó theo tháng.
+                        if (dashTaskStatusTab === 'overdue') return true;
                         if (!taskMonthFilter) return true;
                         const d = String(
                           t.deadline || t.createdAt || t.created_at || t.completedAt || t.completed_at || t.submittedAt || t.submitted_at || '',
@@ -1931,10 +1980,21 @@ const App = () => {
                         return d === taskMonthFilter;
                       })
                       .filter((t) => {
-                      if (dashTaskStatusTab === 'all') return true;
-                      if (dashTaskStatusTab === 'overdue') return isOverdueTask(t);
-                      return norm(t.status) === dashTaskStatusTab;
-                    });
+                        if (dashTaskStatusTab === 'all') return true;
+                        if (dashTaskStatusTab === 'overdue') return isOverdueTask(t);
+                        return norm(t.status) === dashTaskStatusTab;
+                      })
+                      .sort((a, b) => {
+                        const aOver = isOverdueTask(a) ? 1 : 0;
+                        const bOver = isOverdueTask(b) ? 1 : 0;
+                        if (aOver !== bOver) return bOver - aOver; // Quá hạn lên đầu
+                        const aNew = norm(a.status) === 'new' ? 1 : 0;
+                        const bNew = norm(b.status) === 'new' ? 1 : 0;
+                        if (aNew !== bNew) return bNew - aNew; // NEW ưu tiên sau nhóm quá hạn
+                        const ad = String(a.deadline || a.createdAt || a.created_at || '');
+                        const bd = String(b.deadline || b.createdAt || b.created_at || '');
+                        return bd.localeCompare(ad);
+                      });
                     return (
                       <>
                         <div className="flex flex-wrap items-center gap-2 mb-3">
@@ -1983,16 +2043,29 @@ const App = () => {
                                 const u = (users || []).find((x) => String(x.id ?? x.userId ?? '') === uid);
                                 const assigneeName = u?.name ?? u?.fullName ?? u?.username ?? t.assigneeName ?? t.assignee_name ?? uid ?? '—';
                                 const st = norm(t.status);
-                                const progressText = st === 'completed' ? 'Hoàn thành' : st === 'pending_approval' ? 'Đợi duyệt' : st === 'paused' ? 'Tạm dừng' : st === 'accepted' ? 'Đang thực hiện' : 'Mới';
-                                const progressClass = st === 'completed'
-                                  ? 'bg-emerald-100 text-emerald-700'
-                                  : st === 'pending_approval'
-                                    ? 'bg-violet-100 text-violet-700'
-                                    : st === 'paused'
-                                      ? 'bg-slate-100 text-slate-700'
-                                      : st === 'accepted'
-                                        ? 'bg-amber-100 text-amber-700'
-                                        : 'bg-blue-100 text-blue-700';
+                                const isOver = isOverdueTask(t);
+                                const progressText = isOver
+                                  ? 'Quá hạn'
+                                  : st === 'completed'
+                                    ? 'Hoàn thành'
+                                    : st === 'pending_approval'
+                                      ? 'Đợi duyệt'
+                                      : st === 'paused'
+                                        ? 'Tạm dừng'
+                                        : st === 'accepted'
+                                          ? 'Đang thực hiện'
+                                          : 'Mới';
+                                const progressClass = isOver
+                                  ? 'bg-red-100 text-red-700'
+                                  : st === 'completed'
+                                    ? 'bg-emerald-100 text-emerald-700'
+                                    : st === 'pending_approval'
+                                      ? 'bg-violet-100 text-violet-700'
+                                      : st === 'paused'
+                                        ? 'bg-slate-100 text-slate-700'
+                                        : st === 'accepted'
+                                          ? 'bg-amber-100 text-amber-700'
+                                          : 'bg-blue-100 text-blue-700';
                                 const qText = String(qualityLabel(t.quality) || '').toLowerCase();
                                 const qualityClass = qText.includes('xuất')
                                   ? 'bg-emerald-100 text-emerald-700'

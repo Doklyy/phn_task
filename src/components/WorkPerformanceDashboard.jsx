@@ -73,9 +73,6 @@ export function WorkPerformanceDashboard({
           <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight uppercase italic">
             Work &amp; Performance
           </h1>
-          <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest italic">
-            Hệ thống báo cáo tiến độ và tổng hợp kết quả — tháng {monthLabel || '—'}
-          </p>
         </div>
         <div className="flex gap-2 items-center flex-wrap">
           {onMonthChange && (
@@ -333,16 +330,25 @@ export function WorkPerformanceDashboard({
             </div>
             <div className="hidden sm:flex gap-4 text-[9px] font-black uppercase items-center">
               {feedTab === 'progress' && onProgressDateChange && (
-                <select
-                  value={progressDate}
-                  onChange={(e) => onProgressDateChange(e.target.value)}
-                  className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-[10px] text-white"
-                >
-                  <option value="">Tất cả ngày</option>
-                  {progressDateOptions.map((d) => (
-                    <option key={d} value={d}>{d}</option>
-                  ))}
-                </select>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="date"
+                    value={progressDate}
+                    onChange={(e) => onProgressDateChange(e.target.value)}
+                    className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-[10px] text-white"
+                    min={progressDateOptions.length ? progressDateOptions[progressDateOptions.length - 1] : undefined}
+                    max={progressDateOptions.length ? progressDateOptions[0] : undefined}
+                  />
+                  {!!progressDate && (
+                    <button
+                      type="button"
+                      onClick={() => onProgressDateChange('')}
+                      className="px-2 py-1 rounded-md bg-white/10 border border-white/20 text-[10px]"
+                    >
+                      All
+                    </button>
+                  )}
+                </div>
               )}
               <div className="text-center px-3 border-r border-white/10">
                 <span className="block text-base font-black">
