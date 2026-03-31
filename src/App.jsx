@@ -1683,44 +1683,57 @@ const App = () => {
                 ? allTasksForDashboard
                 : (tasks || []);
 
-              const staffProgress = (dashboardTaskSource || [])
-                .filter((t) => {
-                  const status = String(t.status || '').toLowerCase();
-                  return status === 'accepted' || status === 'paused' || status === 'new';
+              const dashboardTaskMap = new Map(
+                (dashboardTaskSource || []).map((t) => [String(t.id), t]),
+              );
+              const monthPrefix = String(dashMonth || '').slice(0, 7);
+              const progressReportRows = (allReportsList || [])
+                .map((r) => {
+                  const reportDate = String(r.date || r.reportDate || '').slice(0, 10);
+                  const taskId = String(r.taskId ?? r.task_id ?? '');
+                  const userId = String(r.userId ?? r.user_id ?? '');
+                  const task = dashboardTaskMap.get(taskId);
+                  return { r, reportDate, taskId, userId, task };
                 })
-                .map((t) => {
-                const assigneeId = String(t.assigneeId ?? t.assignee_id ?? '');
-                const name = (nameByUserId[assigneeId] ?? t.assigneeName ?? t.assignee_name ?? assigneeId) || '—';
-                const status = (t.status || '').toLowerCase();
-                const isOverdue =
-                  t.deadline &&
-                  new Date(String(t.deadline).replace(' ', 'T')) < new Date() &&
-                  status !== 'completed' &&
-                  status !== 'pending_approval' &&
-                  status !== 'paused';
+                .filter((x) => x.taskId && x.userId && x.reportDate && (!monthPrefix || x.reportDate.startsWith(monthPrefix)))
+                .filter((x) => {
+                  const status = String(x.task?.status || '').toLowerCase();
+                  return status !== 'completed' && status !== 'pending_approval';
+                })
+                .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
 
-                let statusLabel = status === 'new' ? 'Mới giao' : status === 'paused' ? 'Tạm dừng' : 'Đang thực hiện';
-                let statusBadge = 'info';
-                if (isOverdue) {
-                  statusLabel = 'Chậm tiến độ';
-                  statusBadge = 'danger';
-                } else if (status === 'pending_approval') {
-                  statusLabel = 'Đợi duyệt';
-                  statusBadge = 'info';
-                }
-
-                return {
-                  id: String(t.id),
-                  initial: name.split(' ').pop()?.[0] || '?',
-                  name,
-                  code: assigneeId,
-                  taskTitle: t.title,
-                  progress: isOverdue ? 60 : 80,
-                  statusLabel,
-                  statusBadge,
-                  lastUpdate: String(t.updatedAt || t.updated_at || '').slice(0, 10),
-                };
-              });
+              const seenProgress = new Set();
+              const staffProgress = progressReportRows
+                .filter((x) => {
+                  const key = `${x.taskId}-${x.userId}`;
+                  if (seenProgress.has(key)) return false;
+                  seenProgress.add(key);
+                  return true;
+                })
+                .map((x) => {
+                  const t = x.task || {};
+                  const assigneeId = x.userId;
+                  const name = (nameByUserId[assigneeId] ?? t.assigneeName ?? t.assignee_name ?? assigneeId) || '—';
+                  const status = String(t.status || '').toLowerCase();
+                  const isOverdue =
+                    t.deadline &&
+                    new Date(String(t.deadline).replace(' ', 'T')) < new Date() &&
+                    status !== 'completed' &&
+                    status !== 'pending_approval' &&
+                    status !== 'paused';
+                  return {
+                    id: `p-${x.taskId}-${x.userId}`,
+                    taskId: x.taskId,
+                    initial: name.split(' ').pop()?.[0] || '?',
+                    name,
+                    code: assigneeId,
+                    taskTitle: t.title || x.r?.taskTitle || x.r?.task_name || '—',
+                    progress: isOverdue ? 60 : 80,
+                    statusLabel: isOverdue ? 'Chậm tiến độ' : 'Đang cập nhật',
+                    statusBadge: isOverdue ? 'danger' : 'info',
+                    lastUpdate: x.reportDate,
+                  };
+                });
 
               const completionReports = (dashboardTaskSource || [])
                 .filter((t) => {
@@ -1736,6 +1749,7 @@ const App = () => {
                   ).slice(0, 10);
                   return {
                     id: `c-${String(t.id)}`,
+                    taskId: String(t.id),
                     name,
                     code: assigneeId,
                     taskTitle: t.title || '—',
@@ -1755,7 +1769,11 @@ const App = () => {
                   completionReports={completionReports}
                   onExportEvaluationForms={handleExportEvaluationForms}
                   onOpenTasks={() => setActiveTab('tasks')}
-                  onOpenAttendance={() => setActiveTab('reports')}
+                  onOpenAttendance={() => {
+                    setActiveTab('dash');
+                    setDashView('attendance');
+                  }}
+                  onOpenTaskDetail={(taskId) => setSelectedTaskId(taskId)}
                 />
               );
             })()}
@@ -1851,22 +1869,68 @@ const App = () => {
                 </div>
 
                 <div className="bg-white border border-slate-200 rounded-2xl p-4">
-                  <h3 className="text-sm font-bold text-slate-700 mb-3">Nhiệm vụ theo trạng thái (Trello)</h3>
+                  <h3 className="text-sm font-bold text-slate-700 mb-3">Tất cả nhiệm vụ (hiển thị 1 dòng / nhiệm vụ)</h3>
                   {tasksLoading ? (
                     <div className="py-10 text-center text-slate-500">Đang tải...</div>
                   ) : (
-                    <TasksTrelloBoard
-                      tasks={filteredTasks}
-                      onTaskClick={(id) => setSelectedTaskId(id)}
-                      taskIdsWithProgressReport={taskIdsWithProgressReport}
-                      scrollToColumnId={
-                        listFilter === 'paused'
-                          ? 'paused'
-                          : listFilter === 'pending_approval'
-                            ? 'pending_approval'
-                            : undefined
-                      }
-                    />
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-slate-200 text-slate-600">
+                            <th className="text-left py-2 px-3">Tên việc</th>
+                            <th className="text-left py-2 px-3">Người thực hiện</th>
+                            <th className="text-left py-2 px-3">Mục tiêu</th>
+                            <th className="text-left py-2 px-3">Deadline</th>
+                            <th className="text-left py-2 px-3">Trạng thái</th>
+                            <th className="text-left py-2 px-3">Trọng số</th>
+                            <th className="text-left py-2 px-3">Chất lượng</th>
+                            <th className="text-left py-2 px-3">Điểm</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {filteredTasks.map((t) => {
+                            const uid = String(t.assigneeId ?? t.assignee_id ?? '');
+                            const u = (users || []).find((x) => String(x.id ?? x.userId ?? '') === uid);
+                            const assigneeName = u?.name ?? u?.fullName ?? u?.username ?? t.assigneeName ?? t.assignee_name ?? uid ?? '—';
+                            const status = String(t.status || '').toLowerCase();
+                            const statusText = status === 'accepted'
+                              ? 'Đang thực hiện'
+                              : status === 'pending_approval'
+                                ? 'Đợi duyệt'
+                                : status === 'completed'
+                                  ? 'Hoàn thành'
+                                  : status === 'paused'
+                                    ? 'Tạm dừng'
+                                    : 'Mới';
+                            const deadline = t.deadline ? String(t.deadline).slice(0, 10) : '—';
+                            return (
+                              <tr
+                                key={t.id}
+                                className="border-b border-slate-100 hover:bg-slate-50 cursor-pointer"
+                                onClick={() => setSelectedTaskId(t.id)}
+                                title="Bấm để mở chi tiết nhiệm vụ / đánh giá"
+                              >
+                                <td className="py-2 px-3 font-semibold text-slate-800 max-w-[240px] truncate">{t.title || '—'}</td>
+                                <td className="py-2 px-3">{assigneeName}</td>
+                                <td className="py-2 px-3 max-w-[260px] truncate">{t.objective || '—'}</td>
+                                <td className="py-2 px-3">{deadline}</td>
+                                <td className="py-2 px-3">{statusText}</td>
+                                <td className="py-2 px-3">{weightLabel(t.weight)}</td>
+                                <td className="py-2 px-3">{qualityLabel(t.quality)}</td>
+                                <td className="py-2 px-3 font-semibold">{taskScore(t)}</td>
+                              </tr>
+                            );
+                          })}
+                          {filteredTasks.length === 0 && (
+                            <tr>
+                              <td colSpan={8} className="py-8 text-center text-slate-500">
+                                Không có nhiệm vụ.
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
                 </div>
               </>

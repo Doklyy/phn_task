@@ -23,6 +23,7 @@ export function WorkPerformanceDashboard({
   onExportEvaluationForms,
   onOpenTasks,
   onOpenAttendance,
+  onOpenTaskDetail,
 }) {
   const [feedTab, setFeedTab] = React.useState('progress');
   const [showFullRanking, setShowFullRanking] = React.useState(false);
@@ -63,7 +64,7 @@ export function WorkPerformanceDashboard({
       {/* Header row */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-4 mt-1">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-[10px] font-black text-[${VIETTEL_RED}] uppercase tracking-[0.3em]">
+          <div className="flex items-center gap-2 text-[10px] font-black text-[#D4384E] uppercase tracking-[0.3em]">
             <Activity size={12} />
             <span>Workflow Tracking</span>
           </div>
@@ -111,7 +112,7 @@ export function WorkPerformanceDashboard({
       {/* Top stats + vinh danh */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {/* Tổng quan chỉ số */}
-        <div className="lg:col-span-2 bg-[${VIETTEL_RED}] rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl shadow-[${VIETTEL_RED}]/20 flex flex-col md:flex-row gap-6">
+        <div className="lg:col-span-2 bg-[#D4384E] rounded-3xl p-6 md:p-8 text-white relative overflow-hidden shadow-xl flex flex-col md:flex-row gap-6">
           <div className="flex-1 z-10 space-y-6">
             <div>
               <h3 className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.3em] text-white/70 mb-1">
@@ -168,7 +169,7 @@ export function WorkPerformanceDashboard({
         </div>
 
         {/* Bảng vinh danh */}
-        <div className="bg-white p-6 md:p-7 rounded-3xl border border-slate-200 shadow-sm flex flex-col relative border-t-8 border-t-[${GOLD}]">
+        <div className="bg-white p-6 md:p-7 rounded-3xl border border-slate-200 shadow-sm flex flex-col relative border-t-8 border-t-[#FFB800]">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h3 className="text-[9px] font-black text-slate-900 uppercase tracking-[0.2em]">
@@ -178,7 +179,7 @@ export function WorkPerformanceDashboard({
                 Tổng điểm tích lũy tháng {monthLabel || '—'}
               </p>
             </div>
-            <Trophy size={22} className="text-[${GOLD}]" />
+            <Trophy size={22} className="text-[#FFB800]" />
           </div>
 
           <div className="space-y-5 flex-1">
@@ -200,7 +201,7 @@ export function WorkPerformanceDashboard({
                     {idx + 1}
                   </div>
                   <div>
-                    <span className="font-black text-slate-800 text-sm block leading-none mb-1 tracking-tight group-hover:text-[${VIETTEL_RED}] transition-colors">
+                    <span className="font-black text-slate-800 text-sm block leading-none mb-1 tracking-tight group-hover:text-[#D4384E] transition-colors">
                       {user.name ?? user.userName ?? '—'}
                     </span>
                     <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest italic opacity-70">
@@ -228,7 +229,7 @@ export function WorkPerformanceDashboard({
           <button
             type="button"
             onClick={() => setShowFullRanking((v) => !v)}
-            className="mt-6 w-full py-2.5 bg-slate-50 text-[9px] font-black uppercase text-slate-400 rounded-xl hover:bg-[${VIETTEL_RED}]/5 hover:text-[${VIETTEL_RED}] transition-all tracking-widest"
+            className="mt-6 w-full py-2.5 bg-slate-50 text-[9px] font-black uppercase text-slate-400 rounded-xl hover:bg-red-50 hover:text-[#D4384E] transition-all tracking-widest"
           >
             {showFullRanking ? 'Ẩn bảng xếp hạng đầy đủ' : 'Xem bảng xếp hạng đầy đủ'}
           </button>
@@ -305,7 +306,7 @@ export function WorkPerformanceDashboard({
           {/* Header strip */}
           <div className="flex justify-between items-center bg-slate-900 rounded-2xl px-4 py-4 text-white mb-6">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-[${VIETTEL_RED}] rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-[#D4384E] rounded-xl flex items-center justify-center shadow-lg">
                 <ListChecks size={22} />
               </div>
               <div>
@@ -345,11 +346,14 @@ export function WorkPerformanceDashboard({
                 {(feedTab === 'progress' ? staffProgress : completionReports).map((row) => (
                   <tr
                     key={row.id}
-                    className="bg-slate-50 hover:bg-white hover:shadow-md transition-all group cursor-pointer border border-transparent hover:border-[${VIETTEL_RED}]/10"
+                    className="bg-slate-50 hover:bg-white hover:shadow-md transition-all group cursor-pointer border border-transparent hover:border-red-200"
+                    onClick={() => {
+                      if (onOpenTaskDetail && row.taskId != null) onOpenTaskDetail(row.taskId);
+                    }}
                   >
                     <td className="px-4 py-3 rounded-l-2xl">
                       <div className="flex items-center gap-3">
-                        <div className="w-9 h-9 rounded-xl bg-slate-200 flex items-center justify-center font-black text-slate-500 group-hover:bg-[${VIETTEL_RED}] group-hover:text-white transition-colors uppercase">
+                        <div className="w-9 h-9 rounded-xl bg-slate-200 flex items-center justify-center font-black text-slate-500 group-hover:bg-[#D4384E] group-hover:text-white transition-colors uppercase">
                           {row.initial || row.name?.split(' ').pop()?.[0] || '?'}
                         </div>
                         <div>
@@ -371,7 +375,7 @@ export function WorkPerformanceDashboard({
                       {feedTab === 'progress' ? (
                         <div className="space-y-1.5">
                           <div className="flex justify-between text-[9px] font-black">
-                            <span className="text-[${VIETTEL_RED}] italic">
+                            <span className="text-[#D4384E] italic">
                               {row.progress != null ? `${row.progress}%` : '—'}
                             </span>
                           </div>
@@ -380,7 +384,7 @@ export function WorkPerformanceDashboard({
                               className={`h-full rounded-full ${
                                 (row.progress || 0) < 50
                                   ? 'bg-amber-400'
-                                  : 'bg-[${VIETTEL_RED}]'
+                                  : 'bg-[#D4384E]'
                               }`}
                               style={{
                                 width: `${Math.min(
