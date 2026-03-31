@@ -96,7 +96,6 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
 
   /** 'grid' = bảng theo tháng; 'daily' = tiến độ theo ngày (tách riêng) */
   const [boardSection, setBoardSection] = React.useState('grid');
-  const [showFullMonth, setShowFullMonth] = React.useState(false);
   const rankingByUserId = React.useMemo(() => {
     const m = {};
     (ranking || []).forEach((r) => {
@@ -167,10 +166,6 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
   const focusDateStr = focusMonth && dashboardSummary?.focusDay
     ? `${focusMonth}-${String(dashboardSummary.focusDay).padStart(2, '0')}`
     : '';
-  const visibleDays = React.useMemo(
-    () => showFullMonth ? daysList : daysList.filter((d) => d <= dashboardSummary.focusDay),
-    [showFullMonth, daysList, dashboardSummary.focusDay],
-  );
 
   const detailReports = React.useMemo(() => {
     if (!reportDetailModal?.userId || !focusDateStr) return [];
@@ -248,15 +243,6 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             Tiến độ theo ngày
           </button>
           </div>
-          {boardSection === 'grid' && (
-            <button
-              type="button"
-              onClick={() => setShowFullMonth((v) => !v)}
-              className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              {showFullMonth ? 'Chỉ xem đến ngày theo dõi' : 'Xem cả tháng'}
-            </button>
-          )}
         </div>
         <p className="text-xs text-slate-500 mt-2">
           {boardSection === 'grid'
@@ -397,7 +383,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                   <th className="sticky left-[400px] z-30 w-[100px] min-w-[100px] max-w-[100px] p-4 font-semibold text-center text-emerald-700 bg-slate-50 border-b border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                     Tiến độ
                   </th>
-                  {visibleDays.map((day) => (
+                  {daysList.map((day) => (
                     <th key={day} className="p-2 font-medium text-center text-slate-500 border-b border-slate-200 w-[80px] min-w-[80px] bg-white">
                       {day}
                     </th>
@@ -465,7 +451,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                           )}
                         </div>
                       </td>
-                      {visibleDays.map((day) => (
+                      {daysList.map((day) => (
                         <td key={day} className="p-2 border-b border-slate-100 w-[80px] min-w-[80px] bg-inherit group-hover:bg-slate-100/60">
                           <div className="w-full h-full p-0.5">
                             {renderCell(daysObj[String(day)], day, () => {

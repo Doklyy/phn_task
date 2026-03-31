@@ -396,9 +396,7 @@ export function WorkPerformanceDashboard({
                           <span className="block font-black text-slate-900 text-sm tracking-tight">
                             {row.name}
                           </span>
-                          <span className="text-[9px] text-slate-400 font-black">
-                            {row.code || ''}
-                          </span>
+                          <span className="text-[9px] text-slate-400 font-black">&nbsp;</span>
                         </div>
                       </div>
                     </td>
@@ -482,7 +480,7 @@ export function WorkPerformanceDashboard({
             <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
               <div>
                 <p className="text-xs text-slate-500">Chi tiết báo cáo tiến độ</p>
-                <p className="font-bold text-slate-900">{progressDetailRow.name} ({progressDetailRow.code || '—'})</p>
+                <p className="font-bold text-slate-900">{progressDetailRow.name}</p>
               </div>
               <button
                 type="button"
