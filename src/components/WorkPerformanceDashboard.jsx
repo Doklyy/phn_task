@@ -65,6 +65,12 @@ export function WorkPerformanceDashboard({
     dashboardStats?.total != null ? dashboardStats.total : totalInProgress + totalCompleted || 1;
   const progressPct =
     totalTasks > 0 ? Math.round((totalCompleted / totalTasks) * 100) : 0;
+  const avgAttendance = ranking.length > 0
+    ? formatScore(ranking.reduce((sum, r) => sum + (Number(r.attendanceScore) || 0), 0) / ranking.length)
+    : '0.0';
+  const avgQuality = ranking.length > 0
+    ? formatScore(ranking.reduce((sum, r) => sum + (Number(r.qualityScore) || 0), 0) / ranking.length)
+    : '0.0';
 
   return (
     <main className="p-4 md:p-6 max-w-7xl mx-auto space-y-6">
@@ -141,20 +147,20 @@ export function WorkPerformanceDashboard({
             <div className="grid grid-cols-2 gap-3">
               <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md">
                 <span className="block text-[9px] font-black uppercase text-white/60 mb-1">
-                  Đang thực hiện
+                  Chuyên cần
                 </span>
                 <span className="text-xl font-black italic">
-                  {totalInProgress}{' '}
-                  <span className="text-xs font-bold text-white/50">việc</span>
+                  {avgAttendance}{' '}
+                  <span className="text-xs font-bold text-white/50">/100đ</span>
                 </span>
               </div>
               <div className="bg-white/10 p-3 rounded-2xl backdrop-blur-md">
                 <span className="block text-[9px] font-black uppercase text-white/60 mb-1">
-                  Đã hoàn thành
+                  Chất lượng công việc
                 </span>
                 <span className="text-xl font-black italic">
-                  {totalCompleted}{' '}
-                  <span className="text-xs font-bold text-white/50">việc</span>
+                  {avgQuality}{' '}
+                  <span className="text-xs font-bold text-white/50">/100đ</span>
                 </span>
               </div>
             </div>
@@ -215,9 +221,7 @@ export function WorkPerformanceDashboard({
                     <span className="font-black text-slate-800 text-sm block leading-none mb-1 tracking-tight group-hover:text-[#D4384E] transition-colors">
                       {user.name ?? user.userName ?? '—'}
                     </span>
-                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest italic opacity-70">
-                      Nhân viên loại A
-                    </span>
+                    <span className="text-[9px] text-slate-400 font-black uppercase tracking-widest italic opacity-70">&nbsp;</span>
                   </div>
                 </div>
                 <div className="text-right">

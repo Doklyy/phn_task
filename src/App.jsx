@@ -278,7 +278,7 @@ const App = () => {
 
   const readRouteFromUrl = useCallback(() => {
     const params = new URLSearchParams(window.location.search);
-    const validTabs = new Set(['dash', 'tasks', 'add-task', 'assign', 'users', 'reports', 'attendance', 'wqt']);
+    const validTabs = new Set(['dash', 'tasks', 'add-task', 'assign', 'users', 'reports', 'attendance', 'attendance-clock', 'wqt']);
     const validDashViews = new Set(['performance', 'tasks', 'attendance']);
     const urlTab = params.get('tab') || 'dash';
     const urlView = params.get('view') || 'performance';
@@ -1507,7 +1507,7 @@ const App = () => {
               {canShowAttendance && (
                 <button
                   type="button"
-                  onClick={() => setActiveTab('attendance')}
+                  onClick={() => setActiveTab('attendance-clock')}
                   className="flex items-center gap-2 text-white px-4 py-2.5 rounded-xl text-sm font-semibold transition-all hover:opacity-95 active:scale-[0.98] shadow-sm"
                   style={{ backgroundColor: VIETTEL_RED }}
                 >
@@ -2943,6 +2943,10 @@ const App = () => {
                   </section>
                 );
               })()
+            )}
+
+            {activeTab === 'attendance-clock' && (
+              <AttendancePanel currentUser={currentUser} role={role} canManageAttendance={currentUser?.canManageAttendance} />
             )}
 
             {/* Tab: Xếp hạng */}
