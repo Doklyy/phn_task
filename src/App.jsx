@@ -1983,15 +1983,30 @@ const App = () => {
                       const d = new Date(String(t.deadline).replace(' ', 'T'));
                       return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
                     };
+                    const taskBelongsToMonth = (t) => {
+                      if (!taskMonthFilter) return true;
+                      const [y, m] = String(taskMonthFilter).split('-').map(Number);
+                      if (!y || !m) return true;
+                      const monthStart = `${y}-${String(m).padStart(2, '0')}-01`;
+                      const monthEnd = `${y}-${String(m).padStart(2, '0')}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`;
+                      const status = norm(t.status);
+                      const created = String(t.createdAt || t.created_at || '').slice(0, 10);
+                      const deadline = String(t.deadline || '').slice(0, 10);
+                      const completed = String(t.completedAt || t.completed_at || t.submittedAt || t.submitted_at || '').slice(0, 10);
+                      const done = status === 'completed' || status === 'pending_approval';
+                      if (done) {
+                        const d = completed || deadline || created;
+                        return d >= monthStart && d <= monthEnd;
+                      }
+                      // Task chưa xong: nếu đã tồn tại trước/đến cuối tháng thì vẫn phải thấy để làm tiếp.
+                      const pivot = deadline || created;
+                      return !!pivot && pivot <= monthEnd;
+                    };
                     const taskRows = (filteredTasks || [])
                       .filter((t) => {
                         // Tab quá hạn luôn ưu tiên nhìn toàn bộ, không bó theo tháng.
                         if (dashTaskStatusTab === 'overdue') return true;
-                        if (!taskMonthFilter) return true;
-                        const d = String(
-                          t.deadline || t.createdAt || t.created_at || t.completedAt || t.completed_at || t.submittedAt || t.submitted_at || '',
-                        ).slice(0, 7);
-                        return d === taskMonthFilter;
+                        return taskBelongsToMonth(t);
                       })
                       .filter((t) => {
                         if (dashTaskStatusTab === 'all') return true;

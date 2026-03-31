@@ -1,5 +1,4 @@
 import React from 'react';
-import { LayoutGrid } from 'lucide-react';
 
 /**
  * Bảng chuyên cần – Freeze Panes: 5 cột trái cố định (Nhân sự, C.Tổng, Nghỉ, Muộn, Tiến độ), cột ngày cuộn ngang.
@@ -210,18 +209,6 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
           <div className="text-xs text-slate-500 bg-white border border-slate-200 rounded-full px-3 py-1.5">
             Tổng nhân sự: <span className="font-semibold text-slate-700">{totalRows}</span>
           </div>
-        </div>
-      </div>
-
-      <div className="px-5 pt-4 pb-3 border-b border-slate-200 bg-slate-50/40">
-        <div className="inline-flex p-1 rounded-xl bg-slate-200/60 gap-1">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
-          >
-            <LayoutGrid size={18} className="shrink-0 opacity-80" />
-            Bảng công theo tháng
-          </button>
         </div>
       </div>
 
