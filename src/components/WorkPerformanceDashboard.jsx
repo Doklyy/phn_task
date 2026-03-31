@@ -9,6 +9,7 @@ import {
   FileText,
   User,
   CheckCircle2,
+  Calendar,
 } from 'lucide-react';
 
 const VIETTEL_RED = '#D4384E';
@@ -16,6 +17,8 @@ const GOLD = '#FFB800';
 
 export function WorkPerformanceDashboard({
   monthLabel,
+  monthValue = '',
+  onMonthChange,
   ranking = [],
   dashboardStats,
   staffProgress = [],
@@ -24,6 +27,9 @@ export function WorkPerformanceDashboard({
   onOpenTasks,
   onOpenAttendance,
   onOpenTaskDetail,
+  progressDate = '',
+  progressDateOptions = [],
+  onProgressDateChange,
 }) {
   const [feedTab, setFeedTab] = React.useState('progress');
   const [showFullRanking, setShowFullRanking] = React.useState(false);
@@ -64,10 +70,6 @@ export function WorkPerformanceDashboard({
       {/* Header row */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-slate-200 pb-4 mt-1">
         <div className="space-y-1">
-          <div className="flex items-center gap-2 text-[10px] font-black text-[#D4384E] uppercase tracking-[0.3em]">
-            <Activity size={12} />
-            <span>Workflow Tracking</span>
-          </div>
           <h1 className="text-3xl md:text-4xl font-black text-slate-900 tracking-tight uppercase italic">
             Work &amp; Performance
           </h1>
@@ -75,7 +77,18 @@ export function WorkPerformanceDashboard({
             Hệ thống báo cáo tiến độ và tổng hợp kết quả — tháng {monthLabel || '—'}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center flex-wrap">
+          {onMonthChange && (
+            <div className="flex items-center gap-2 bg-white border border-slate-200 rounded-xl px-3 py-2 shadow-sm">
+              <Calendar size={14} className="text-slate-500" />
+              <input
+                type="month"
+                value={monthValue}
+                onChange={(e) => onMonthChange(e.target.value)}
+                className="text-xs md:text-sm font-semibold text-slate-700 bg-transparent outline-none"
+              />
+            </div>
+          )}
           {onOpenTasks && (
             <button
               type="button"
@@ -318,7 +331,19 @@ export function WorkPerformanceDashboard({
                 </p>
               </div>
             </div>
-            <div className="hidden sm:flex gap-4 text-[9px] font-black uppercase">
+            <div className="hidden sm:flex gap-4 text-[9px] font-black uppercase items-center">
+              {feedTab === 'progress' && onProgressDateChange && (
+                <select
+                  value={progressDate}
+                  onChange={(e) => onProgressDateChange(e.target.value)}
+                  className="bg-white/10 border border-white/20 rounded-lg px-2 py-1 text-[10px] text-white"
+                >
+                  <option value="">Tất cả ngày</option>
+                  {progressDateOptions.map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              )}
               <div className="text-center px-3 border-r border-white/10">
                 <span className="block text-base font-black">
                   {feedTab === 'progress' ? staffProgress.length : completionReports.length}

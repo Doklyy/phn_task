@@ -303,6 +303,11 @@ const App = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
+  const [taskMonthFilter, setTaskMonthFilter] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [dashboardProgressDate, setDashboardProgressDate] = useState('');
 
   const skipPushRouteRef = useRef(false);
   const lastRouteRef = useRef(`${window.location.pathname}${window.location.search}${window.location.hash}`);
@@ -1697,11 +1702,18 @@ const App = () => {
                   return { r, reportDate, taskId, userId, task };
                 })
                 .filter((x) => x.taskId && x.userId && x.reportDate && (!monthPrefix || x.reportDate.startsWith(monthPrefix)))
+                .filter((x) => !dashboardProgressDate || x.reportDate === dashboardProgressDate)
                 .filter((x) => {
                   const status = String(x.task?.status || '').toLowerCase();
                   return status !== 'completed' && status !== 'pending_approval';
                 })
                 .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
+
+              const progressDateOptions = [...new Set(
+                (allReportsList || [])
+                  .map((r) => String(r.date || r.reportDate || '').slice(0, 10))
+                  .filter((d) => d && (!monthPrefix || d.startsWith(monthPrefix))),
+              )].sort((a, b) => b.localeCompare(a));
 
               const seenProgress = new Set();
               const staffProgress = progressReportRows
@@ -1773,6 +1785,8 @@ const App = () => {
               return (
                 <WorkPerformanceDashboard
                   monthLabel={dashMonth}
+                  monthValue={dashMonth}
+                  onMonthChange={setDashMonth}
                   ranking={rankingSource}
                   dashboardStats={dashboardStatsSource.total > 0 ? dashboardStatsSource : dashboardStats}
                   staffProgress={staffProgress}
@@ -1781,6 +1795,9 @@ const App = () => {
                   onOpenTasks={() => setActiveTab('tasks')}
                   onOpenAttendance={() => setActiveTab('attendance')}
                   onOpenTaskDetail={(taskId) => setSelectedTaskId(taskId)}
+                  progressDate={dashboardProgressDate}
+                  progressDateOptions={progressDateOptions}
+                  onProgressDateChange={setDashboardProgressDate}
                 />
               );
             })()}
@@ -1825,7 +1842,7 @@ const App = () => {
                         </button>
                       )}
                     </div>
-                    <p className="text-slate-500 font-medium mt-1"> Bấm thẻ để xem chi tiết.</p>
+                    <p className="text-slate-500 font-medium mt-1"></p>
                   </div>
                   <div className="flex flex-wrap gap-2 items-center">
                     <button
@@ -1835,12 +1852,20 @@ const App = () => {
                     >
                       <Download size={18} /> Xuất Excel
                     </button>
-                    <button
-                      type="button"
-                      className="flex items-center gap-2 bg-white border border-slate-200 px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-50 transition-all shadow-sm"
-                    >
-                      <Filter size={18} /> Lọc tháng
-                    </button>
+                    <div className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-2 rounded-xl text-sm font-bold text-slate-600 shadow-sm">
+                      <Filter size={16} />
+                      <select
+                        value={taskMonthFilter}
+                        onChange={(e) => setTaskMonthFilter(e.target.value)}
+                        className="bg-transparent outline-none text-sm font-semibold"
+                      >
+                        {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                          const y = dashMonth ? parseInt(dashMonth.split('-')[0], 10) : new Date().getFullYear();
+                          const v = `${y}-${String(m).padStart(2, '0')}`;
+                          return <option key={v} value={v}>Tháng {m}/{y}</option>;
+                        })}
+                      </select>
+                    </div>
                   </div>
                 </div>
                 {/* Bộ lọc theo tên nhân viên – chỉ ở tab Nhiệm vụ */}
@@ -1897,7 +1922,15 @@ const App = () => {
                       const d = new Date(String(t.deadline).replace(' ', 'T'));
                       return !Number.isNaN(d.getTime()) && d.getTime() < Date.now();
                     };
-                    const taskRows = (filteredTasks || []).filter((t) => {
+                    const taskRows = (filteredTasks || [])
+                      .filter((t) => {
+                        if (!taskMonthFilter) return true;
+                        const d = String(
+                          t.deadline || t.createdAt || t.created_at || t.completedAt || t.completed_at || t.submittedAt || t.submitted_at || '',
+                        ).slice(0, 7);
+                        return d === taskMonthFilter;
+                      })
+                      .filter((t) => {
                       if (dashTaskStatusTab === 'all') return true;
                       if (dashTaskStatusTab === 'overdue') return isOverdueTask(t);
                       return norm(t.status) === dashTaskStatusTab;
@@ -1951,6 +1984,25 @@ const App = () => {
                                 const assigneeName = u?.name ?? u?.fullName ?? u?.username ?? t.assigneeName ?? t.assignee_name ?? uid ?? '—';
                                 const st = norm(t.status);
                                 const progressText = st === 'completed' ? 'Hoàn thành' : st === 'pending_approval' ? 'Đợi duyệt' : st === 'paused' ? 'Tạm dừng' : st === 'accepted' ? 'Đang thực hiện' : 'Mới';
+                                const progressClass = st === 'completed'
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : st === 'pending_approval'
+                                    ? 'bg-violet-100 text-violet-700'
+                                    : st === 'paused'
+                                      ? 'bg-slate-100 text-slate-700'
+                                      : st === 'accepted'
+                                        ? 'bg-amber-100 text-amber-700'
+                                        : 'bg-blue-100 text-blue-700';
+                                const qText = String(qualityLabel(t.quality) || '').toLowerCase();
+                                const qualityClass = qText.includes('xuất')
+                                  ? 'bg-emerald-100 text-emerald-700'
+                                  : qText.includes('tốt')
+                                    ? 'bg-blue-100 text-blue-700'
+                                    : qText.includes('khá')
+                                      ? 'bg-amber-100 text-amber-700'
+                                      : qText.includes('kém') || qText.includes('chưa')
+                                        ? 'bg-red-100 text-red-700'
+                                        : 'bg-slate-100 text-slate-700';
                                 const doneAt = String(t.completedAt || t.completed_at || t.submittedAt || t.submitted_at || '').slice(0, 10) || '—';
                                 return (
                                   <tr
@@ -1966,9 +2018,13 @@ const App = () => {
                                     <td className="py-2 px-3">{String(t.deadline || '').slice(0, 10) || '—'}</td>
                                     <td className="py-2 px-3">{doneAt}</td>
                                     <td className="py-2 px-3">{assigneeName}</td>
-                                    <td className="py-2 px-3">{progressText}</td>
+                                    <td className="py-2 px-3">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${progressClass}`}>{progressText}</span>
+                                    </td>
                                     <td className="py-2 px-3">{weightLabel(t.weight)}</td>
-                                    <td className="py-2 px-3">{qualityLabel(t.quality)}</td>
+                                    <td className="py-2 px-3">
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${qualityClass}`}>{qualityLabel(t.quality)}</span>
+                                    </td>
                                     <td className="py-2 px-3">{statusCVLabel(t)}</td>
                                     <td className="py-2 px-3 font-semibold">{taskScore(t)}</td>
                                     <td className="py-2 px-3 max-w-[220px] truncate">{t.leaderComment || t.lastRejectReason || '—'}</td>
