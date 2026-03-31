@@ -19,18 +19,34 @@ export function WorkPerformanceDashboard({
   ranking = [],
   dashboardStats,
   staffProgress = [],
+  completionReports = [],
   onExportEvaluationForms,
+  onOpenTasks,
+  onOpenAttendance,
 }) {
-  const avgScore =
+  const [feedTab, setFeedTab] = React.useState('progress');
+  const [showFullRanking, setShowFullRanking] = React.useState(false);
+
+  const toHundredScore = (value) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    return n > 0 && n <= 1 ? n * 100 : n;
+  };
+  const formatScore = (value) => toHundredScore(value).toFixed(1);
+
+  const avgRaw =
     ranking.length > 0
       ? (
           ranking.reduce((sum, r) => sum + (Number(r.totalScore) || 0), 0) /
           ranking.length
-        ).toFixed(1)
-      : '—';
+        )
+      : null;
+  const avgScore = avgRaw == null ? '—' : formatScore(avgRaw);
 
-  const top3 = [...ranking]
-    .sort((a, b) => (Number(b.totalScore) || 0) - (Number(a.totalScore) || 0))
+  const sortedRanking = [...ranking]
+    .sort((a, b) => toHundredScore(b.totalScore) - toHundredScore(a.totalScore));
+
+  const top3 = sortedRanking
     .slice(0, 3);
 
   const totalInProgress =
@@ -59,6 +75,26 @@ export function WorkPerformanceDashboard({
           </p>
         </div>
         <div className="flex gap-2">
+          {onOpenTasks && (
+            <button
+              type="button"
+              onClick={onOpenTasks}
+              className="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-2xl text-[10px] md:text-xs font-black transition-all hover:scale-105 shadow-sm uppercase tracking-tight"
+            >
+              <Target size={14} />
+              Tab Nhiệm vụ
+            </button>
+          )}
+          {onOpenAttendance && (
+            <button
+              type="button"
+              onClick={onOpenAttendance}
+              className="flex items-center justify-center gap-2 bg-white border border-slate-200 text-slate-700 px-4 py-2 rounded-2xl text-[10px] md:text-xs font-black transition-all hover:scale-105 shadow-sm uppercase tracking-tight"
+            >
+              <FileText size={14} />
+              Tab Chuyên cần
+            </button>
+          )}
           {onExportEvaluationForms && (
             <button
               type="button"
@@ -174,7 +210,7 @@ export function WorkPerformanceDashboard({
                 </div>
                 <div className="text-right">
                   <span className="font-black text-slate-900 text-lg tracking-tighter leading-none">
-                    {(Number(user.totalScore) || 0).toFixed(1)}
+                    {formatScore(user.totalScore)}
                   </span>
                   <span className="text-[10px] text-slate-400 ml-1 font-black italic">
                     đ
@@ -191,26 +227,74 @@ export function WorkPerformanceDashboard({
 
           <button
             type="button"
+            onClick={() => setShowFullRanking((v) => !v)}
             className="mt-6 w-full py-2.5 bg-slate-50 text-[9px] font-black uppercase text-slate-400 rounded-xl hover:bg-[${VIETTEL_RED}]/5 hover:text-[${VIETTEL_RED}] transition-all tracking-widest"
           >
-            Xem bảng xếp hạng đầy đủ
+            {showFullRanking ? 'Ẩn bảng xếp hạng đầy đủ' : 'Xem bảng xếp hạng đầy đủ'}
           </button>
         </div>
       </div>
+
+      {showFullRanking && (
+        <section className="bg-white rounded-3xl border border-slate-200 shadow-sm p-4 md:p-6">
+          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest mb-4">
+            Bảng xếp hạng đầy đủ
+          </h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left border-b border-slate-200">
+                  <th className="py-2 px-3">Hạng</th>
+                  <th className="py-2 px-3">Nhân sự</th>
+                  <th className="py-2 px-3 text-right">Tổng điểm</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedRanking.map((user, idx) => (
+                  <tr key={user.userId ?? idx} className="border-b border-slate-100">
+                    <td className="py-2 px-3 font-semibold text-slate-700">#{idx + 1}</td>
+                    <td className="py-2 px-3 text-slate-800">{user.name ?? user.userName ?? '—'}</td>
+                    <td className="py-2 px-3 text-right font-black text-slate-900">
+                      {formatScore(user.totalScore)}đ
+                    </td>
+                  </tr>
+                ))}
+                {sortedRanking.length === 0 && (
+                  <tr>
+                    <td colSpan={3} className="py-4 px-3 text-center text-slate-500">
+                      Chưa có dữ liệu xếp hạng cho tháng này.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* Progress / finished tabs */}
       <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
         <div className="flex border-b border-slate-100 bg-slate-50/50 p-2">
           <button
             type="button"
-            className="flex-1 flex items-center justify-center gap-2 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-2xl bg-white shadow text-[${VIETTEL_RED}]"
+            onClick={() => setFeedTab('progress')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-2xl ${
+              feedTab === 'progress'
+                ? 'bg-white shadow text-[#D4384E]'
+                : 'text-slate-400'
+            }`}
           >
             <Activity size={16} />
             Tiến độ công việc mọi người
           </button>
           <button
             type="button"
-            className="flex-1 flex items-center justify-center gap-2 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-2xl text-slate-400"
+            onClick={() => setFeedTab('completion')}
+            className={`flex-1 flex items-center justify-center gap-2 py-3 text-[10px] md:text-xs font-black uppercase tracking-widest rounded-2xl ${
+              feedTab === 'completion'
+                ? 'bg-white shadow text-[#D4384E]'
+                : 'text-slate-400'
+            }`}
           >
             <CheckSquare size={16} />
             Báo cáo kết thúc việc
@@ -236,7 +320,7 @@ export function WorkPerformanceDashboard({
             <div className="hidden sm:flex gap-4 text-[9px] font-black uppercase">
               <div className="text-center px-3 border-r border-white/10">
                 <span className="block text-base font-black">
-                  {staffProgress.length}
+                  {feedTab === 'progress' ? staffProgress.length : completionReports.length}
                 </span>
                 <span className="text-white/50">Nhân sự</span>
               </div>
@@ -249,14 +333,16 @@ export function WorkPerformanceDashboard({
               <thead>
                 <tr className="text-[9px] text-slate-400 font-black uppercase tracking-[0.2em]">
                   <th className="px-4 py-1 text-left">Nhân sự</th>
-                  <th className="px-4 py-1 text-left">Công việc đang thực hiện</th>
-                  <th className="px-4 py-1 text-center">Tiến độ</th>
+                  <th className="px-4 py-1 text-left">
+                    {feedTab === 'progress' ? 'Công việc đang thực hiện' : 'Công việc kết thúc'}
+                  </th>
+                  <th className="px-4 py-1 text-center">{feedTab === 'progress' ? 'Tiến độ' : 'Thời điểm'}</th>
                   <th className="px-4 py-1 text-center">Trạng thái</th>
-                  <th className="px-4 py-1 text-right">Cập nhật</th>
+                  <th className="px-4 py-1 text-right">{feedTab === 'progress' ? 'Cập nhật' : 'Ghi chú'}</th>
                 </tr>
               </thead>
               <tbody>
-                {staffProgress.map((row) => (
+                {(feedTab === 'progress' ? staffProgress : completionReports).map((row) => (
                   <tr
                     key={row.id}
                     className="bg-slate-50 hover:bg-white hover:shadow-md transition-all group cursor-pointer border border-transparent hover:border-[${VIETTEL_RED}]/10"
@@ -282,28 +368,32 @@ export function WorkPerformanceDashboard({
                       </span>
                     </td>
                     <td className="px-4 py-3 min-w-[140px]">
-                      <div className="space-y-1.5">
-                        <div className="flex justify-between text-[9px] font-black">
-                          <span className="text-[${VIETTEL_RED}] italic">
-                            {row.progress != null ? `${row.progress}%` : '—'}
-                          </span>
+                      {feedTab === 'progress' ? (
+                        <div className="space-y-1.5">
+                          <div className="flex justify-between text-[9px] font-black">
+                            <span className="text-[${VIETTEL_RED}] italic">
+                              {row.progress != null ? `${row.progress}%` : '—'}
+                            </span>
+                          </div>
+                          <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                (row.progress || 0) < 50
+                                  ? 'bg-amber-400'
+                                  : 'bg-[${VIETTEL_RED}]'
+                              }`}
+                              style={{
+                                width: `${Math.min(
+                                  100,
+                                  Math.max(0, row.progress || 0),
+                                )}%`,
+                              }}
+                            />
+                          </div>
                         </div>
-                        <div className="w-full bg-slate-200 h-1.5 rounded-full overflow-hidden">
-                          <div
-                            className={`h-full rounded-full ${
-                              (row.progress || 0) < 50
-                                ? 'bg-amber-400'
-                                : 'bg-[${VIETTEL_RED}]'
-                            }`}
-                            style={{
-                              width: `${Math.min(
-                                100,
-                                Math.max(0, row.progress || 0),
-                              )}%`,
-                            }}
-                          />
-                        </div>
-                      </div>
+                      ) : (
+                        <span className="text-xs font-black text-slate-700">{row.submittedAt || '—'}</span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-center">
                       <span
@@ -320,23 +410,23 @@ export function WorkPerformanceDashboard({
                     </td>
                     <td className="px-4 py-3 text-right rounded-r-2xl">
                       <div className="flex flex-col items-end">
-                        <span className="text-[10px] font-black text-slate-800">
-                          {row.lastUpdate || '—'}
-                        </span>
+                        <span className="text-[10px] font-black text-slate-800">{feedTab === 'progress' ? (row.lastUpdate || '—') : (row.note || '—')}</span>
                         <span className="text-[8px] font-bold text-slate-400 uppercase italic">
-                          Latest Report
+                          {feedTab === 'progress' ? 'Latest Report' : 'Completion Note'}
                         </span>
                       </div>
                     </td>
                   </tr>
                 ))}
-                {staffProgress.length === 0 && (
+                {(feedTab === 'progress' ? staffProgress.length === 0 : completionReports.length === 0) && (
                   <tr>
                     <td
                       colSpan={5}
                       className="py-4 px-4 text-center text-xs text-slate-500"
                     >
-                      Chưa có dữ liệu tiến độ cho tháng này.
+                      {feedTab === 'progress'
+                        ? 'Chưa có dữ liệu tiến độ cho tháng này.'
+                        : 'Chưa có dữ liệu báo cáo kết thúc cho tháng này.'}
                     </td>
                   </tr>
                 )}

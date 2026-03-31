@@ -353,7 +353,7 @@ const App = () => {
   const [myReportsLoading, setMyReportsLoading] = useState(false);
   useEffect(() => {
     const shouldLoad = (activeTab === 'reports' && role === 'admin')
-      || (activeTab === 'dash' && dashView === 'attendance');
+      || activeTab === 'dash';
     if (!shouldLoad || !currentUser?.id) return;
     setAllReportsLoading(true);
     getAllReportsForAdmin(Number(currentUser.id) || currentUser.id)
@@ -375,7 +375,7 @@ const App = () => {
   // Mỗi khi mở tab Chuyên cần, refetch danh sách nhiệm vụ để có trạng thái mới (pending_approval/completed).
   // Tránh hiển thị sai: nhiệm vụ đã gửi hoàn thành ngày 10 vẫn hiện 0/1 ở ngày 11.
   useEffect(() => {
-    if (activeTab !== 'dash' || dashView !== 'attendance' || !currentUser?.id) return;
+    if (activeTab !== 'dash' || !currentUser?.id) return;
     fetchTasksForDashboard(currentUser.id)
       .then((list) => setAllTasksForDashboard(Array.isArray(list) ? list : []))
       .catch(() => setAllTasksForDashboard([]));
@@ -1679,7 +1679,16 @@ const App = () => {
                 nameByUserId[sid] = u.name ?? u.fullName ?? u.username ?? sid;
               });
 
-              const staffProgress = (tasksInProgress || []).map((t) => {
+              const dashboardTaskSource = (allTasksForDashboard && allTasksForDashboard.length > 0)
+                ? allTasksForDashboard
+                : (tasks || []);
+
+              const staffProgress = (dashboardTaskSource || [])
+                .filter((t) => {
+                  const status = String(t.status || '').toLowerCase();
+                  return status === 'accepted' || status === 'paused' || status === 'new';
+                })
+                .map((t) => {
                 const assigneeId = String(t.assigneeId ?? t.assignee_id ?? '');
                 const name = (nameByUserId[assigneeId] ?? t.assigneeName ?? t.assignee_name ?? assigneeId) || '—';
                 const status = (t.status || '').toLowerCase();
@@ -1690,7 +1699,7 @@ const App = () => {
                   status !== 'pending_approval' &&
                   status !== 'paused';
 
-                let statusLabel = 'Đang thực hiện';
+                let statusLabel = status === 'new' ? 'Mới giao' : status === 'paused' ? 'Tạm dừng' : 'Đang thực hiện';
                 let statusBadge = 'info';
                 if (isOverdue) {
                   statusLabel = 'Chậm tiến độ';
@@ -1709,9 +1718,33 @@ const App = () => {
                   progress: isOverdue ? 60 : 80,
                   statusLabel,
                   statusBadge,
-                  lastUpdate: '',
+                  lastUpdate: String(t.updatedAt || t.updated_at || '').slice(0, 10),
                 };
               });
+
+              const completionReports = (dashboardTaskSource || [])
+                .filter((t) => {
+                  const status = String(t.status || '').toLowerCase();
+                  return status === 'pending_approval' || status === 'completed';
+                })
+                .map((t) => {
+                  const assigneeId = String(t.assigneeId ?? t.assignee_id ?? '');
+                  const name = (nameByUserId[assigneeId] ?? t.assigneeName ?? t.assignee_name ?? assigneeId) || '—';
+                  const status = String(t.status || '').toLowerCase();
+                  const submittedAt = String(
+                    t.submittedAt || t.submitted_at || t.completedAt || t.completed_at || '',
+                  ).slice(0, 10);
+                  return {
+                    id: `c-${String(t.id)}`,
+                    name,
+                    code: assigneeId,
+                    taskTitle: t.title || '—',
+                    statusLabel: status === 'completed' ? 'Đã duyệt hoàn thành' : 'Đợi duyệt hoàn thành',
+                    statusBadge: status === 'completed' ? 'success' : 'warn',
+                    submittedAt: submittedAt || '—',
+                    note: t.completionNote || t.leaderComment || t.lastRejectReason || '',
+                  };
+                });
 
               return (
                 <WorkPerformanceDashboard
@@ -1719,7 +1752,10 @@ const App = () => {
                   ranking={ranking || []}
                   dashboardStats={dashboardStats}
                   staffProgress={staffProgress}
+                  completionReports={completionReports}
                   onExportEvaluationForms={handleExportEvaluationForms}
+                  onOpenTasks={() => setActiveTab('tasks')}
+                  onOpenAttendance={() => setActiveTab('reports')}
                 />
               );
             })()}
