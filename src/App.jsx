@@ -308,21 +308,6 @@ const App = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
   const [dashboardProgressDate, setDashboardProgressDate] = useState('');
-  useEffect(() => {
-    const prefix = String(dashMonth || '').slice(0, 7);
-    const options = [...new Set(
-      (allReportsList || [])
-        .map((r) => String(r.date || r.reportDate || '').slice(0, 10))
-        .filter((d) => d && (!prefix || d.startsWith(prefix))),
-    )].sort((a, b) => b.localeCompare(a));
-    if (!options.length) {
-      if (dashboardProgressDate) setDashboardProgressDate('');
-      return;
-    }
-    if (!dashboardProgressDate || !options.includes(dashboardProgressDate)) {
-      setDashboardProgressDate(options[0]);
-    }
-  }, [allReportsList, dashMonth, dashboardProgressDate]);
 
   const skipPushRouteRef = useRef(false);
   const lastRouteRef = useRef(`${window.location.pathname}${window.location.search}${window.location.hash}`);
@@ -385,6 +370,21 @@ const App = () => {
   const [reportsSubTab, setReportsSubTab] = useState('today');
   const [myReportsList, setMyReportsList] = useState([]);
   const [myReportsLoading, setMyReportsLoading] = useState(false);
+  useEffect(() => {
+    const prefix = String(dashMonth || '').slice(0, 7);
+    const options = [...new Set(
+      (allReportsList || [])
+        .map((r) => String(r.date || r.reportDate || '').slice(0, 10))
+        .filter((d) => d && (!prefix || d.startsWith(prefix))),
+    )].sort((a, b) => b.localeCompare(a));
+    if (!options.length) {
+      if (dashboardProgressDate) setDashboardProgressDate('');
+      return;
+    }
+    if (!dashboardProgressDate || !options.includes(dashboardProgressDate)) {
+      setDashboardProgressDate(options[0]);
+    }
+  }, [allReportsList, dashMonth, dashboardProgressDate]);
   useEffect(() => {
     const shouldLoad = (activeTab === 'reports' && role === 'admin')
       || activeTab === 'dash';
