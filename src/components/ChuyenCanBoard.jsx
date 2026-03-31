@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutGrid, CalendarDays } from 'lucide-react';
+import { LayoutGrid } from 'lucide-react';
 
 /**
  * Bảng chuyên cần – Freeze Panes: 5 cột trái cố định (Nhân sự, C.Tổng, Nghỉ, Muộn, Tiến độ), cột ngày cuộn ngang.
@@ -94,8 +94,6 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
     setFocusDay(nextFocus);
   }, [selectedMonth, maxDayInMonth]);
 
-  /** 'grid' = bảng theo tháng; 'daily' = tiến độ theo ngày (tách riêng) */
-  const [boardSection, setBoardSection] = React.useState('grid');
   const rankingByUserId = React.useMemo(() => {
     const m = {};
     (ranking || []).forEach((r) => {
@@ -216,148 +214,18 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       </div>
 
       <div className="px-5 pt-4 pb-3 border-b border-slate-200 bg-slate-50/40">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex p-1 rounded-xl bg-slate-200/60 gap-1">
+        <div className="inline-flex p-1 rounded-xl bg-slate-200/60 gap-1">
           <button
             type="button"
-            onClick={() => setBoardSection('grid')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              boardSection === 'grid'
-                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-            }`}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
           >
             <LayoutGrid size={18} className="shrink-0 opacity-80" />
             Bảng công theo tháng
           </button>
-          <button
-            type="button"
-            onClick={() => setBoardSection('daily')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all ${
-              boardSection === 'daily'
-                ? 'bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
-            }`}
-          >
-            <CalendarDays size={18} className="shrink-0 opacity-80" />
-            Tiến độ theo ngày
-          </button>
-          </div>
         </div>
-        <p className="text-xs text-slate-500 mt-2">
-          {boardSection === 'grid'
-            ? 'Xem tổng quan ô theo ngày trong tháng. Chuyển sang tab bên cạnh để xem chi tiết báo cáo từng ngày.'
-            : 'Chọn ngày trong tháng đang xem để đối chiếu ai đã báo cáo, ai chưa — phục vụ đánh giá cuối tháng.'}
-        </p>
       </div>
 
-      {boardSection === 'daily' && (
-        <div className="p-5 border-b border-gray-200 bg-slate-50/50">
-          {loading && (
-            <p className="text-sm text-slate-500 mb-3">Đang tải dữ liệu…</p>
-          )}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 mb-4">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Ngày theo dõi chuyên cần</p>
-              <p className="text-sm text-slate-600 mt-1">Chọn ngày để xem rõ ai đã báo cáo, ai chưa báo cáo.</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <input
-                type="date"
-                value={selectedMonth ? `${selectedMonth}-${String(dashboardSummary.focusDay).padStart(2, '0')}` : ''}
-                min={selectedMonth ? `${selectedMonth}-01` : undefined}
-                max={selectedMonth ? `${selectedMonth}-${String(maxDayInMonth).padStart(2, '0')}` : undefined}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  if (!val || !selectedMonth) return;
-                  const monthPart = val.slice(0, 7);
-                  if (monthPart !== selectedMonth) return;
-                  const day = Number(val.slice(8, 10));
-                  if (!Number.isNaN(day)) setFocusDay(day);
-                }}
-                className="border border-slate-300 rounded-lg px-3 py-2 text-sm bg-white"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-4">
-            <div className="bg-white border border-slate-200 rounded-xl p-3">
-              <p className="text-[11px] font-bold tracking-wider text-slate-500 uppercase">Tổng nhân sự</p>
-              <p className="text-2xl font-black text-slate-900 mt-1">{dashboardSummary.totalStaff}</p>
-            </div>
-            <div className="bg-white border border-emerald-200 rounded-xl p-3">
-              <p className="text-[11px] font-bold tracking-wider text-emerald-700 uppercase">Đã báo cáo ({dashboardSummary.dayLabel})</p>
-              <p className="text-2xl font-black text-emerald-700 mt-1">{dashboardSummary.reportedToday}</p>
-            </div>
-            <div className="bg-white border border-rose-200 rounded-xl p-3">
-              <p className="text-[11px] font-bold tracking-wider text-rose-700 uppercase">Chưa báo cáo ({dashboardSummary.dayLabel})</p>
-              <p className="text-2xl font-black text-rose-700 mt-1">{dashboardSummary.missingToday}</p>
-            </div>
-            <div className="bg-white border border-slate-200 rounded-xl p-3">
-              <p className="text-[11px] font-bold tracking-wider text-slate-600 uppercase">Nghỉ phép ({dashboardSummary.dayLabel})</p>
-              <p className="text-2xl font-black text-slate-700 mt-1">{dashboardSummary.leaveToday}</p>
-            </div>
-          </div>
-          <div className="bg-white border border-slate-200 rounded-xl p-4">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <h3 className="text-sm md:text-base font-bold text-slate-800">
-                Báo cáo tiến độ theo ngày {dashboardSummary.dayLabel}
-              </h3>
-              <span className="text-xs text-slate-500">
-                {dashboardSummary.reportedToday} người đã báo cáo, {totalReportTasks} đầu việc đã nộp
-              </span>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mt-3">
-              <div className="bg-slate-50/80 border border-emerald-200 rounded-lg p-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-emerald-700 mb-1">Đã báo cáo</p>
-                {dashboardSummary.reportedDetails.length === 0 ? (
-                  <p className="text-sm text-slate-400">Không có</p>
-                ) : (
-                  <ul className="space-y-2 text-sm text-slate-700 pr-1">
-                    {dashboardSummary.reportedDetails.map((item, idx) => (
-                      <li key={`${item.name}-${idx}`} className="border-b border-emerald-100 pb-1 last:border-b-0 last:pb-0">
-                        <button
-                          type="button"
-                          className="w-full text-left rounded-md px-1 py-0.5 hover:bg-emerald-50/80 transition-colors"
-                          onClick={() => setReportDetailModal({ userId: item.userId, name: item.name })}
-                        >
-                          <p className="font-semibold text-slate-800">
-                            {item.name}{' '}
-                            <span className="font-normal text-emerald-700">({item.ratio})</span>
-                          </p>
-                          <p className="text-xs text-slate-600">
-                            {item.titles.length > 0 ? item.titles.join('; ') : 'Đã nộp báo cáo nhưng chưa có tiêu đề nhiệm vụ.'}
-                          </p>
-                          <p className="text-[10px] text-slate-500 mt-1">Bấm để xem chi tiết báo cáo</p>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-              <div className="bg-slate-50/80 border border-rose-200 rounded-lg p-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-rose-700 mb-1">Chưa báo cáo</p>
-                {dashboardSummary.missingNames.length === 0 ? (
-                  <p className="text-sm text-slate-400">Không có</p>
-                ) : (
-                  <p className="text-sm text-slate-700">{dashboardSummary.missingNames.join(', ')}</p>
-                )}
-              </div>
-              <div className="bg-slate-50/80 border border-slate-200 rounded-lg p-3">
-                <p className="text-xs font-bold uppercase tracking-wider text-slate-600 mb-1">Nghỉ phép</p>
-                {dashboardSummary.leaveNames.length === 0 ? (
-                  <p className="text-sm text-slate-400">Không có</p>
-                ) : (
-                  <p className="text-sm text-slate-700">{dashboardSummary.leaveNames.join(', ')}</p>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {boardSection === 'grid' &&
-        (loading ? (
+      {loading ? (
           <div className="p-8 text-center text-slate-500">Đang tải...</div>
 
         ) : (data || []).length === 0 ? (
@@ -456,7 +324,6 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                           <div className="w-full h-full p-0.5">
                             {renderCell(daysObj[String(day)], day, () => {
                               setFocusDay(day);
-                              setBoardSection('daily');
                               setReportDetailModal({ userId: String(person.id ?? ''), name: person.name || '—' });
                             })}
                           </div>
@@ -480,7 +347,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
           </ul>
         </div>
         </>
-        ))}
+        )}
 
       {reportDetailModal && (
         <div className="fixed inset-0 z-[100000] bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
