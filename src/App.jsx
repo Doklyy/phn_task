@@ -48,6 +48,7 @@ import ReportReminderOverlay from './components/ReportReminderOverlay.jsx';
 import ReportReminderBellBlock from './components/ReportReminderBellBlock.jsx';
 import { getTaskFirstReportableDateStr, dateStrLTE, taskRequiresProgressReportOnDateStr } from './utils/taskReportDates.js';
 import DashboardAttendanceMock from './components/DashboardAttendanceMock.jsx';
+import { WorkPerformanceDashboard } from './components/WorkPerformanceDashboard.jsx';
 
 // Danh sách user để hiển thị tên (BE có thể trả về hoặc lấy từ API users)
 const USERS_DB = [
