@@ -1017,6 +1017,21 @@ const App = () => {
     return r ? r.totalScore : 0;
   }, [computedRanking, currentUser?.id]);
 
+  /** Bảng vinh danh / điểm: không áp dụng cho Trưởng phòng (ADMIN). */
+  const rankingForDashboard = useMemo(() => {
+    const raw = (ranking || []).some((r) => Number(r?.totalScore) > 0)
+      ? (ranking || [])
+      : (computedRanking || []);
+    const userList = (allUsersForRanking && allUsersForRanking.length > 0) ? allUsersForRanking : users;
+    const adminIds = new Set();
+    (userList || []).forEach((u) => {
+      if (String(u.role || '').toLowerCase() !== 'admin') return;
+      const id = String(u.id ?? u.userId ?? '');
+      if (id) adminIds.add(id);
+    });
+    return (raw || []).filter((r) => !adminIds.has(String(r.userId ?? r.user_id ?? '')));
+  }, [ranking, computedRanking, allUsersForRanking, users]);
+
   const openUserReports = useCallback(async (user) => {
     if (!user?.id && !user?.userId) return;
     const uid = user.id ?? user.userId;
@@ -1834,9 +1849,7 @@ const App = () => {
                   };
                 });
 
-              const rankingSource = (ranking || []).some((r) => Number(r?.totalScore) > 0)
-                ? (ranking || [])
-                : (computedRanking || []);
+              const rankingSource = rankingForDashboard;
               const dashboardStatsSource = {
                 total: (dashboardTaskSource || []).length,
                 inProgress: (dashboardTaskSource || []).filter((t) => String(t.status || '').toLowerCase() === 'accepted').length,

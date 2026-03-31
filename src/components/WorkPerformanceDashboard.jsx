@@ -326,7 +326,7 @@ export function WorkPerformanceDashboard({
               </div>
               <div>
                 <h3 className="text-xs md:text-sm font-black uppercase tracking-widest italic">
-                  Live Progress Feed
+                  Báo cáo
                 </h3>
                 <p className="text-[9px] text-white/60 font-bold uppercase tracking-widest">
                   Giám sát tiến độ báo cáo toàn bộ nhân sự
