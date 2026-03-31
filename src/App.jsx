@@ -1731,6 +1731,18 @@ const App = () => {
                 })
                 .sort((a, b) => b.reportDate.localeCompare(a.reportDate));
 
+              const progressItemsByUser = {};
+              progressReportRows.forEach((x) => {
+                const uid = String(x.userId);
+                if (!progressItemsByUser[uid]) progressItemsByUser[uid] = [];
+                progressItemsByUser[uid].push({
+                  taskId: String(x.taskId),
+                  taskTitle: x.task?.title || x.r?.taskTitle || x.r?.task_name || 'Nhiệm vụ',
+                  result: x.r?.result || x.r?.content || '',
+                  date: x.reportDate,
+                });
+              });
+
               const reportedTaskIdsByUser = {};
               progressReportRows.forEach((x) => {
                 const uid = String(x.userId);
@@ -1759,6 +1771,7 @@ const App = () => {
                   const progress = requiredList.length ? Math.round((reportedCount / requiredList.length) * 100) : (reportedCount > 0 ? 100 : 0);
                   const firstTaskId = (reportedSetRaw.size ? [...reportedSetRaw][0] : requiredList[0]) || '';
                   const firstTask = firstTaskId ? dashboardTaskMap.get(String(firstTaskId)) : null;
+                  const reportItems = progressItemsByUser[uid] || [];
                   return {
                     id: `p-user-${uid}`,
                     taskId: firstTaskId || '',
@@ -1786,6 +1799,7 @@ const App = () => {
                       && new Date(String(firstTask.deadline).replace(' ', 'T')).getTime() < Date.now()
                       ? 1
                       : 0,
+                    reportItems,
                   };
                 })
                 .sort((a, b) => {

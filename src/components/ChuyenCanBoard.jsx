@@ -5,7 +5,7 @@ import { LayoutGrid, CalendarDays } from 'lucide-react';
  * Bảng chuyên cần – Freeze Panes: 5 cột trái cố định (Nhân sự, C.Tổng, Nghỉ, Muộn, Tiến độ), cột ngày cuộn ngang.
  * Ô hiển thị [đã báo cáo tiến độ] / [tổng nhiệm vụ]; màu đủ/thiếu/chưa; N = nghỉ phép, 0.5 = nửa công, chấm cam = đi muộn.
  */
-function renderCell(dayData, day) {
+function renderCell(dayData, day, onOpenDetail) {
   if (!dayData) return <div className="flex items-center justify-center h-full text-slate-300 font-light">-</div>;
 
   if (dayData.isLeave) {
@@ -47,8 +47,9 @@ function renderCell(dayData, day) {
 
   return (
     <div
-      className={`relative flex flex-col items-center justify-center w-full h-[50px] border ${borderColor} ${bgColor} rounded-md transition-all hover:shadow-sm cursor-default`}
+      className={`relative flex flex-col items-center justify-center w-full h-[50px] border ${borderColor} ${bgColor} rounded-md transition-all hover:shadow-sm ${onOpenDetail ? 'cursor-pointer' : 'cursor-default'}`}
       title={tooltipText}
+      onClick={onOpenDetail}
     >
       {isLate && (
         <div className="absolute -top-1.5 -left-1.5 w-3.5 h-3.5 bg-orange-500 rounded-full border-2 border-white z-10" title="Đi muộn" />
@@ -95,6 +96,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
 
   /** 'grid' = bảng theo tháng; 'daily' = tiến độ theo ngày (tách riêng) */
   const [boardSection, setBoardSection] = React.useState('grid');
+  const [showFullMonth, setShowFullMonth] = React.useState(false);
   const rankingByUserId = React.useMemo(() => {
     const m = {};
     (ranking || []).forEach((r) => {
@@ -165,6 +167,10 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
   const focusDateStr = focusMonth && dashboardSummary?.focusDay
     ? `${focusMonth}-${String(dashboardSummary.focusDay).padStart(2, '0')}`
     : '';
+  const visibleDays = React.useMemo(
+    () => showFullMonth ? daysList : daysList.filter((d) => d <= dashboardSummary.focusDay),
+    [showFullMonth, daysList, dashboardSummary.focusDay],
+  );
 
   const detailReports = React.useMemo(() => {
     if (!reportDetailModal?.userId || !focusDateStr) return [];
@@ -215,7 +221,8 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
       </div>
 
       <div className="px-5 pt-4 pb-3 border-b border-slate-200 bg-slate-50/40">
-        <div className="inline-flex p-1 rounded-xl bg-slate-200/60 gap-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex p-1 rounded-xl bg-slate-200/60 gap-1">
           <button
             type="button"
             onClick={() => setBoardSection('grid')}
@@ -240,6 +247,16 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
             <CalendarDays size={18} className="shrink-0 opacity-80" />
             Tiến độ theo ngày
           </button>
+          </div>
+          {boardSection === 'grid' && (
+            <button
+              type="button"
+              onClick={() => setShowFullMonth((v) => !v)}
+              className="px-3 py-2 rounded-lg border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              {showFullMonth ? 'Chỉ xem đến ngày theo dõi' : 'Xem cả tháng'}
+            </button>
+          )}
         </div>
         <p className="text-xs text-slate-500 mt-2">
           {boardSection === 'grid'
@@ -380,7 +397,7 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                   <th className="sticky left-[400px] z-30 w-[100px] min-w-[100px] max-w-[100px] p-4 font-semibold text-center text-emerald-700 bg-slate-50 border-b border-r border-slate-200 shadow-[4px_0_6px_-2px_rgba(0,0,0,0.08)]">
                     Tiến độ
                   </th>
-                  {daysList.map((day) => (
+                  {visibleDays.map((day) => (
                     <th key={day} className="p-2 font-medium text-center text-slate-500 border-b border-slate-200 w-[80px] min-w-[80px] bg-white">
                       {day}
                     </th>
@@ -448,9 +465,15 @@ export function ChuyenCanBoard({ monthLabel, monthValue, onMonthChange, data, di
                           )}
                         </div>
                       </td>
-                      {daysList.map((day) => (
+                      {visibleDays.map((day) => (
                         <td key={day} className="p-2 border-b border-slate-100 w-[80px] min-w-[80px] bg-inherit group-hover:bg-slate-100/60">
-                          <div className="w-full h-full p-0.5">{renderCell(daysObj[String(day)], day)}</div>
+                          <div className="w-full h-full p-0.5">
+                            {renderCell(daysObj[String(day)], day, () => {
+                              setFocusDay(day);
+                              setBoardSection('daily');
+                              setReportDetailModal({ userId: String(person.id ?? ''), name: person.name || '—' });
+                            })}
+                          </div>
                         </td>
                       ))}
                     </tr>

@@ -33,6 +33,7 @@ export function WorkPerformanceDashboard({
 }) {
   const [feedTab, setFeedTab] = React.useState('progress');
   const [showFullRanking, setShowFullRanking] = React.useState(false);
+  const [progressDetailRow, setProgressDetailRow] = React.useState(null);
 
   const toHundredScore = (value) => {
     const n = Number(value);
@@ -379,7 +380,11 @@ export function WorkPerformanceDashboard({
                     key={row.id}
                     className="bg-slate-50 hover:bg-white hover:shadow-md transition-all group cursor-pointer border border-transparent hover:border-red-200"
                     onClick={() => {
-                      if (onOpenTaskDetail && row.taskId != null) onOpenTaskDetail(row.taskId);
+                      if (feedTab === 'progress') {
+                        setProgressDetailRow(row);
+                      } else if (onOpenTaskDetail && row.taskId != null) {
+                        onOpenTaskDetail(row.taskId);
+                      }
                     }}
                   >
                     <td className="px-4 py-3 rounded-l-2xl">
@@ -470,6 +475,43 @@ export function WorkPerformanceDashboard({
           </div>
         </div>
       </div>
+
+      {progressDetailRow && (
+        <div className="fixed inset-0 z-[100000] bg-black/45 flex items-center justify-center p-4" role="dialog" aria-modal="true">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+              <div>
+                <p className="text-xs text-slate-500">Chi tiết báo cáo tiến độ</p>
+                <p className="font-bold text-slate-900">{progressDetailRow.name} ({progressDetailRow.code || '—'})</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProgressDetailRow(null)}
+                className="px-3 py-1.5 rounded-lg border border-slate-200 text-sm hover:bg-slate-50"
+              >
+                Đóng
+              </button>
+            </div>
+            <div className="p-5 max-h-[70vh] overflow-auto">
+              {Array.isArray(progressDetailRow.reportItems) && progressDetailRow.reportItems.length > 0 ? (
+                <ul className="space-y-3">
+                  {progressDetailRow.reportItems.map((it, idx) => (
+                    <li key={`${it.taskId || idx}-${idx}`} className="border border-slate-200 rounded-xl p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-semibold text-slate-800">{it.taskTitle || 'Nhiệm vụ'}</h4>
+                        <span className="text-xs text-slate-500">{it.date || '—'}</span>
+                      </div>
+                      <p className="text-sm text-slate-700 mt-2 whitespace-pre-wrap">{it.result || 'Không có nội dung báo cáo.'}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-500">Chưa có nội dung báo cáo chi tiết cho ngày đã chọn.</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
