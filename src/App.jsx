@@ -951,6 +951,9 @@ const App = () => {
   // Nhiệm vụ hoàn thành trong tháng được chọn — dùng cho điểm & xếp hạng theo tháng (mỗi tháng reset).
   // Chuẩn hóa ngày từ BE (có thể DD/MM/YYYY hoặc YYYY-MM-DD) bằng toYYYYMMDD để tháng 2/3 hiển thị đúng.
   const tasksCompletedInSelectedMonth = useMemo(() => {
+    const sourceTasks = (allTasksForDashboard && allTasksForDashboard.length > 0)
+      ? allTasksForDashboard
+      : (tasks || []);
     const [y, m] = dashMonth.split('-').map(Number);
     if (!y || !m) return [];
     const firstDay = `${y}-${String(m).padStart(2, '0')}-01`;
@@ -960,7 +963,7 @@ const App = () => {
       const norm = toYYYYMMDD(dateStr);
       return norm && norm >= firstDay && norm <= lastDayStr;
     };
-    return (tasks || []).filter((t) => {
+    return sourceTasks.filter((t) => {
       if ((t.status || '').toLowerCase() !== 'completed') return false;
       const completedAt = t.completedAt || t.completed_at || '';
       if (inMonth(completedAt)) return true;
@@ -969,7 +972,7 @@ const App = () => {
       const deadline = t.deadline || '';
       return inMonth(deadline);
     });
-  }, [tasks, dashMonth]);
+  }, [allTasksForDashboard, tasks, dashMonth]);
 
   useEffect(() => {
     if (!currentUser?.id) return;
@@ -985,8 +988,8 @@ const App = () => {
 
   // Công thức theo file CSV: Điểm W×Q×T. Xếp hạng theo tổng điểm — tính theo tháng (chỉ nhiệm vụ hoàn thành trong tháng đó).
   const computedRanking = useMemo(
-    () => computeRankingFromTasks(tasksCompletedInSelectedMonth, users),
-    [tasksCompletedInSelectedMonth, users]
+    () => computeRankingFromTasks(tasksCompletedInSelectedMonth, (allUsersForRanking && allUsersForRanking.length > 0) ? allUsersForRanking : users),
+    [tasksCompletedInSelectedMonth, allUsersForRanking, users]
   );
   const myComputedScore = useMemo(() => {
     if (!currentUser?.id) return null;
@@ -2761,9 +2764,27 @@ const App = () => {
               </section>
             )}
 
-            {/* Tab: Chấm công – chỉ nội dung chấm công (vào ca / tan ca / bảng chấm công tháng). Bảng theo dõi báo cáo nằm ở Chuyên cần (Dashboard) */}
+            {/* Tab: Chuyên cần – hiển thị bảng theo dõi theo tháng như dashboard */}
             {activeTab === 'attendance' && (
-              <AttendancePanel currentUser={currentUser} role={role} canManageAttendance={currentUser?.canManageAttendance} />
+              (() => {
+                const [y, m] = dashMonth.split('-').map(Number);
+                const lastDay = y && m ? new Date(y, m, 0).getDate() : 31;
+                const displayDays = Array.from({ length: lastDay }, (_, i) => i + 1);
+                const monthLabel = `Tháng ${m || ''} / ${y || ''}`;
+                return (
+                  <section className="bg-slate-50 rounded-2xl p-4">
+                    <ChuyenCanBoard
+                      monthLabel={monthLabel}
+                      monthValue={dashMonth}
+                      onMonthChange={setDashMonth}
+                      data={chuyenCanBoardData}
+                      displayDays={displayDays}
+                      loading={adminAttendanceLoading}
+                      allReportsList={allReportsList}
+                    />
+                  </section>
+                );
+              })()
             )}
 
             {/* Tab: Xếp hạng */}
