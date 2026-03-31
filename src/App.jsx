@@ -277,12 +277,21 @@ const App = () => {
   const { user: currentUser, loading: authLoading, logout, canShowAttendance } = useAuth();
   const role = currentUser?.role || 'staff';
 
-  const [activeTab, setActiveTab] = useState('dash');
-  // Back trong web: lưu lịch sử các tab đã mở để nút Back quay lại đúng tab trước đó.
-  // Khi activeTab === 'dash' thì lưu kèm dashView để back trong nội bộ Dashboard cũng đúng.
-  const [tabHistory, setTabHistory] = useState(['dash:performance']);
-  const [isBackNav, setIsBackNav] = useState(false);
-  const [dashView, setDashView] = useState('performance'); // 'performance' | 'tasks' | 'attendance'
+  const parseRouteFromUrl = useCallback(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab') || 'dash';
+    const view = params.get('view') || 'performance';
+    const allowedTabs = new Set(['dash', 'tasks', 'add-task', 'assign', 'users', 'reports', 'attendance', 'wqt']);
+    const allowedDashViews = new Set(['performance', 'tasks', 'attendance']);
+    return {
+      tab: allowedTabs.has(tab) ? tab : 'dash',
+      view: allowedDashViews.has(view) ? view : 'performance',
+    };
+  }, []);
+
+  const initialRoute = parseRouteFromUrl();
+  const [activeTab, setActiveTab] = useState(initialRoute.tab);
+  const [dashView, setDashView] = useState(initialRoute.view); // 'performance' | 'tasks' | 'attendance'
   const [showAllRanking, setShowAllRanking] = useState(false);
   const [userCardOpen, setUserCardOpen] = useState(false);
   const [listFilter, setListFilter] = useState('all');
@@ -297,34 +306,29 @@ const App = () => {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   });
 
-  // Cập nhật lịch sử back khi activeTab/dashView thay đổi (trừ trường hợp đang bấm Back).
+  // Đồng bộ trạng thái tab vào URL để điều hướng bằng back/forward trình duyệt.
   useEffect(() => {
-    if (isBackNav) {
-      setIsBackNav(false);
-      return;
-    }
-    const nextEntry = activeTab === 'dash' ? `dash:${dashView}` : activeTab;
-    setTabHistory((prev) => {
-      const last = prev[prev.length - 1];
-      if (last === nextEntry) return prev;
-      return [...prev, nextEntry];
-    });
-  }, [activeTab, dashView, isBackNav]);
+    const params = new URLSearchParams(window.location.search);
+    const currentTab = params.get('tab') || 'dash';
+    const currentView = params.get('view') || 'performance';
+    const nextTab = activeTab || 'dash';
+    const nextView = dashView || 'performance';
+    if (currentTab === nextTab && currentView === nextView) return;
+    params.set('tab', nextTab);
+    params.set('view', nextView);
+    const nextUrl = `${window.location.pathname}?${params.toString()}${window.location.hash || ''}`;
+    window.history.pushState({}, '', nextUrl);
+  }, [activeTab, dashView]);
 
-  const handleWebBack = useCallback(() => {
-    setTabHistory((prev) => {
-      if (prev.length <= 1) return prev;
-      const prevEntry = prev[prev.length - 2];
-      setIsBackNav(true);
-      if (String(prevEntry).startsWith('dash:')) {
-        setActiveTab('dash');
-        setDashView(String(prevEntry).slice('dash:'.length) || 'attendance');
-      } else {
-        setActiveTab(prevEntry);
-      }
-      return prev.slice(0, -1);
-    });
-  }, []);
+  useEffect(() => {
+    const onPopState = () => {
+      const route = parseRouteFromUrl();
+      setActiveTab(route.tab);
+      setDashView(route.view);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [parseRouteFromUrl]);
   const [adminAttendanceMap, setAdminAttendanceMap] = useState({});
   const [adminAttendanceLoading, setAdminAttendanceLoading] = useState(false);
   const [userTitleOverrides, setUserTitleOverrides] = useState(() => {
@@ -1616,22 +1620,6 @@ const App = () => {
 
         {/* Nội dung chính */}
         <div ref={mainContentScrollRef} className="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50 min-w-0 relative">
-          {tabHistory.length > 1 && (
-            <button
-              type="button"
-              onClick={() => {
-                handleWebBack();
-                setTimeout(() => {
-                  if (mainContentScrollRef.current) mainContentScrollRef.current.scrollTop = 0;
-                }, 50);
-              }}
-              className="fixed top-14 left-5 md:top-16 md:left-6 z-30 h-10 w-10 rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-md hover:bg-white hover:shadow-lg transition-all flex items-center justify-center"
-              title="Quay lại"
-              aria-label="Quay lại"
-            >
-              <ChevronLeft size={18} />
-            </button>
-          )}
           <div className="w-full pb-4">
             {/* Bảng điều khiển với 3 tab nội bộ: Điểm & Xếp hạng / Theo dõi Nhiệm vụ / Chuyên cần */}
             {activeTab === 'dash' && (() => {
